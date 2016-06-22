@@ -3,14 +3,19 @@ Tensorflow implementation of Teaching machine read and comprehend
 introduce and tutorial[http://rsarxiv.github.io/2016/06/18/教机器学习阅读/]
 
 This implementation contains:
+
 Google DeepMind's [Teaching Machines to Read and Comprehend](http://arxiv.org/pdf/1506.03340v3.pdf):
+
 	1. Deep LSTM Reader
 	  
 	2. Attentive Reader 
 		- with [Bidirectional LSTMs](http://www.cs.toronto.edu/~graves/nn_2005.pdf) with peephole weights
+		
 Facebook:
-3. End 2 End Memory Network
+
+	3. End 2 End Memory Network
     - End-To-End Memory Networks[http://arxiv.org/pdf/1503.08895v5.pdf]
+	- The Goldilocks Principle: Reading Children's Books with Explicit Memory Representations[http://arxiv.org/abs/1511.02301]
 
 Prerequisites
 -------------
