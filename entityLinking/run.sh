@@ -7,12 +7,16 @@ dir_path="data/aida"
 :<<!
 extract ent mention and its types
 !
-#python transfer.py data/aida/ eng.${data} ${data}.p
+#python transfer.py data/aida/ eng.train train.p
+#python transfer.py data/aida/ eng.testa testa.p
+#python transfer.py data/aida/ eng.testb testb.p
 
 :<<!
 generate entity mention candidates and related entities
 !
-#python getCandiates.py data/aida/process/ ${data}.p ${data}_candEnts.p
+#python getCandiates.py data/aida/process/ train.p train_candEnts.p
+#python getCandiates.py data/aida/process/ testa.p testa_candEnts.p
+#python getCandiates.py data/aida/process/ testb.p testb_candEnts.p
 
 
 :<<!
@@ -34,4 +38,4 @@ resize your data into a max sequence length: such as 50(to speed up the trianing
 :<<!
 get data embddings for bi-LSTM layers
 !
-#python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --train ${dir_path}/process/train.out --test_a ${dir_path}/process/testa.out --test_b ${dir_path}/process/testb.out --use_model ${dir_path}/wordvec_model_100.p --model_dim 100
+python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --data ${dir_path}/process/train.p --train ${dir_path}/process/train.out --test_a ${dir_path}/process/testa.out --test_b ${dir_path}/process/testb.out --use_model ${dir_path}/wordvec_model_100.p --model_dim 100
