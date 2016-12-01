@@ -34,7 +34,7 @@ def extractEntMention(mentag,sentence_list):
       else:
         if mentag[q] == mentag[p]:
           q = q + 1
-          if q == lent-1:
+          if q == lent:
             #print u' '.join(sentence_list[p:q]),'\t',mentag[p]
             temp = EntRecord(p,q)
             temp.setContent(sentence_list)
@@ -66,7 +66,8 @@ if __name__=='__main__':
   sentence_No = -1
   nlp = English() #need to feed in unicode sentence!
   sentence_list=[]; postag=[];mentag =[]
-  aNosNo2id = {};id2aNosNo={};aNosNoId = 0;ents=[];sents=[];depTrees=[];tags=[];
+  aNosNo2id = {};id2aNosNo={};aNosNoId = 0;ents=[];sents=[];depTrees=[];tags=[];mentags=[]
+  all_sentence_list=[]  #to train word vector
   with codecs.open(f_input,'r','utf-8') as file:
     for line in file:
       line = line[:-1]
@@ -84,23 +85,31 @@ if __name__=='__main__':
           if len(sentence_list)!=0:
             #sentence_No = sentence_No+1
             sentence = u' '.join(sentence_list)
+            all_sentence_list.append(sentence)
             sputils=spacyUtils(sentence,nlp)
             tag = sputils.getPosTags()
             depTree = sputils.getDepTree()
             #print sentence
             entMen,entType = extractEntMention(mentag,sentence_list)
+            entlents = 0
+            for enti in entMen:
+              entlents = entlents + len(enti.content.split(u' '))
+            nonOlent = 0
+            for menti in mentag:
+              if menti!=u'O':
+                nonOlent = nonOlent + 1
+            assert entlents == nonOlent
             if entMen!=[]:
               sentence_No = sentence_No+1
               #print sentence_list
               aNosNo_str = str(article_No)+'_'+str(sentence_No)
-              #print tags
               print aNosNo_str
               if tag is None:
                 print 'tag is None'
                 exit(-1)
               if aNosNo_str in aNosNo2id:
                 print 'dict_aNosNo is already in the dict!'
-                
+              
               aNosNo2id[aNosNo_str] = aNosNoId
               id2aNosNo[aNosNoId] = aNosNo_str
               aNosNoId = aNosNoId + 1
@@ -108,8 +117,10 @@ if __name__=='__main__':
               tags.append(tag)
               sents.append(sentence)
               depTrees.append(depTree)
-              
+              mentags.append(mentag)
             sentence_list=[]; postag=[];mentag =[]
-    para_dict={'aNosNo2id':aNosNo2id,'id2aNosNo':id2aNosNo,'sents':sents,'tags':tags,'ents':ents,'depTrees':depTrees}
+  
+  para_dict={'aNosNo2id':aNosNo2id,'id2aNosNo':id2aNosNo,'sents':sents,'tags':tags,'ents':ents,'mentags':mentags,
+                'depTrees':depTrees,'all_sentence_list':all_sentence_list}
   cPickle.dump(para_dict,open(f_output,'wb'))
   
