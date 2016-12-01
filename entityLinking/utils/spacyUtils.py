@@ -16,9 +16,8 @@ sys.setdefaultencoding('utf-8')
 
 class spacyUtils():
   def __init__(self,sentence,nlp):
-    self.sentence = sentence
     self.nlp = nlp
-    self.doc = nlp(self.sentence)
+    self.doc = nlp(sentence)
     
   def getPosTags(self):
     self.tags = []

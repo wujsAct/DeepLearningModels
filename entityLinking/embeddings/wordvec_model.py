@@ -14,7 +14,7 @@ class WordVec:
         for line in file:
           line = line.strip()
           sentence = line.split(u' ')
-          print(sentence)
+          #print(sentence)
           sentences.append(sentence)
       print('start to train word2vec embeddings')
       self.wvec_model = Word2Vec(sentences=sentences, size=args.dimension, window=args.window,

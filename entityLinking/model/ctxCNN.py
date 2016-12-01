@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+'''
+@time: 2016/11/30
+@editor: wujs
+'''
 import tensorflow as tf
 import numpy as np
 class ctxCNN(object):
@@ -25,7 +30,7 @@ class ctxCNN(object):
         conv = tf.nn.conv2d(
             self.embedding_x_expanded,
             W,
-            strides=[1,1,1,1]
+            strides=[1,1,1,1],
             padding='VALID',
             name='conv')  
         #Apply nonlinearity

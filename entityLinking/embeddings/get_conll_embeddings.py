@@ -1,12 +1,21 @@
 from __future__ import print_function
+
+import sys
+sys.path.append('utils')
+sys.path.append('main1')
+sys.path.append('main2')
+from spacyUtils import spacyUtils
+from PhraseRecord import EntRecord
+
 import numpy as np
 import pickle as pkl
-import sys
+import cPickle as cpkl
 import argparse
 from wordvec_model import WordVec
 from glove_model import GloveVec
 from rnnvec_model import RnnVec
 import codecs
+
 
 def find_max_length(file_name):
     temp_len = 0
@@ -58,10 +67,11 @@ def capital(word):
         return np.array([0])
 
 
-def get_input(model, word_dim, input_file, output_embed, output_tag, sentence_length=-1):
+def get_input(model, word_dim, input_file, output_embed, output_tag,sents2id,ents,tags, sentence_length=-1):
     print('processing %s' % input_file)
     word = []
     tag = []
+    sent=[]
     sentence = []
     sentence_tag = []
     if sentence_length == -1:
@@ -76,15 +86,23 @@ def get_input(model, word_dim, input_file, output_embed, output_tag, sentence_le
                 tag.append(np.array([0] * 5))
                 temp = np.array([0 for _ in range(word_dim + 11)])
                 word.append(temp)
+            
+            senti = u' '.join(sent)
+            if senti in sents2id:
+                ids = sents2id[senti]
+                entm = ents[ids][0]
+                
             sentence.append(word)
             sentence_tag.append(np.array(tag))
             sentence_length = 0
             word = []
             tag = []
+            sent=[]
         else:
             assert (len(line.split()) == 4)
             sentence_length += 1
             temp = model[line.split()[0]]
+            sent.append(line.split()[0])
             #print(line.split()[0])
             assert len(temp) == word_dim
             temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
@@ -116,17 +134,26 @@ def get_input(model, word_dim, input_file, output_embed, output_tag, sentence_le
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir_path', type=str, help='data file', required=True)
+    parser.add_argument('--data', type=str, help='all raw data e.g. entity mentions(train.p)', required=True)
     parser.add_argument('--train', type=str, help='train file location', required=True)
     parser.add_argument('--test_a', type=str, help='test_a file location', required=True)
     parser.add_argument('--test_b', type=str, help='test_b location', required=True)
     parser.add_argument('--sentence_length', type=int, default=-1, help='max sentence length')
     parser.add_argument('--use_model', type=str, help='model location', required=True)
     parser.add_argument('--model_dim', type=int, help='model dimension of words', required=True)
+    
     args = parser.parse_args()
+    data = cpkl.load(open(args.data,'r'))
+    aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
+    sents2id = {sent:i for i,sent in enumerate(sents)}
+    
     trained_model = pkl.load(open(args.use_model, 'rb'))
     get_input(trained_model, args.model_dim, args.train, args.dir_path+'/train_embed.p', args.dir_path+'/train_tag.p',
+              sents2id,ents,tags,
               sentence_length=args.sentence_length)
     get_input(trained_model, args.model_dim, args.test_a, args.dir_path+'/test_a_embed.p', args.dir_path+'/test_a_tag.p',
+              sents2id,ents,tags,
               sentence_length=args.sentence_length)
     get_input(trained_model, args.model_dim, args.test_b, args.dir_path+'/test_b_embed.p', args.dir_path+'/test_b_tag.p',
+              sents2id,ents,tags,
               sentence_length=args.sentence_length)
