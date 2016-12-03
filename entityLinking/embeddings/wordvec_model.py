@@ -12,7 +12,7 @@ class WordVec:
       sentences=[]
       with codecs.open(args.corpus,'r','utf-8') as file:
         for line in file:
-          line = line.strip()
+          line = line.strip().lower()
           sentence = line.split(u' ')
           #print(sentence)
           sentences.append(sentence)
@@ -20,7 +20,9 @@ class WordVec:
       self.wvec_model = Word2Vec(sentences=sentences, size=args.dimension, window=args.window,
                                  workers=args.workers,
                                  sg=args.sg,
-                                 batch_words=args.batch_size, min_count=1, max_vocab_size=args.vocab_size)
+                                 batch_words=args.batch_size, min_count=1, 
+                                 #max_vocab_size=args.vocab_size
+                                 )
     else:
       self.wvec_model = Word2Vec.load_word2vec_format(args.restore, binary=True)
     self.rand_model = RandomVec(args.dimension)
@@ -30,7 +32,7 @@ class WordVec:
     try:
       return self.wvec_model[word]
     except KeyError:
-      #print('random initialize the words')
+      print(word, 'is random initialize the words')
       return self.rand_model[word]
 
 
@@ -40,7 +42,7 @@ if __name__ == '__main__':
   parser.add_argument('--corpus', type=str, help='corpus location', required=True)
   parser.add_argument('--dimension', type=int, help='vector dimension', required=True)
   parser.add_argument('--window', type=int, default=5, help='window size')
-  parser.add_argument('--vocab_size', type=int, help='vocabulary size', required=True)
+  #parser.add_argument('--vocab_size', type=int, help='vocabulary size', required=True)
   parser.add_argument('--workers', type=int, default=3, help='number of threads')
   parser.add_argument('--sg', type=int, default=1, help='if skipgram 1 if cbow 0')
   parser.add_argument('--batch_size', type=int, default=10000, help='batch size of training')
