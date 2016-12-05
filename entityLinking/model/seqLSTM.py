@@ -4,6 +4,7 @@
 @editor: wujs
 '''
 import tensorflow as tf
+from tensorflow.contrib.layers.python.layers import batch_norm
 import numpy as np
 import time
 
@@ -14,6 +15,7 @@ class seqLSTM(object):
   def __init__(self,args):
     
     self.input_data = tf.placeholder(tf.float32,[None,args.sentence_length,args.word_dim])
+    #need add 
     self.output_data = tf.placeholder(tf.float32,[None,args.sentence_length,args.class_size])
     self.keep_prob = tf.placeholder(tf.float32,name='keep_prob')
     
@@ -38,13 +40,16 @@ class seqLSTM(object):
                                         )
     print 'bi-lstm cost time:', time.time()-start_time
     
+    if args.dropout:
+      output = tf.nn.dropout(output,self.keep_prob)
+        
     with tf.name_scope("output"):
+      output = tf.reshape(tf.transpose(tf.pack(output),perm=[1,0,2]),[-1,2*args.rnn_size])    
       W = tf.get_variable(
                 "W",
                 shape=[2*args.rnn_size, args.class_size],
                 initializer=tf.contrib.layers.xavier_initializer())
-      b = tf.Variable(tf.constant(0.1, shape=[args.class_size]), name="b")
-      output = tf.reshape(tf.transpose(tf.pack(output),perm=[1,0,2]),[-1,2*args.rnn_size])
+      b = tf.Variable(tf.constant(0.1,shape=[args.class_size]),name="b")         
       prediction = tf.nn.softmax(tf.nn.xw_plus_b(output,W,b,name="scores"))
       self.prediction = tf.reshape(prediction,[-1,args.sentence_length,args.class_size])
       self.loss = self.cost()
