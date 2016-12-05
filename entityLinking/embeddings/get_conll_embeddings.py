@@ -8,6 +8,7 @@ from spacyUtils import spacyUtils
 from PhraseRecord import EntRecord
 
 import numpy as np
+import collections
 import pickle as pkl
 import cPickle as cpkl
 import argparse
@@ -67,13 +68,17 @@ def capital(word):
         return np.array([0])
 
 
-def get_input(model, word_dim, input_file, output_embed, output_tag,sents2id,ents,tags, sentence_length=-1):
+def get_input(model, word_dim, input_file, output_embed, output_tag,output_entms,id2aNosNo,sents2id,ents,tags, sentence_length=-1):
     print('processing %s' % input_file)
     word = []
     tag = []
     sent=[]
     sentence = []
     sentence_tag = []
+    ent_Mentions = []
+    ent_ctxs = []
+    ent2aNo=[]
+    aNo_has_ents=collections.defaultdict(set)
     if sentence_length == -1:
         max_sentence_length = find_max_length(input_file)
     else:
@@ -86,14 +91,28 @@ def get_input(model, word_dim, input_file, output_embed, output_tag,sents2id,ent
                 tag.append(np.array([0] * 5))
                 temp = np.array([0 for _ in range(word_dim + 11)])
                 word.append(temp)
-            
+             
             senti = u' '.join(sent)
+            lent = len(sent)
             if senti in sents2id:
                 ids = sents2id[senti]
+                aNosNo = id2aNosNo[ids]
+                aNo = aNosNo.split('_')[0]
+                ent2aNo.append(ent2aNo)
                 entm = ents[ids][0]
-                
-            sentence.append(word)
-            sentence_tag.append(np.array(tag))
+                ent_Mentions.append(entm)
+                ent_ctx=[]
+                for enti in entm:
+                    aNo_has_ents[aNo].add(enti.getContent())
+                    s,e  = enti.getIndexes()
+                    ctx = u' '.join(sent[max(0,s-5):min(lent,e+5)])
+                    ent_ctx.append(ctx)
+                ent_ctxs.append(ent_ctx)
+                sentence.append(word)
+                sentence_tag.append(np.array(tag))
+            else:
+                print(senti)
+               
             sentence_length = 0
             word = []
             tag = []
@@ -127,14 +146,17 @@ def get_input(model, word_dim, input_file, output_embed, output_tag,sents2id,ent
     print('finished!!')
     assert (len(sentence) == len(sentence_tag))
     print('start to save the data!!')
+      
     pkl.dump(sentence, open(output_embed, 'wb'))
     pkl.dump(sentence_tag, open(output_tag, 'wb'))
-
+    pkl.dump(ent_Mentions, open(output_entms, 'wb'))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir_path', type=str, help='data file', required=True)
-    parser.add_argument('--data', type=str, help='all raw data e.g. entity mentions(train.p)', required=True)
+    parser.add_argument('--data_train', type=str, help='all raw data e.g. entity mentions(train.p)', required=True)
+    parser.add_argument('--data_testa', type=str, help='all raw data e.g. entity mentions(train.p)', required=True)
+    parser.add_argument('--data_testb', type=str, help='all raw data e.g. entity mentions(train.p)', required=True)
     parser.add_argument('--train', type=str, help='train file location', required=True)
     parser.add_argument('--test_a', type=str, help='test_a file location', required=True)
     parser.add_argument('--test_b', type=str, help='test_b location', required=True)
@@ -143,17 +165,25 @@ if __name__ == '__main__':
     parser.add_argument('--model_dim', type=int, help='model dimension of words', required=True)
     
     args = parser.parse_args()
-    data = cpkl.load(open(args.data,'r'))
+    data = cpkl.load(open(args.data_train,'r'))
     aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
     sents2id = {sent:i for i,sent in enumerate(sents)}
     
     trained_model = pkl.load(open(args.use_model, 'rb'))
-    get_input(trained_model, args.model_dim, args.train, args.dir_path+'/train_embed.p', args.dir_path+'/train_tag.p',
-              sents2id,ents,tags,
+    get_input(trained_model, args.model_dim, args.train, args.dir_path+'/train_embed.p', args.dir_path+'/train_tag.p',args.dir_path+'/train_entms.p',
+              id2aNosNo,sents2id,ents,tags,
               sentence_length=args.sentence_length)
-    get_input(trained_model, args.model_dim, args.test_a, args.dir_path+'/test_a_embed.p', args.dir_path+'/test_a_tag.p',
-              sents2id,ents,tags,
+              
+    data = cpkl.load(open(args.data_testa,'r'))
+    aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
+    sents2id = {sent:i for i,sent in enumerate(sents)}
+    get_input(trained_model, args.model_dim, args.test_a, args.dir_path+'/test_a_embed.p', args.dir_path+'/test_a_tag.p',args.dir_path+'/testa_entms.p',
+              id2aNosNo,sents2id,ents,tags,
               sentence_length=args.sentence_length)
-    get_input(trained_model, args.model_dim, args.test_b, args.dir_path+'/test_b_embed.p', args.dir_path+'/test_b_tag.p',
-              sents2id,ents,tags,
+              
+    data = cpkl.load(open(args.data_testb,'r'))
+    aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
+    sents2id = {sent:i for i,sent in enumerate(sents)}
+    get_input(trained_model, args.model_dim, args.test_b, args.dir_path+'/test_b_embed.p', args.dir_path+'/test_b_tag.p',args.dir_path+'/testb_entms.p',
+              id2aNosNo,sents2id,ents,tags,
               sentence_length=args.sentence_length)
