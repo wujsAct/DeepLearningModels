@@ -77,7 +77,6 @@ def get_input(model, word_dim, input_file, output_embed, output_tag,output_entms
     sentence_tag = []
     ent_Mentions = []
     ent_ctxs = []
-    ent2aNo=[]
     aNo_has_ents=collections.defaultdict(set)
     if sentence_length == -1:
         max_sentence_length = find_max_length(input_file)
@@ -91,22 +90,21 @@ def get_input(model, word_dim, input_file, output_embed, output_tag,output_entms
                 tag.append(np.array([0] * 5))
                 temp = np.array([0 for _ in range(word_dim + 11)])
                 word.append(temp)
-             
+            #ctx information and candidates information
             senti = u' '.join(sent)
             lent = len(sent)
             if senti in sents2id:
                 ids = sents2id[senti]
                 aNosNo = id2aNosNo[ids]
                 aNo = aNosNo.split('_')[0]
-                ent2aNo.append(ent2aNo)
                 entm = ents[ids][0]
                 ent_Mentions.append(entm)
                 ent_ctx=[]
                 for enti in entm:
-                    aNo_has_ents[aNo].add(enti.getContent())
+                    aNo_has_ents[aNo].add(enti.getContent().lower())
                     s,e  = enti.getIndexes()
                     ctx = u' '.join(sent[max(0,s-5):min(lent,e+5)])
-                    ent_ctx.append(ctx)
+                    ent_ctx.append([aNo,ctx])
                 ent_ctxs.append(ent_ctx)
                 sentence.append(word)
                 sentence_tag.append(np.array(tag))
@@ -149,14 +147,15 @@ def get_input(model, word_dim, input_file, output_embed, output_tag,output_entms
       
     pkl.dump(sentence, open(output_embed, 'wb'))
     pkl.dump(sentence_tag, open(output_tag, 'wb'))
-    pkl.dump(ent_Mentions, open(output_entms, 'wb'))
+    param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs}
+    pkl.dump(param_dict, open(output_entms, 'wb'))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir_path', type=str, help='data file', required=True)
     parser.add_argument('--data_train', type=str, help='all raw data e.g. entity mentions(train.p)', required=True)
-    parser.add_argument('--data_testa', type=str, help='all raw data e.g. entity mentions(train.p)', required=True)
-    parser.add_argument('--data_testb', type=str, help='all raw data e.g. entity mentions(train.p)', required=True)
+    parser.add_argument('--data_testa', type=str, help='all raw data e.g. entity mentions(testa.p)', required=True)
+    parser.add_argument('--data_testb', type=str, help='all raw data e.g. entity mentions(testb.p)', required=True)
     parser.add_argument('--train', type=str, help='train file location', required=True)
     parser.add_argument('--test_a', type=str, help='test_a file location', required=True)
     parser.add_argument('--test_b', type=str, help='test_b location', required=True)
@@ -170,20 +169,30 @@ if __name__ == '__main__':
     sents2id = {sent:i for i,sent in enumerate(sents)}
     
     trained_model = pkl.load(open(args.use_model, 'rb'))
-    get_input(trained_model, args.model_dim, args.train, args.dir_path+'/train_embed.p', args.dir_path+'/train_tag.p',args.dir_path+'/train_entms.p',
+    get_input(trained_model, args.model_dim, args.train, 
+              args.dir_path+'/features/train_embed.p'+str(args.model_dim), 
+              args.dir_path+'/features/train_tag.p'+str(args.model_dim),
+              args.dir_path+'/features/train_entms.p'+str(args.model_dim),
               id2aNosNo,sents2id,ents,tags,
               sentence_length=args.sentence_length)
               
     data = cpkl.load(open(args.data_testa,'r'))
     aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
+    print 
     sents2id = {sent:i for i,sent in enumerate(sents)}
-    get_input(trained_model, args.model_dim, args.test_a, args.dir_path+'/test_a_embed.p', args.dir_path+'/test_a_tag.p',args.dir_path+'/testa_entms.p',
+    get_input(trained_model, args.model_dim, args.test_a, 
+              args.dir_path+'/features/test_a_embed.p'+str(args.model_dim), 
+              args.dir_path+'/features/test_a_tag.p'+str(args.model_dim),
+              args.dir_path+'/features/testa_entms.p'+str(args.model_dim),
               id2aNosNo,sents2id,ents,tags,
               sentence_length=args.sentence_length)
               
     data = cpkl.load(open(args.data_testb,'r'))
     aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
     sents2id = {sent:i for i,sent in enumerate(sents)}
-    get_input(trained_model, args.model_dim, args.test_b, args.dir_path+'/test_b_embed.p', args.dir_path+'/test_b_tag.p',args.dir_path+'/testb_entms.p',
+    get_input(trained_model, args.model_dim, args.test_b, 
+              args.dir_path+'/features/test_b_embed.p'+str(args.model_dim), 
+              args.dir_path+'/features/test_b_tag.p'+str(args.model_dim),
+              args.dir_path+'/features/testb_entms.p'+str(args.model_dim),
               id2aNosNo,sents2id,ents,tags,
               sentence_length=args.sentence_length)
