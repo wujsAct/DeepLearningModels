@@ -105,28 +105,28 @@ class urllibUtils():
     return metonymyflag,candidate_ent,co_occurence_ent
     
   def parseEntCandFromWikiSearch(self,searchent):
-    #print 'step into the parseEntCandFromWikiSearch'
-    data = {'search':searchent,'limit':'10','offset':'0','profile':'default', 'title':'Special:Search','fulltext': '1'}
+    ##print 'step into the parseEntCandFromWikiSearch'
+    data = {'search':searchent,'limit':'3','offset':'0','profile':'default', 'title':'Special:Search','fulltext': '1'}
     data = urlencode(data)
     #search all related wiki entity
     url = 'https://en.wikipedia.org/w/index.php?'+ data
-    #print url
+    ##print url
     req = self.getRequest(url)
     pages = urllib2.urlopen(req,timeout=200).read()
     soup = BeautifulSoup(pages,"lxml")
     tags = soup.find_all('div',class_='mw-search-result-heading')
-    #print 'tags',tags
+    ##print 'tags',tags
     cadents = set()
-    #print len(tags)
+    ##print len(tags)
     if len(tags)>=1:
       for tag in tags:
         itemss = tag.find_all('a',href=True)
         for a_item in itemss:
           if '/wiki/' in a_item['href']:
             ntitle = a_item.get('title')
-            #print 'ntitile',ntitle
             if (ntitle!=None) and ('disambiguation' not in ntitle):
               cadents.add(ntitle)
+    print searchent,':parseEntCandFromWikiSearch'
     return cadents
   
   def getDirectFromWikiPage(self,searchent):
@@ -157,7 +157,7 @@ class urllibUtils():
                 break;
           if len(cadents)>=3:
             break;
-    #print cadents
+    print searchent,':getDirectFromWikiPage'
     return cadents
               
                 

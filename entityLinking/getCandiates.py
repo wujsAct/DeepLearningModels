@@ -18,11 +18,12 @@ def getCanEnts(searchent):
   try:
     metonymyflag,candidate_ent,co_occurence_ent = urllibutil.get_candidate_entities(searchent,num='5')   #words matching!
     candentSet1=set();candentSet2=set();candentSet=set()
-    if metonymyflag:
+    if metonymyflag:   #sometimes may have troubles!
       candentSet1 = urllibutil.getDirectFromWikiPage(searchent)
     candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
     candentSet = candentSet1 | candentSet2
-    candentSet.remove(searchent)
+    if searchent in candentSet:
+      candentSet.remove(searchent)
     for candenti in candentSet:
       metonymyflag,candidate_enti,co_occurence_enti = urllibutil.get_candidate_entities(candenti,num='1')
       candidate_ent += candidate_enti
@@ -32,7 +33,7 @@ def getCanEnts(searchent):
     pass
   return candidate_ent,co_occurence_ent
 
-def funcs(ids,id2entstr):
+def funcs(ids,id2entstr,lent):
   entstr = id2entstr[ids]
   searchent = entstr.title()
   
@@ -45,8 +46,8 @@ def funcs(ids,id2entstr):
       entstr = u' '.join(entstr.split(u' ')[1:])
       #print 'entstr:',entstr
       candidate_ent,co_occurence_ent = getCanEnts(entstr.title())
-      
-  print 'original:',searchent,' entstr:',entstr,' ids:',ids,'\t',len(candidate_ent),len(co_occurence_ent)
+     
+  print 'ids:',ids,' totalids:',lent,' original:',searchent,' entstr:',entstr,'\t',len(candidate_ent),len(co_occurence_ent)
   return [ids,candidate_ent,co_occurence_ent]
 
   
@@ -80,14 +81,17 @@ if __name__=='__main__':
   lent = len(id2entstr)
 #  ids = entstr2id[u"British"]
 #  funcs(ids,id2entstr)
-  #funcs(ids,id2entstr)
+#  ids = entstr2id[u"German"]
+#  funcs(ids,id2entstr)
+  
+
   candiate_ent=[None]*lent
   candiate_coCurrEnts=[None]*lent
   result = []
-  for ids in xrange(100):
+  for ids in xrange(lent):
     #print '----------------------'
     #print ids,entstr
-    result.append(pool.apply_async(funcs, (ids,id2entstr)))
+    result.append(pool.apply_async(funcs, (ids,id2entstr,lent)))
   pool.close()
   pool.join()
   
@@ -99,3 +103,4 @@ if __name__=='__main__':
   
   para_dict={'entstr2id':entstr2id,'candiate_ent':candiate_ent,'candiate_coCurrEnts':candiate_coCurrEnts}
   cPickle.dump(para_dict,open(f_output,'wb'))
+  
