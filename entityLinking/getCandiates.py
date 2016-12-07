@@ -57,7 +57,6 @@ if __name__=='__main__':
     exit(1)
   #进程池最好设置成CPU核心数量(cpu core), 不然可能出产生一奇怪的错误！
   #grep 'core id' /proc/cpuinfo | sort -u|wc -l
-  pool = multiprocessing.Pool(processes=8)
   dir_path = sys.argv[1]
   f_input = dir_path  + sys.argv[2]
   f_output = dir_path + sys.argv[3]
@@ -88,18 +87,21 @@ if __name__=='__main__':
   candiate_ent=[None]*lent
   candiate_coCurrEnts=[None]*lent
   result = []
-  for ids in xrange(lent):
-    #print '----------------------'
-    #print ids,entstr
-    result.append(pool.apply_async(funcs, (ids,id2entstr,lent)))
-  pool.close()
-  pool.join()
   
-  for ret in result:
-    retget = ret.get()
-    ids = retget[0];candidate_ent_i=retget[1];co_occurence_ent_i=retget[2]
-    candiate_ent[ids] = candidate_ent_i
-    candiate_coCurrEnts[ids] = co_occurence_ent_i
+  for ptr in xrange(0,lent,30):
+    pool = multiprocessing.Pool(processes=6)
+    for ids in xrange(ptr,min(ptr+30,lent)):  #数组越界问题！
+      #print '----------------------'
+      #print ids,entstr
+      result.append(pool.apply_async(funcs, (ids,id2entstr,lent)))
+    pool.close()
+    pool.join()
+    
+    for ret in result:
+      retget = ret.get()
+      ids = retget[0];candidate_ent_i=retget[1];co_occurence_ent_i=retget[2]
+      candiate_ent[ids] = candidate_ent_i
+      candiate_coCurrEnts[ids] = co_occurence_ent_i
   
   para_dict={'entstr2id':entstr2id,'candiate_ent':candiate_ent,'candiate_coCurrEnts':candiate_coCurrEnts}
   cPickle.dump(para_dict,open(f_output,'wb'))
