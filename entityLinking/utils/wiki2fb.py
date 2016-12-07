@@ -9,7 +9,7 @@ def getWikidata2Freebase(fname="/home/wjs/demo/entityType/informationExtract/dat
       line = line.strip()
       items = line.split('\t')
       if len(items)==3:
-        fbId = items[0]; wId = items[2].split(u'/')[-1].replace(u'> .',u'').strip()
+        fbId = items[0].replace('<http://rdf.freebase.com/ns/m.','/m/'); wId = items[2].split(u'/')[-1].replace(u'> .',u'').strip()
         w2fb[wId] = fbId
   return w2fb
   

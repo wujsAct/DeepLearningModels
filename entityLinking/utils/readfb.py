@@ -34,7 +34,7 @@ def getmid2type(fileobj,output_file):
           typei = '/'+typei.replace('>','')
           result.write(ent1+'\t'+typei+'\n')
           linenum = linenum+ 1
-          if linenum %10000==0:
+          if linenum %1000000==0:
             print linenum
   
   result.close()

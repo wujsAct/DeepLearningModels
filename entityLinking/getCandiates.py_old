@@ -14,29 +14,25 @@ from urllibUtils import urllibUtils
 
 def getCanEnts(searchent):
   urllibutil = urllibUtils()
-  candidate_ent=[];co_occurence_ent=[];
+  candidate_ent=[];candidate_ent1=[];candidate_ent2=[];
+  co_occurence_ent=[];co_occurence_ent1=[];co_occurence_ent2=[]
   try:
-    metonymyflag,candidate_ent,co_occurence_ent = urllibutil.get_candidate_entities(searchent,num='5')   #words matching!
-    candentSet1=set();candentSet2=set();candentSet=set()
-    if metonymyflag:
-      candentSet1 = urllibutil.getDirectFromWikiPage(searchent)
-    candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
-    candentSet = candentSet1 | candentSet2
-    candentSet.remove(searchent)
-    for candenti in candentSet:
-      metonymyflag,candidate_enti,co_occurence_enti = urllibutil.get_candidate_entities(candenti,num='1')
-      candidate_ent += candidate_enti
-      co_occurence_ent += co_occurence_enti
+    candidate_ent1,co_occurence_ent1 = urllibutil.get_candidate_entities(searchent)
+    if (len(candidate_ent1)<1) or (candidate_ent1[0]['title'].lower() not in searchent.lower() or  searchent.lower() not in candidate_ent1[0]['title'].lower()):
+      candidate_ent2,co_occurence_ent2 = urllibutil.parseEntCandFromWikiSearch(searchent)
   except urllib2.URLError,e:
-    print e.reason
     pass
+    print e.reason
+  candidate_ent = candidate_ent1 + candidate_ent2
+  co_occurence_ent = co_occurence_ent1 + co_occurence_ent2
+   
   return candidate_ent,co_occurence_ent
 
 def funcs(ids,id2entstr):
   entstr = id2entstr[ids]
   searchent = entstr.title()
   
-  candidate_ent,co_occurence_ent = getCanEnts(searchent)  #solve Metonymy problem!
+  candidate_ent,co_occurence_ent = getCanEnts(searchent)
   
   if len(candidate_ent)==0:
       print 'have no candidate_ent'
@@ -46,9 +42,9 @@ def funcs(ids,id2entstr):
       #print 'entstr:',entstr
       candidate_ent,co_occurence_ent = getCanEnts(entstr.title())
       
-  print 'original:',searchent,' entstr:',entstr,' ids:',ids,'\t',len(candidate_ent),len(co_occurence_ent)
+  print 'original:',searchent,' entstr:',entstr,' ids:',ids,len(candidate_ent),len(co_occurence_ent)
   return [ids,candidate_ent,co_occurence_ent]
-
+  
   
 if __name__=='__main__':
   if len(sys.argv) !=4:
@@ -78,13 +74,14 @@ if __name__=='__main__':
         entId = entId + 1
   print id2entstr[22]
   lent = len(id2entstr)
-#  ids = entstr2id[u"British"]
-#  funcs(ids,id2entstr)
+  #ids = entstr2id[u"Staoueli"]
+  #ids = entstr2id[u"Major League"]
   #funcs(ids,id2entstr)
+  
   candiate_ent=[None]*lent
   candiate_coCurrEnts=[None]*lent
   result = []
-  for ids in xrange(100):
+  for ids in xrange(lent):
     #print '----------------------'
     #print ids,entstr
     result.append(pool.apply_async(funcs, (ids,id2entstr)))

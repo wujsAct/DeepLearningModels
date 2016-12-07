@@ -8,7 +8,7 @@ from urllib import urlencode
 import urllib2
 import json
 from bs4 import BeautifulSoup
-
+import ssl
 
 class urllibUtils():
   def __init__(self):
@@ -34,8 +34,8 @@ class urllibUtils():
           co_occurence_ent.add(ai['href']+'\t'+ai.text)
     return co_occurence_ent
     
-  def get_candidate_entities(self,searchent):
-    data = {'action': 'wbsearchentities', 'search':searchent, 'language':'en','limit':'10','format': 'json'}
+  def get_candidate_entities(self,searchent,num):
+    data = {'action': 'wbsearchentities', 'search':searchent, 'language':'en','limit':num,'format': 'json'}
     data = urlencode(data)
     #search all related wiki entity
     url = 'https://www.wikidata.org/w/api.php?'+ data
@@ -44,6 +44,7 @@ class urllibUtils():
     #print res
     candidate_ent = []
     co_occurence_ent = []
+    metonymyflag=False
     if u'search' in res:
       for item in res[u'search']:
         description = None
@@ -64,7 +65,7 @@ class urllibUtils():
         
         if 'description' in item:
           description = item[u'description']
-          if 'Wikipedia disambiguation page' != description:
+          if ('Wikipedia disambiguation page' not in description) and ('Wikimedia template' not in description):
             #diamabiguation page need to parse again
             url = 'https://www.wikidata.org/wiki/'+ids
             try:
@@ -79,6 +80,8 @@ class urllibUtils():
             except:
               pass
               #print 'can not find wikidate page'
+          else:
+            metonymyflag=True
         else:
           url = 'https://en.wikipedia.org/wiki/'+title
           try:
@@ -99,10 +102,10 @@ class urllibUtils():
           ent_item['description'] = description
           co_occurence_ent.append(co_occurence_ent_item)
           candidate_ent.append(ent_item)
-    return candidate_ent,co_occurence_ent
+    return metonymyflag,candidate_ent,co_occurence_ent
     
   def parseEntCandFromWikiSearch(self,searchent):
-    print 'step into the parseEntCandFromWikiSearch'
+    #print 'step into the parseEntCandFromWikiSearch'
     data = {'search':searchent,'limit':'10','offset':'0','profile':'default', 'title':'Special:Search','fulltext': '1'}
     data = urlencode(data)
     #search all related wiki entity
@@ -113,7 +116,7 @@ class urllibUtils():
     soup = BeautifulSoup(pages,"lxml")
     tags = soup.find_all('div',class_='mw-search-result-heading')
     #print 'tags',tags
-    candidate_ent=[];co_occurence_ent=[]
+    cadents = set()
     #print len(tags)
     if len(tags)>=1:
       for tag in tags:
@@ -123,15 +126,38 @@ class urllibUtils():
             ntitle = a_item.get('title')
             #print 'ntitile',ntitle
             if (ntitle!=None) and ('disambiguation' not in ntitle):
-              #if (searchent.lower() in ntitle.lower()) or (ntitle.lower() in searchent.lower()):
-              #print 'equal:','ntitile',ntitle
-              candidate_ent_i,co_occurence_ent_i = self.get_candidate_entities(ntitle)
-              candidate_ent = candidate_ent + candidate_ent_i
-              co_occurence_ent = co_occurence_ent + co_occurence_ent_i
-              if len(candidate_ent)>=10:
+              cadents.add(ntitle)
+    return cadents
+  
+  def getDirectFromWikiPage(self,searchent):
+    url = 'https://en.wikipedia.org/wiki/'+searchent
+    #print url
+    req = self.getRequest(url)
+    pages = urllib2.urlopen(req,timeout=200).read()
+    soup = BeautifulSoup(pages,"lxml")
+    tags = soup.find_all('p')
+    cadents =set()
+    if len(tags)>=1:
+      tag = tags[0]
+      if 'may refer to:' in tag.text:
+        lis = soup.find_all('li')
+        for li in lis:
+          #print li
+          ais = li.find_all('a',href=True)
+          if len(ais)>=1:
+            ai = ais[0]
+            if '/wiki/' in ai['href']:
+              #print ai['href']+'\t'+ai.text
+              if '(disambiguation)' in ai.text:
+                temp = ai.text.replace('(disambiguation)','').strip()
+                cadents.add(temp)
+              else: 
+                cadents.add(ai.text)
+              if len(cadents) >=3:
                 break;
-        if len(candidate_ent)>=10:
-                break;
-    else:
-      print 'can not find in wikipedia search!'
-    return candidate_ent,co_occurence_ent
+          if len(cadents)>=3:
+            break;
+    #print cadents
+    return cadents
+              
+                
