@@ -4,7 +4,6 @@
 @editor: wujs
 @function: to generate the entity linking features
 '''
-
 import os
 import sys
 import math
@@ -17,16 +16,23 @@ from PhraseRecord import EntRecord
 import codecs
 import gensim
 import string
-from tqdm import tqdm
-import collections
 
 def is_contain_ents(enti,entj):
   enti = enti.lower()
   entj = entj.lower()
-  if enti in entj:
-    return True
+  
+  enti_item = enti.split(u' ')
+  entj_item = entj.split(u' ')
+  if (len(enti_item)==1):
+    if (enti in entj):
+      return True
+    else:
+      return False
   else:
-    return False
+    for entii in enti_item:
+      if entii not in entj_item:
+        return False
+    return True
 
 def get_freebase_ent_cands(cantent_mid_prev,enti,tag,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum):
   #找出全部包含jordan的实体，然后使用NGD和REL进行消解，找到答案！今天下午把这个问题解决掉
@@ -35,69 +41,62 @@ def get_freebase_ent_cands(cantent_mid_prev,enti,tag,entstr2id,wikititle2fb,wiki
   #print 'go into entNGD...'
   distRet = {};
   #first find all the ents we need to process
-  enti_title = enti.content.lower()
-  enti_item = enti_title.split(u' ')
+  enti_item = enti.split(u' ')
   for entit in enti_item[0:1]:
     totaldict=dict()
     if entit in wikititle_reverse_index:
-      totaldict = wikititle_reverse_index[entit]
+      totaldict = dict(totaldict,**wikititle_reverse_index[entit])
+    if entit.lower() in wikititle_reverse_index:
+      totaldict = dict(totaldict,**wikititle_reverse_index[entit.lower()])
       
     for key in totaldict:
-      if is_contain_ents(enti_title,key):
-        addScore = 0
-        if enti_title == key:  #completely match
-          addScore += 0.3 
-        if key in entstr2id: #在上下文中出现了的！可以解决一部分共指问题！
-          addScore += 0.3
-        for wmid in wikititle2fb[key]:
-          distRet[wmid+u'\t'+key]=Levenshtein.ratio(enti_title,key) + addScore
+      addScore = 0
+      if enti.lower() == key.lower():  #completely match
+        addScore += 0.5 
+      if key in entstr2id: #在上下文中出现了的！可以解决一部分共指问题！
+        addScore += 0.2
+      distRet[wikititle2fb[key]]=Levenshtein.ratio(enti.lower(),key.lower()) + addScore
   distRet= sorted(distRet.iteritems(), key=lambda d:d[1], reverse = True)
-  cantent_mid={}
+  cantent_mid=set()
   for item in distRet:
     if freebaseNum==0:
       break
-    item_it = item[0].split(u'\t')
-    if item_it[0] not in cantent_mid_prev:
-      cantent_mid[item_it[0]] = item_it[1]
+    if item[0] not in cantent_mid_prev:
+      cantent_mid.add(item[0])
       freebaseNum -=1
   return cantent_mid
 
 def get_cantent_mid(listentcs,w2fb,wikititle2fb):
   flag = False
-  cantent_mid={}
+  cantent_mid=set()
   for cent in listentcs:
     ids = cent[u'ids']
-    titles = cent[u'title'].lower()
+    titles = cent[u'title']
     if ids in w2fb:
-      cantent_mid[w2fb[ids]] = titles
+      cantent_mid.add(w2fb[ids])
     elif titles in wikititle2fb:
-      for wmid in wikititle2fb[titles]:
-        cantent_mid[wmid] =titles
+      cantent_mid.add(wikititle2fb[titles])
   return cantent_mid
 
 def get_ent_word2vec_cands(enti,w2fb,wikititle2fb):
-  cantent_mid = {}
+  cantent_mid = set()
   try: 
     coherent_ents = w2vModel.most_similar(enti.content.replace(u' ',u'_'),topn=10) #convert to gensim style
     for citems in coherent_ents:
       cents = citems[0].replace(u'_',u' ')  #convert to freebase style
-      if cents.lower() in entstr2id:
-        entids = entstr2id[cents.lower()]
-        listentcs =[]
-        for entid in entids:
-          listentcs += candiate_ent[entid][0:1]
+      if cents in entstr2id:
+        entid = entstr2id[cents]
+        listentcs = candiate_ent[entid]
         if len(listentcs)>=1:
-          cantent_mid =dict(cantent_mid,**get_cantent_mid(listentcs,w2fb,wikititle2fb))
-      if cents.lower() in wikititle2fb:
-        for wmid in wikititle2fb[cents.lower()]:
-          cantent_mid[wmid] = cents.lower()
+          cantent_mid |= get_cantent_mid(listentcs[0:2],w2fb,wikititle2fb)
+      if cents in wikititle2fb:
+        cantent_mid.add(wikititle2fb[cents])
   except:
     pass
     
   return cantent_mid
 
 def get_final_ent_cands(w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,candiate_coCurrEnts,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index):
-  all_candidate_mids = []
   fileName = '/home/wjs/demo/entityType/informationExtract/data/aida/AIDA-YAGO2-dataset.tsv'
   entstr_lower2mid = {}
   mid2entstr_lower={}
@@ -114,7 +113,9 @@ def get_final_ent_cands(w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,ca
   pass_nums = 0
   k = 0
   
-  for i in tqdm(range(len(ent_Mentions))):
+  for i in range(len(ent_Mentions)):
+    if i%100==0:
+      print i
     ents = ent_Mentions[i]
     ent_ctx = ent_ctxs[i]  #ent_ctx.append([aNo,ctx])
     
@@ -131,61 +132,54 @@ def get_final_ent_cands(w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,ca
         tag = entstr_lower2mid[enti_name]
         
       aNo = ent_ctx[j][0]
-      entids = entstr2id[enti_name]
-      listentcs = []
-      for entid in entids:
-        listentcs += (candiate_ent[entid])
-      cantent_mid1 = get_cantent_mid(listentcs,w2fb,wikititle2fb)   #get wikidata&dbpedia search candidates
-      if enti_name in wikititle2fb:
-        for wmid in wikititle2fb[enti_name]:
-          cantent_mid1[wmid] = enti_name
-  
-      cantent_mid2 = get_ent_word2vec_cands(enti,w2fb,wikititle2fb) #get word2vec coherent candidates
-      cantent_mid = dict(cantent_mid1,**cantent_mid2)
+      seta = set(aNo_has_ents[aNo])  #不要随意把一个对象赋值给另一个对象，否则可能会出错呢！
+      entid = entstr2id[enti.content]
+      seta.remove(enti.content.lower())  
       
-      freebaseNum = max(0,30 - len(cantent_mid))
+      listentcs = candiate_ent[entid]
       
-      cantent_mid3 = get_freebase_ent_cands(cantent_mid,enti,tag,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching 这部分将花费很多的时间！
+      cantent_mid = get_cantent_mid(listentcs,w2fb,wikititle2fb)   #get wikidata&dbpedia search candidates
+      if enti.content in wikititle2fb:
+        cantent_mid.add(wikititle2fb[enti.content])
+      if enti.content.lower() in wikititle2fb:
+        cantent_mid.add(wikititle2fb[enti.content.lower()])
+      cantent_mid |= get_ent_word2vec_cands(enti,w2fb,wikititle2fb) #get word2vec coherent candidates
+      freebaseNum = max(0,40 - len(cantent_mid))
+      cantent_mid |= get_freebase_ent_cands(cantent_mid,enti.content,tag,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching 这部分将花费很多的时间！
       
-      totalCand = len(cantent_mid) + len(cantent_mid3)
+      totalCand += len(cantent_mid)
       
-      if tag in cantent_mid1 or tag in cantent_mid2 or tag in cantent_mid3:
+      if tag in cantent_mid:
         right_nums += 1
         #print 'right:',enti_name,totalCand
       else:
         wrong_nums = wrong_nums + 1
+        print 'wrong:',tag,mid2entstr_lower[tag],enti.content.lower(),totalCand#,listentcs,'\n'
         
-        print 'wrong:',tag,mid2entstr_lower[tag],enti.content,len(cantent_mid1),'\t',len(cantent_mid2),'\t',len(cantent_mid),'\t',len(cantent_mid3),'\t',totalCand
-        #print cantent_mid1,cantent_mid2,cantent_mid3
-        #exit()
-        
-      all_candidate_mids.append(cantent_mid)
-  
   print 'wrong_nums:',wrong_nums
   print 'right_nums:',right_nums
   print 'pass_nums:',pass_nums
-  return all_candidate_mids    
+        
 
-
+def semantic_relateness(seta,setb,W):
+  maxab = math.log(1.0*max(len(seta),len(setb)),2)
+  joinab = math.log(len(seta&setb)+1e-4,2)
+  minab = math.log(min(len(seta),len(setb))+1e-4,2)
+  return 1-(maxab-joinab)/(W-minab)
 
 if __name__=='__main__':
   if len(sys.argv) !=5:
-    print 'usage: python pyfile dir_path inputfile train_entms.p100(test) train_ent_cand_mid.p'
+    print 'usage: python pyfile dir_path inputfile train_entms.p100(test) train_totalEntNum.p'
     exit(1)
   dir_path = sys.argv[1]
   f_input = dir_path  +'/process/'+ sys.argv[2]
   f_input_entMents = dir_path  +'/features/'+ sys.argv[3]
-  f_output = dir_path  +'/features/'+ sys.argv[4] #record the total entity nums.
+  f_output1 = dir_path  +'/features/'+ sys.argv[4] #record the total entity nums.
   
   #data context:  para_dict={'entstr2id':entstr2id,'candiate_ent':candiate_ent,'candiate_coCurrEnts':candiate_coCurrEnts}
   data = cPickle.load(open(f_input,'r'))
-  entstr2id_org = data['entstr2id']
-  print 'entstr2id_org',len(entstr2id_org)
-  id2entstr_org = {value:key for key,value in entstr2id_org.items()}
-  entstr2id= collections.defaultdict(set)
-  for key,value in entstr2id_org.items():
-    entstr2id[key.lower()].add(value)
-  print 'entstr2id',len(entstr2id)
+  entstr2id = data['entstr2id']
+  id2entstr = {value:key for key,value in entstr2id.items()}
   candiate_ent = data['candiate_ent'];candiate_coCurrEnts = data['candiate_coCurrEnts']
   #print candiate_ent
   
@@ -201,8 +195,8 @@ if __name__=='__main__':
   
   print 'start to solve problems...'
   w2vModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin',binary=True)
-  all_candidate_mids = get_final_ent_cands(w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,candiate_coCurrEnts,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index)
-  cPickle.dump(all_candidate_mids,open(f_output,'wb'))
+  get_final_ent_cands(w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,candiate_coCurrEnts,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index)
+  
   
   '''
   #避免反复去计算这个值

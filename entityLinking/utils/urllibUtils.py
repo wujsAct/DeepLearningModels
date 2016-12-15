@@ -159,5 +159,34 @@ class urllibUtils():
             break;
     print searchent,':getDirectFromWikiPage'
     return cadents
-              
+  def getDirectFromWikiDisambiugationPage(self,searchent):
+    url = 'https://en.wikipedia.org/wiki/'+searchent+'_(disambiguation)'
+    print url
+    req = self.getRequest(url)
+    pages = urllib2.urlopen(req,timeout=200).read()
+    soup = BeautifulSoup(pages,"lxml")
+    tags = soup.find_all('p')
+    cadents =set()
+    if len(tags)>=1:
+      tag = tags[0]
+      if 'may refer to:' in tag.text:
+        lis = soup.find_all('li')
+        for li in lis:
+          #print li
+          ais = li.find_all('a',href=True)
+          if len(ais)>=1:
+            ai = ais[0]
+            if '/wiki/' in ai['href']:
+              #print ai['href']+'\t'+ai.text
+              if '(disambiguation)' in ai.text:
+                temp = ai.text.replace('(disambiguation)','').strip()
+                cadents.add(temp)
+              else: 
+                cadents.add(ai.text)
+              if len(cadents) >=3:
+                break;
+          if len(cadents)>=3:
+            break;
+    print searchent,':getDirectFromWikiPage'
+    return cadents
                 
