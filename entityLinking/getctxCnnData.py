@@ -2,7 +2,7 @@
 '''
 @time: 2016/12/5
 @editor: wujs
-@function: to generate the entity linking features
+@function: to generate the final candidate
 '''
 
 import os
@@ -97,6 +97,9 @@ def get_ent_word2vec_cands(enti,w2fb,wikititle2fb):
   return cantent_mid
 
 def get_final_ent_cands(w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,candiate_coCurrEnts,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index):
+  '''
+  @2016/12/15 目前可以达到89%的覆盖率了！ cut-off 设置为30
+  '''
   all_candidate_mids = []
   fileName = '/home/wjs/demo/entityType/informationExtract/data/aida/AIDA-YAGO2-dataset.tsv'
   entstr_lower2mid = {}
@@ -147,9 +150,12 @@ def get_final_ent_cands(w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,ca
       
       cantent_mid3 = get_freebase_ent_cands(cantent_mid,enti,tag,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching 这部分将花费很多的时间！
       
-      totalCand = len(cantent_mid) + len(cantent_mid3)
+      final_mid = dict(cantent_mid,**cantent_mid3)
       
-      if tag in cantent_mid1 or tag in cantent_mid2 or tag in cantent_mid3:
+      totalCand = len(final_mid)
+      
+      #if tag in cantent_mid1 or tag in cantent_mid2 or tag in cantent_mid3:
+      if tag in final_mid:
         right_nums += 1
         #print 'right:',enti_name,totalCand
       else:
@@ -203,66 +209,4 @@ if __name__=='__main__':
   w2vModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin',binary=True)
   all_candidate_mids = get_final_ent_cands(w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,candiate_coCurrEnts,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index)
   cPickle.dump(all_candidate_mids,open(f_output,'wb'))
-  
-  '''
-  #避免反复去计算这个值
-  if os.path.isfile(f_output1):
-    allents = cPickle.load(open(f_output1,'rb'))
-  else:
-    allents = getAllEnts(ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,candiate_coCurrEnts,candiate_ent,w2fb,wikititle2fb)
-    cPickle.dump(allents,open(f_output1,'wb'))
-    
-  allents = math.log(allents,2)
-
-  noncandidates=0
-  havacandidates=0
-  ent_candidateEnts=[]
-  
-  ents_description=[]
-  for i in range(len(ent_Mentions)):
-    if i%100==0:
-      print i
-    ents = ent_Mentions[i]
-    ent_ctx = ent_ctxs[i]  #ent_ctx.append([aNo,ctx])
-    temp_ent_candidateEnts=[]
-    for j in range(len(ents)):
-      enti = ents[j]
-#      aNo = ent_ctx[j][0]
-#      seta = set(aNo_has_ents[aNo])  #不要随意把一个对象赋值给另一个对象，否则可能会出错呢！
-#      entid = entstr2id[enti.content]
-#      seta.remove(enti.content.lower())
-#      listb = candiate_coCurrEnts[entid]
-#      listentcs = candiate_ent[entid]
-#      if len(listb)==0:
-#        print enti.content
-#      else:
-#        tempval = []
-#        fbents = []
-#        for coentid in range(len(listb)):
-#          setb = set()
-#          for item in listb[coentid]:
-#            setb.add(item.split(u'\t')[1].lower())
-#          
-#          enti_name = enti.content
-#          ids = listentcs[coentid][u'ids']
-#          titles = listentcs[coentid][u'title']
-#          description = listentcs[coentid][u'description']
-#          if ids in w2fb:
-#            fbents.append((w2fb[ids],listentcs[coentid]))
-#            #description 啥的还是用原来的就ok呢！
-#          elif titles in wikititle2fb:
-#            fbents.append((wikititle2fb[titles],listentcs[coentid]))
-#        #此处将candidates转化成freebase的id信息啦！
-#        if len(fbents)==0:
-#          noncandidates = noncandidates + 1
-#          print enti.content,listentcs
-#        else:
-#          havacandidates = havacandidates + 1
-#        temp_ent_candidateEnts.append(fbents)
-#    ent_candidateEnts.append(temp_ent_candidateEnts)
-#  
-#  print 'has no candidates:', noncandidates
-#  print ent_Mentions[0],ent_candidateEnts[0]
-#  print 'has  candidates:', havacandidates
-  '''
   
