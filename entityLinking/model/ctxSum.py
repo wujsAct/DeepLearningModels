@@ -16,17 +16,24 @@ class ctxSum(object):
   def __init__(self,args):
     with tf.variable_scope("ctxSum") as scope:
       #entity linking 需要修正的是bilinear weights
-      self.bilinear_w = tf.get_variable(
-                    "bilinear_w",
+      self.bilinear_w_descrip = tf.get_variable(
+                    "bilinear_w_description",
                     shape=[args.rawword_dim,2*args.rnn_size],
                     initializer=tf.contrib.layers.xavier_initializer())
-      print self.bilinear_w 
+      print self.bilinear_w_descrip 
+      
+      self.bilinear_w_type = tf.get_variable(
+                    "bilinear_w_type",
+                    shape=[args.figer_type_num,2*args.rnn_size],
+                    initializer=tf.contrib.layers.xavier_initializer())
+      print self.bilinear_w_type
     
     #for every entity mention, there are 30 candidates entities
     self.ent_mention_linking_tag = tf.placeholder(tf.float32,[None,args.candidate_ent_num])
     self.candidate_ent_linking_feature= tf.placeholder(tf.float32,[None,args.candidate_ent_num,args.rawword_dim])
-    
+    self.candidate_ent_type_feature = tf.placeholder(tf.float32,[None,args.candidate_ent_num,args.figer_type_num])
     self.ent_mention_lstm_feature = tf.placeholder(tf.float32,[None,2*args.rnn_size,1])
+    
     
     self.candidate_ent_linking_feature = tf.nn.l2_normalize(self.candidate_ent_linking_feature,1)
     self.ent_mention_lstm_feature = tf.nn.l2_normalize(self.ent_mention_lstm_feature,1)
@@ -37,12 +44,16 @@ class ctxSum(object):
     #temp =  tf.einsum('ijk,kl->ijl',self.candidate_ent_linking_feature,self.bilinear_w)
     
     #tf.scan 或者 tf.einsum 都可以解决这个问题！tensorflow 丰富的函数库，可以减少很多工作呢！
-    temp = tf.scan(lambda a,x: tf.matmul(x,self.bilinear_w),self.candidate_ent_linking_feature,initializer=tf.Variable(tf.random_normal((args.candidate_ent_num,2*args.rnn_size))))
-    print temp
+    temp_descrip = tf.scan(lambda a,x: tf.matmul(x,self.bilinear_w_descrip),self.candidate_ent_linking_feature,initializer=tf.Variable(tf.random_normal((args.candidate_ent_num,2*args.rnn_size))))
+    print temp_descrip
     
-    self.prediction =  tf.batch_matmul(temp, self.ent_mention_lstm_feature)
+    temp_type = tf.scan(lambda a,x: tf.matmul(x,self.bilinear_w_type),self.candidate_ent_type_feature,initializer=tf.Variable(tf.random_normal((args.candidate_ent_num,2*args.rnn_size))))
+    print temp_type
     
-    self.prediction = tf.nn.softmax(self.prediction[:,:,0])
+    self.prediction_descrip =  tf.batch_matmul(temp_descrip, self.ent_mention_lstm_feature)
+    self.prediction_type =  tf.batch_matmul(temp_type, self.ent_mention_lstm_feature)
+    
+    self.prediction = tf.nn.softmax(tf.add(self.prediction_descrip[:,:,0],self.prediction_type[:,:,0]))
     
     print 'ctx prediction:',self.prediction
     print 'ctxSum ent_mention_linking_tag', self.ent_mention_linking_tag
