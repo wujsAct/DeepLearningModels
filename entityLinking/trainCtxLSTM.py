@@ -67,18 +67,23 @@ def f1(args, prediction, target, length):
   return fscore
 
 
-def getLinkingFeature(lstm_output,ent_mention_index,ent_mention_tag,ent_relcoherent,ent_mention_link_feature,ent_linking_type,ptr):
+def getLinkingFeature(lstm_output,ent_mention_index,ent_mention_tag,ent_relcoherent,ent_mention_link_feature,ent_linking_type,ent_linking_candprob,ptr,flag='train'):
 #def getLinkingFeature(ent_mention_index,ent_mention_tag,ent_relcoherent,ent_mention_link_feature,ent_linking_type,ptr):
   ent_mention_linking_tag_list = []
   candidate_ent_linking_feature=[]
   candidate_ent_type_feature=[]
+  candidate_ent_prob_feature=[]
   candidate_ent_relcoherent_feature=[]
   ent_mention_lstm_feature = []
   allLenght = len(ent_mention_index)
   
   ent_index=[] #记录ent mention的位置
   lstm_index=[] #记录index的位置
-  for ids in range(ptr,min(ptr+args.batch_size,allLenght)):
+  if flag == 'train':
+    last_range = min(ptr+args.batch_size,allLenght)
+  else:
+    last_range = allLenght
+  for ids in xrange(ptr,last_range):
     tagid = 0
     for ent_item in ent_mention_index[ids]:
       if np.sum(ent_mention_tag[ids][tagid]) != 0:
@@ -95,18 +100,22 @@ def getLinkingFeature(lstm_output,ent_mention_index,ent_mention_tag,ent_relcoher
                                                           np.zeros((max(0,args.candidate_ent_num-candidate_num),100),dtype=np.float32)))
         ent_type_candidates = np.concatenate((np.asarray(np.reshape(ent_linking_type[ids][tagid],(candidate_num,args.figer_type_num)),dtype=np.float32),
                                   np.zeros((max(0,args.candidate_ent_num-candidate_num),args.figer_type_num),dtype=np.float32)))
+        ent_prob_candidates = np.concatenate((np.asarray(np.reshape(ent_linking_candprob[ids][tagid],(candidate_num,3)),dtype=np.float32),
+                                  np.zeros((max(0,args.candidate_ent_num-candidate_num),3),dtype=np.float32)))
                                         
         candidate_ent_linking_feature.append(ent_linking_candidates)
         candidate_ent_type_feature.append(ent_type_candidates)
+        candidate_ent_prob_feature.append(ent_prob_candidates)
         ent_mention_lstm_feature.append(np.sum(lstm_output[ids-ptr][ent_item[0]:ent_item[1]],axis=0))
       tagid += 1
   ent_mention_linking_tag_list = np.asarray(ent_mention_linking_tag_list)
   candidate_ent_relcoherent_feature = np.asarray(candidate_ent_relcoherent_feature)
   candidate_ent_linking_feature = np.asarray(candidate_ent_linking_feature)
   candidate_ent_type_feature = np.asarray(candidate_ent_type_feature)
+  candidate_ent_prob_feature = np.asarray(candidate_ent_prob_feature)
   ent_mention_lstm_feature = np.expand_dims(np.asarray(ent_mention_lstm_feature),2)
   
-  return ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature
+  return ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature
   
 def shuffle_in_unison(a, b):
   assert len(a) == len(b)
@@ -143,21 +152,20 @@ def main(_):
   testa_input = testaUtils.emb; testa_out = testaUtils.tag; testa_entliking= testaUtils.ent_linking; 
   testa_ent_mention_index = testa_entliking['ent_mention_index']; testa_ent_mention_link_feature=testa_entliking['ent_mention_link_feature'];
   testa_ent_mention_tag = testa_entliking['ent_mention_tag']; testa_ent_relcoherent = testaUtils.ent_relcoherent
-  testa_ent_linking_type = testaUtils.ent_linking_type
+  testa_ent_linking_type = testaUtils.ent_linking_type; testa_ent_linking_candprob = testaUtils.ent_linking_candprob
   
   trainUtils = inputUtils(args.rawword_dim,"train")
   train_input = trainUtils.emb; train_out = trainUtils.tag; train_entliking= trainUtils.ent_linking; 
   train_ent_mention_index = train_entliking['ent_mention_index']; train_ent_mention_link_feature=train_entliking['ent_mention_link_feature'];
   train_ent_mention_tag = train_entliking['ent_mention_tag']; train_ent_relcoherent = trainUtils.ent_relcoherent
-  train_ent_linking_type = trainUtils.ent_linking_type
+  train_ent_linking_type = trainUtils.ent_linking_type; train_ent_linking_candprob = trainUtils.ent_linking_candprob
   
   testbUtils = inputUtils(args.rawword_dim,"testb")
   testb_input = testbUtils.emb; testb_out = testbUtils.tag; testb_entliking= testbUtils.ent_linking
   testb_ent_mention_index = testb_entliking['ent_mention_index']; testb_ent_mention_link_feature=testb_entliking['ent_mention_link_feature'];
   testb_ent_mention_tag = testb_entliking['ent_mention_tag']; testb_ent_relcoherent = testbUtils.ent_relcoherent
-  testb_ent_linking_type = testbUtils.ent_linking_type
+  testb_ent_linking_type = testbUtils.ent_linking_type; testb_ent_linking_candprob = testbUtils.ent_linking_candprob
   print 'cost:', time.time()-start,' to load data'
-  
   
   start_time = time.time()
   print 'gradient computing...'
@@ -203,15 +211,16 @@ def main(_):
                           model.output_data:train_out[ptr:min(ptr+args.batch_size,len(train_input))],
                           model.keep_prob:0.5})
        
-      ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,ent_mention_lstm_feature,ent_relcoherent_feature = \
+      ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
                                                   getLinkingFeature(lstm_output,train_ent_mention_index,train_ent_mention_tag,\
-                                                  train_ent_relcoherent,train_ent_mention_link_feature,train_ent_linking_type,ptr)
+                                                  train_ent_relcoherent,train_ent_mention_link_feature,train_ent_linking_type,train_ent_linking_candprob,ptr,flag='train')
        
-      loss2,accuracy,pred = sess.run([loss_linking,modelLinking.accuracy,modelLinking.prediction],
+      _,loss2,accuracy,pred = sess.run([train_op_linking,loss_linking,modelLinking.accuracy,modelLinking.prediction],
                                  {modelLinking.ent_mention_linking_tag:ent_mention_linking_tag_list,
-                                  modelLinking.candidate_ent_coherent_feature:ent_relcoherent_feature,
+                                  modelLinking.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
                                   modelLinking.candidate_ent_linking_feature:candidate_ent_linking_feature,
                                   modelLinking.candidate_ent_type_feature:candidate_ent_type_feature,
+                                  modelLinking.candidate_ent_prob_feature:candidate_ent_prob_feature,
                                   modelLinking.ent_mention_lstm_feature:ent_mention_lstm_feature
                                  })
       f1_micro,f1_macro =f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='micro'),f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='macro')
@@ -236,14 +245,15 @@ def main(_):
         fscore = f1(args, pred, testa_out, length)
         print "-----------------"
         print("testa: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
-        ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,ent_mention_lstm_feature,ent_relcoherent_feature = \
-                                                  getLinkingFeature(lstm_output,teata_ent_mention_index,testa_ent_mention_tag,\
-                                                  testa_ent_relcoherent,testa_ent_mention_link_feature,testa_ent_linking_type,ptr)
+        ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
+                                                  getLinkingFeature(lstm_output,testa_ent_mention_index,testa_ent_mention_tag,\
+                                                  testa_ent_relcoherent,testa_ent_mention_link_feature,testa_ent_linking_type,testa_ent_linking_candprob,0,flag='testa')
         loss2,accuracy,pred = sess.run([loss_linking,modelLinking.accuracy,modelLinking.prediction],
                                  {modelLinking.ent_mention_linking_tag:ent_mention_linking_tag_list,
-                                  modelLinking.candidate_ent_coherent_feature:ent_relcoherent_feature,
+                                  modelLinking.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
                                   modelLinking.candidate_ent_linking_feature:candidate_ent_linking_feature,
                                   modelLinking.candidate_ent_type_feature:candidate_ent_type_feature,
+                                  modelLinking.candidate_ent_prob_feature:candidate_ent_prob_feature,
                                   modelLinking.ent_mention_lstm_feature:ent_mention_lstm_feature
                                  })
         f1_micro_testa,f1_macro_testb =f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='micro'),f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='macro')
@@ -258,19 +268,20 @@ def main(_):
                               model.keep_prob:1})
           fscore = f1(args, pred, testb_out, length)
           print("testb: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
-          ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,ent_mention_lstm_feature,ent_relcoherent_feature = \
-                                                  getLinkingFeature(lstm_output,teatb_ent_mention_index,testb_ent_mention_tag,\
-                                                  testb_ent_relcoherent,testb_ent_mention_link_feature,testb_ent_linking_type,ptr)
+          ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
+                                                  getLinkingFeature(lstm_output,testb_ent_mention_index,testb_ent_mention_tag,\
+                                                  testb_ent_relcoherent,testb_ent_mention_link_feature,testb_ent_linking_type,testb_ent_linking_candprob,0,flag='testb')
           loss2,accuracy,pred = sess.run([loss_linking,modelLinking.accuracy,modelLinking.prediction],
                                  {modelLinking.ent_mention_linking_tag:ent_mention_linking_tag_list,
-                                  modelLinking.candidate_ent_coherent_feature:ent_relcoherent_feature,
+                                  modelLinking.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
                                   modelLinking.candidate_ent_linking_feature:candidate_ent_linking_feature,
                                   modelLinking.candidate_ent_type_feature:candidate_ent_type_feature,
+                                  modelLinking.candidate_ent_prob_feature:candidate_ent_prob_feature,
                                   modelLinking.ent_mention_lstm_feature:ent_mention_lstm_feature
                                  })
           f1_micro_testa,f1_macro_testb =f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='micro'),f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='macro')
           print 'testb total loss:',loss2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro
         print "-----------------" 
-    print 'average linking accuracy:',average_linking_accuracy/id_epoch, average_loss/id_epoch
+    print 'average linking accuracy:',average_linking_accuracy_train/id_epoch, average_loss_train/id_epoch
 if __name__ == '__main__':
   tf.app.run()      
