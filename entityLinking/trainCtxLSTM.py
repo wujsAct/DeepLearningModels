@@ -207,7 +207,7 @@ def main(_):
                                                   getLinkingFeature(lstm_output,train_ent_mention_index,train_ent_mention_tag,\
                                                   train_ent_relcoherent,train_ent_mention_link_feature,train_ent_linking_type,ptr)
        
-      _, loss2,accuracy,pred = sess.run([train_op_linking,loss_linking,modelLinking.accuracy,modelLinking.prediction],
+      loss2,accuracy,pred = sess.run([loss_linking,modelLinking.accuracy,modelLinking.prediction],
                                  {modelLinking.ent_mention_linking_tag:ent_mention_linking_tag_list,
                                   modelLinking.candidate_ent_coherent_feature:ent_relcoherent_feature,
                                   modelLinking.candidate_ent_linking_feature:candidate_ent_linking_feature,
@@ -239,7 +239,7 @@ def main(_):
         ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,ent_mention_lstm_feature,ent_relcoherent_feature = \
                                                   getLinkingFeature(lstm_output,teata_ent_mention_index,testa_ent_mention_tag,\
                                                   testa_ent_relcoherent,testa_ent_mention_link_feature,testa_ent_linking_type,ptr)
-        _, loss2,accuracy,pred = sess.run([train_op_linking,loss_linking,modelLinking.accuracy,modelLinking.prediction],
+        loss2,accuracy,pred = sess.run([loss_linking,modelLinking.accuracy,modelLinking.prediction],
                                  {modelLinking.ent_mention_linking_tag:ent_mention_linking_tag_list,
                                   modelLinking.candidate_ent_coherent_feature:ent_relcoherent_feature,
                                   modelLinking.candidate_ent_linking_feature:candidate_ent_linking_feature,
@@ -261,7 +261,7 @@ def main(_):
           ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,ent_mention_lstm_feature,ent_relcoherent_feature = \
                                                   getLinkingFeature(lstm_output,teatb_ent_mention_index,testb_ent_mention_tag,\
                                                   testb_ent_relcoherent,testb_ent_mention_link_feature,testb_ent_linking_type,ptr)
-          _, loss2,accuracy,pred = sess.run([train_op_linking,loss_linking,modelLinking.accuracy,modelLinking.prediction],
+          loss2,accuracy,pred = sess.run([loss_linking,modelLinking.accuracy,modelLinking.prediction],
                                  {modelLinking.ent_mention_linking_tag:ent_mention_linking_tag_list,
                                   modelLinking.candidate_ent_coherent_feature:ent_relcoherent_feature,
                                   modelLinking.candidate_ent_linking_feature:candidate_ent_linking_feature,
