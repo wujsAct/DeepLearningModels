@@ -12,7 +12,6 @@ from spacy.en import English
 import cPickle
 
 def extractEntMention(mentag,sentence_list):
-  entMen = set()
   #utilzie two pointers to solve the problem, need to improve the algorithms ability!
   lent = len(mentag)
   entMen = []
@@ -24,6 +23,10 @@ def extractEntMention(mentag,sentence_list):
       q = p
     else:
       if mentag[q]==U'O':
+        entName = u' '.join(sentence_list[p:q])
+        if entName.lower() == u'county':
+          print sentence_list
+          exit()
         temp = EntRecord(p,q)
         temp.setContent(sentence_list)
         entMen.append(temp)
@@ -32,16 +35,24 @@ def extractEntMention(mentag,sentence_list):
         p=q+1
         q=p
       else:
-        if mentag[q] == mentag[p]:
+        if (mentag[q] == mentag[p] and (p==q or mentag[q].split('-')[0]!=u'B')) or (mentag[q].split('-')[1] == mentag[p].split('-')[1] and mentag[q].split('-')[0]!=u'B'): 
           q = q + 1
           if q == lent:
             #print u' '.join(sentence_list[p:q]),'\t',mentag[p]
+            entName = u' '.join(sentence_list[p:q])
+            if entName.lower() == 'county':
+              print sentence_list
+              exit()
             temp = EntRecord(p,q)
             temp.setContent(sentence_list)
             entMen.append(temp)
             entType.append(mentag[p])
             break
         else:
+          entName = u' '.join(sentence_list[p:q])
+          if entName.lower() == 'county':
+            print sentence_list
+            exit()
           temp = EntRecord(p,q)
           temp.setContent(sentence_list)
           entMen.append(temp)
@@ -121,6 +132,7 @@ if __name__=='__main__':
             sentence_list=[]; postag=[];mentag =[]
   
   para_dict={'aNosNo2id':aNosNo2id,'id2aNosNo':id2aNosNo,'sents':sents,'tags':tags,'ents':ents,'mentags':mentags,
-                'depTrees':depTrees,'all_sentence_list':all_sentence_list}
+               'depTrees':depTrees,'all_sentence_list':all_sentence_list}
   cPickle.dump(para_dict,open(f_output,'wb'))
+  #cPickle.dump(ents,open(f_output,'wb'))
   
