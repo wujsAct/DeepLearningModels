@@ -20,6 +20,9 @@ def getCanEnts(searchent):
     candentSet1=set();candentSet2=set();candentSet=set()
     if metonymyflag:   #sometimes may have troubles!
       candentSet1 = urllibutil.getDirectFromWikiPage(searchent)
+      if len(candentSet1)==0:
+        candentSet1 = urllibutil.getDirectFromWikiDisambiugationPage(searchent)
+        
     candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
     candentSet = candentSet1 | candentSet2
     if searchent in candentSet:
@@ -55,7 +58,7 @@ if __name__=='__main__':
   if len(sys.argv) !=4:
     print 'usage: python pyfile dir_path inputfile outputfile'
     exit(1)
-  #è¿›ç¨‹æ± æœ€å¥½è®¾ç½®æˆCPUæ ¸å¿ƒæ•°é‡(cpu core), ä¸ç„¶å¯èƒ½å‡ºäº§ç”Ÿä¸€å¥‡æ€ªçš„é”™è¯¯ï¼
+  #½ø³Ì³Ø×îºÃÉèÖÃ³ÉCPUºËĞÄÊıÁ¿(cpu core), ²»È»¿ÉÄÜ³ö²úÉúÒ»Ææ¹ÖµÄ´íÎó£¡
   #grep 'core id' /proc/cpuinfo | sort -u|wc -l
   dir_path = sys.argv[1]
   f_input = dir_path  + sys.argv[2]
@@ -78,19 +81,19 @@ if __name__=='__main__':
         entId = entId + 1
   print id2entstr[22]
   lent = len(id2entstr)
-#  ids = entstr2id[u"British"]
-#  funcs(ids,id2entstr)
-#  ids = entstr2id[u"German"]
-#  funcs(ids,id2entstr)
+#  ids = entstr2id[u"Englishman"]
+#  funcs(ids,id2entstt)
+##  ids = entstr2id[u"German"]
+##  funcs(ids,id2entstr)
   
-
+  
   candiate_ent=[None]*lent
   candiate_coCurrEnts=[None]*lent
   result = []
   
-  for ptr in xrange(0,lent,30):  
-    pool = multiprocessing.Pool(processes=6)  #é‡‡ç”¨è¿™ç§æ–¹æ³•ï¼Œé¿å…åºåˆ—æ± è¿‡é•¿çš„æ—¶å€™ï¼Œget resultçš„æ—¶å€™ä¼šå‡ºç°å¾ˆå¥‡æ€ªçš„é”™è¯¯ï¼
-    for ids in xrange(ptr,min(ptr+30,lent)):  #æ•°ç»„è¶Šç•Œé—®é¢˜ï¼
+  for ptr in xrange(0,lent,30):
+    pool = multiprocessing.Pool(processes=6)
+    for ids in xrange(ptr,min(ptr+30,lent)):  #Êı×éÔ½½çÎÊÌâ£¡
       #print '----------------------'
       #print ids,entstr
       result.append(pool.apply_async(funcs, (ids,id2entstr,lent)))
