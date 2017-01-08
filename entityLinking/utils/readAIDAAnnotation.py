@@ -108,22 +108,24 @@ print 'total_right:',total_right
 '''
 
 entment_tag = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
-datas = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/process/train.p','rb'))
-entments = datas['ents']
-ent_id = 0
+datas = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/features/testa_entms.p100','rb'))
+entments = datas['ent_Mentions']
+#ent_id = 0
 #ent_id = 23396 #eng.testa
 #ent_id = 29313 #eng.testb
 #total entment is 34929
 for ent in entments:
-  for enti in ent[0]:
-    print 'enti:',enti
+  for enti in ent:
+    #print 'enti:',enti
     enti_name = enti.getContent().lower()
     if enti_name.replace(u' ','') == entment_tag[ent_id][0].replace(u' ','') or enti_name.replace(u' ','')==u'czech' or enti_name.replace(u' ','')==u'netherlands':
-      print enti_name,entment_tag[ent_id]
-      print 'right'
+      pass
+      #print enti_name,entment_tag[ent_id]
+      #print 'right'
     else:
       print 'wrong'
-      print enti_name,entment_tag[ent_id]
+      print ent_id,enti_name,entment_tag[ent_id],entment_tag[ent_id+1]
+      #ent_id += 1
       exit()
     ent_id += 1
 print 'ent_id:',ent_id

@@ -42,20 +42,18 @@ def processDescription(line):
         
   return descript
         
-def get_all_candidate_mid_cocurrent(ent_Mentions,all_candidate_mids,fout):
+def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fout):
   '''
   @2016/12/26 抽取候选实体间，是否在freebase中有共现
   '''
-  fileName = '/home/wjs/demo/entityType/informationExtract/data/aida/AIDA-YAGO2-dataset.tsv'
-  entstr_lower2mid = {}
-  mid2entstr_lower={}
-  with codecs.open(fileName,'r','utf-8') as file:
-    for line in file:
-      line = line.strip()
-      item = line.split(u'\t')
-      if len(item)==7:
-        entstr_lower2mid[item[2].lower()] = item[6]
-        mid2entstr_lower[item[6]] = item[3].lower()
+  ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
+  if data_flag=='train':
+    ent_id = 0
+  if data_flag=='testa':
+    ent_id = 23396
+  if data_flag=='testb':
+    ent_id = 29313
+  print 'ent_id:', ent_id
   print 'finish load all datas'
   allcandents=collections.defaultdict(set)
   
@@ -68,12 +66,28 @@ def get_all_candidate_mid_cocurrent(ent_Mentions,all_candidate_mids,fout):
     for j in range(len(ents)):
       enti = ents[j]
       enti_name = enti.content.lower()
+      '''
       if enti_name not in entstr_lower2mid:
         continue
       else:
         k += 1
         tag = entstr_lower2mid[enti_name]
-      
+      '''
+      enti_linktag_item = ent_ment_link_tags[ent_id]
+      tag = enti_linktag_item[1]
+      #有个小错误不太好排除，先这样处理吧！
+      if tag == 'NIL':
+        if ent_id ==16787:
+          ent_id += 2
+        else:
+          ent_id += 1
+        continue
+      k += 1
+      if ent_id == 16787:
+        ent_id +=2
+      else:
+        ent_id += 1
+        
       cand_mid_dict = all_candidate_mids[k]
       cand_mid_coocurmid = []
       for mid in cand_mid_dict:    #注意细节的处理，不然数据处理非常麻烦呢！
@@ -84,37 +98,53 @@ def get_all_candidate_mid_cocurrent(ent_Mentions,all_candidate_mids,fout):
           allcandents[new_mid] = mongoutils.get_coOccurent_ents(new_mid)
   cPickle.dump(allcandents,open(fout,'wb'))
 
-def get_candidate_rel_features(ent_Mentions,all_candidate_mids,fout,allcandents_coents):
+def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,allcandents_coents):
   '''
   @2016/12/26 抽取候选实体间，是否在freebase中有共现
   '''
-  fileName = '/home/wjs/demo/entityType/informationExtract/data/aida/AIDA-YAGO2-dataset.tsv'
-  entstr_lower2mid = {}
-  mid2entstr_lower={}
-  with codecs.open(fileName,'r','utf-8') as file:
-    for line in file:
-      line = line.strip()
-      item = line.split(u'\t')
-      if len(item)==7:
-        entstr_lower2mid[item[2].lower()] = item[6]
-        mid2entstr_lower[item[6]] = item[3].lower()
+#  param_dict = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
+#  entstr_lower2mid=param_dict['entstr_lower2mid']; mid2entstr_lower=param_dict['mid2entstr_lower']
+  ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
+  if data_flag=='train':
+    ent_id = 0
+  if data_flag=='testa':
+    ent_id = 23396
+  if data_flag=='testb':
+    ent_id = 29313
+    
   print 'finish load all datas'
+  
   ent_mention_relCoherent_feature=[]
   k=-1
   for i in tqdm(range(len(ent_Mentions))):
   #for i in tqdm(xrange(145,200)):
     ents = ent_Mentions[i]  #ents 中的entities表示在同一个doc中的实体！
-    tag = False
     doc_ents_cand_mid_dict=[]
     for j in range(len(ents)):
       enti = ents[j]
       enti_name = enti.content.lower()
+      '''
       if enti_name not in entstr_lower2mid:
         continue
       else:
         k += 1
         tag = entstr_lower2mid[enti_name]
-      
+      '''
+      enti_linktag_item = ent_ment_link_tags[ent_id]
+      tag = enti_linktag_item[1]
+      #有个小错误不太好排除，先这样处理吧！
+      if tag == 'NIL':
+        if ent_id ==16787:
+          ent_id += 2
+        else:
+          ent_id += 1
+        continue
+      k += 1
+      if ent_id == 16787:
+        ent_id +=2
+      else:
+        ent_id += 1
+        
       cand_mid_dict = all_candidate_mids[k]
       cand_mid_coocurmid = []
       for mid in cand_mid_dict:
@@ -146,22 +176,18 @@ def get_candidate_rel_features(ent_Mentions,all_candidate_mids,fout,allcandents_
   print len(ent_mention_relCoherent_feature),len(ent_mention_relCoherent_feature[3]),len(ent_mention_relCoherent_feature[3][0])
   cPickle.dump(ent_mention_relCoherent_feature,open(fout,'wb'))
      
-def get_candidate_ent_features(ent_Mentions,all_candidate_mids,mid2description,descript_Words,mid2figer,f_output,f_output1):
+def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2description,descript_Words,mid2figer,f_output,f_output1,f_output2):
   '''
   @2016/12/15  v1: 最好的方法，根据mid去找相对应的wiki页面，然后进行训练！
   '''
-  fileName = '/home/wjs/demo/entityType/informationExtract/data/aida/AIDA-YAGO2-dataset.tsv'
-  entstr_lower2mid = {}
-  mid2entstr_lower={}
-  with codecs.open(fileName,'r','utf-8') as file:
-    for line in file:
-      line = line.strip()
-      item = line.split(u'\t')
-      if len(item)==7:
-        entstr_lower2mid[item[2].lower()] = item[6]
-        mid2entstr_lower[item[6]] = item[3].lower()
+  ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
+  if data_flag=='train':
+    ent_id = 0
+  if data_flag=='testa':
+    ent_id = 23396
+  if data_flag=='testb':
+    ent_id = 29313
   print 'finish load all datas'
-  pass_nums = 0
   
   non_description_mid = set()
   descrip_lent=[]
@@ -188,26 +214,39 @@ def get_candidate_ent_features(ent_Mentions,all_candidate_mids,mid2description,d
     for j in range(len(ents)):
       totalCand = 0
       enti = ents[j]
-      tag = False
+      
       enti_name = enti.content.lower()
+      '''
       if enti_name not in entstr_lower2mid:
         continue   # pass entity我们不进行处理啦！
       else:
         k += 1
         tag = entstr_lower2mid[enti_name]
-      
-      
+      ''' 
+      enti_linktag_item = ent_ment_link_tags[ent_id]
+      tag = enti_linktag_item[1]
+      #有个小错误不太好排除，先这样处理吧！
+      if tag == 'NIL':
+        if ent_id ==16787:
+          ent_id += 2
+        else:
+          ent_id += 1
+        continue
+      if ent_id == 16787:
+        ent_id +=2
+      else:
+        ent_id += 1
+      k += 1  
       tag_t = 0
       ent_mention_tag_temp = np.zeros((30,))
-      ent_mention_prob_temp = np.zeros((30,))
       tdescip = []
       tcanditetype=[]
+      tcandprob = []
+      
       cand_mid_dict = all_candidate_mids[k]
   
       for mid in cand_mid_dict:  #仅有description,实体共现！
-        ent_mention_prob_temp[tag_t] = cand_mid_dict[mid]  #产生information retrieval每个候选实体的概率p(e|m)
-        
-        if mid not in mid2description and mid == tag:   #用来去抓取需要linking的实体啦！,filter to ensure all the result candidates has the description!
+        if mid not in mid2description and mid == tag:   #用来去抓取需要linking的实体啦！filter to ensure all the result candidates has the description!
           print 'mide not in mid2description', mid
         if mid == tag:
           ent_mention_tag_temp[tag_t] = 1
@@ -230,11 +269,16 @@ def get_candidate_ent_features(ent_Mentions,all_candidate_mids,mid2description,d
         '''
         @add candidate entity type features!
         '''
+        if len(tcandprob)==0:
+          tcandprob = np.asarray(cand_mid_dict[mid])
+        else:
+          tcandprob = np.concatenate((tcandprob,np.asarray(cand_mid_dict[mid])))
+        
         if len(tcanditetype)==0:
           tcanditetype = ttypev
         else:
           tcanditetype = np.concatenate((tcanditetype,ttypev))
-          
+         
         if len(tdescip)==0:
           tdescip = twordv
         else:
@@ -242,12 +286,12 @@ def get_candidate_ent_features(ent_Mentions,all_candidate_mids,mid2description,d
       temps_type.append(tcanditetype)
       temps.append(tdescip)
       temps_tag.append(ent_mention_tag_temp)
-      temps_cand_prob.append(ent_mention_prob_temp)
+      temps_cand_prob.append(tcandprob)
       temps_ent_index.append((enti.startIndex,enti.endIndex))  #通过这个flag去抽取lstm最后一层的特征啦！
     ent_mention_type_feature.append(temps_type)
+    ent_mention_cand_prob_feature.append(temps_cand_prob)
     ent_mention_link_feature.append(temps)
     ent_mention_tag.append(temps_tag)
-    ent_mention_cand_prob_feature.append(temps_cand_prob)
     ent_mention_index.append(temps_ent_index)   
   print len(ent_mention_link_feature),len(ent_mention_link_feature[3]),len(ent_mention_link_feature[3][0])
   print len(ent_mention_tag),len(ent_mention_tag[3]),len(ent_mention_tag[3][0])
@@ -258,11 +302,10 @@ def get_candidate_ent_features(ent_Mentions,all_candidate_mids,mid2description,d
   print len(ent_mention_type_feature),len(ent_mention_type_feature[3]),len(ent_mention_type_feature[3][0])
   cPickle.dump(ent_mention_type_feature,open(f_output1,'wb'))
   cPickle.dump(ent_mention_cand_prob_feature,open(f_output2,'wb'))
-  print non_mid2figer
   
 if __name__=='__main__':
-  if len(sys.argv) !=9:
-    print 'usage: python embeddings/generate_entmention_linking_features.py ${dir_path} testa_entms.p100 test_a_embed.p100 testa_ent_cand_mid.p testa_ent_linking.p testa_ent_linking_type.p testa_ent_linking_candprob.p testa_ent_relcoherent.p'
+  if len(sys.argv) != 10:
+    print 'usage: python embeddings/generate_entmention_linking_features.py ${dir_path} testa_entms.p100 test_a_embed.p100 testa_ent_cand_mid.p testa_ent_linking.p testa_ent_linking_type.p testa_ent_linking_candprob.p testa_ent_relcoherent.p data_flag'
     exit(1)
   dir_path = sys.argv[1]
   f_input_ent_ments = dir_path + '/features/' + sys.argv[2]
@@ -273,45 +316,35 @@ if __name__=='__main__':
   f_output2 = dir_path  +'/features/'+ sys.argv[7]
   f_outputtemp = dir_path  +'/features/'+ sys.argv[8]+'temp'
   f_output3 = dir_path  +'/features/'+ sys.argv[8]
+  data_flag = sys.argv[9]
   '''
   @time: 2016/12/23
   @function: load re-rank feature：entity type
   '''
+  
   stime = time.time()
-  #mid2figer = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/mid2figer.p','rb'))
-  #print 'load mid2figer cost time:',time.time()-stime
-  #print mid2figer
-  #exit()
+  mid2figer = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/mid2figer.p','rb'))
+  print 'load mid2figer cost time:',time.time()-stime
+ 
   
   stime = time.time()
   #param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs} ==>
   dataEnts = cPickle.load(open(f_input_ent_ments,'rb'));ent_Mentions = dataEnts['ent_Mentions']
   all_candidate_mids = cPickle.load(open(f_input_ent_cand_mid,'rb'))
-  print 'load all data cost time:',time.time()-stime
+  print 'load dataEnts candidates cost time:',time.time()-stime
+  
+  
+  #get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,f_outputtemp)   #之前已经从freebase里面抽取了的！  每次调试程序的时候，可以把这个注释掉，先优先跑一遍这个结果！
+  #allcandents_coents = cPickle.load(open(f_outputtemp,'rb'))   
+  #get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,f_output3,allcandents_coents)
+  
+  
   
   '''
-  get_all_candidate_mid_cocurrent(ent_Mentions,all_candidate_mids,f_outputtemp)   #之前已经从freebase里面抽取了的！
-  allcandents_coents = cPickle.load(open(f_outputtemp,'rb'))
-  get_candidate_rel_features(ent_Mentions,all_candidate_mids,f_output3,allcandents_coents)
-  '''
-  
-  '''
-  totalEntNum = 0
-  for i in tqdm(range(len(ent_Mentions))):
-  #for i in tqdm(range(100)):
-    ents = ent_Mentions[i]
-    temps =[]
-    temps_tag = []
-    temps_ent_index=[]
-    #print i,'\tentM:',len(ents)
-    for j in range(len(ents)):
-      totalEntNum += 1
-  print totalEntNum
-  
-  
   #sent_embed = cPickle.load(open(f_input_ent_embed,'rb'))
   #assert len(ent_Mentions) == len(sent_embed)
   '''
+  
   stime = time.time()
   descript_Words = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p', 'rb'))
   print 'load wordvec_model_100 cost time: ', time.time()-stime
@@ -324,7 +357,7 @@ if __name__=='__main__':
       if len(items) >=2:
         mid2description[items[0]] =items[1]
   print 'load mid2descriptioon cost time: ', time.time()-stime
-  get_candidate_ent_features(ent_Mentions,all_candidate_mids,mid2description,descript_Words.wvec_model,mid2figer,f_output,f_output1)
+  get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2description,descript_Words.wvec_model,mid2figer,f_output,f_output1,f_output2)
   
   '''
   param_dict = cPickle.load(open(f_output,'rb'))

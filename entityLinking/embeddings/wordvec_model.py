@@ -1,26 +1,29 @@
-from __future__ import print_function
+#from __future__ import print_function
 from gensim.models.word2vec import Word2Vec
+from gensim.models.phrases import Phrases
 from random_vec import RandomVec
 import pickle as pkl
 import argparse
 import codecs
-
+from tqdm import *
 class WordVec:
   def __init__(self, args):
     print('processing corpus')
     if args.restore is None:
       sentences=[]
       with codecs.open(args.corpus,'r','utf-8') as file:
-        for line in file:
+        for line in tqdm(file):
           line = line.strip().lower()
           sentence = line.split(u' ')
           #print(sentence)
           sentences.append(sentence)
+      #bigram_transformer = Phrases(sentences)
+      #print(bigram_transformer[sentences])
       print('start to train word2vec embeddings')
       self.wvec_model = Word2Vec(sentences=sentences, size=args.dimension, window=args.window,
                                  workers=args.workers,
                                  sg=args.sg,
-                                 batch_words=args.batch_size, min_count=1, 
+                                 batch_words=args.batch_size, min_count=1
                                  #max_vocab_size=args.vocab_size
                                  )
     else:
@@ -32,7 +35,7 @@ class WordVec:
     try:
       return self.wvec_model[word]
     except KeyError:
-      print(word, 'is random initialize the words')
+      #print(word, 'is random initialize the words')
       return self.rand_model[word]
 
 

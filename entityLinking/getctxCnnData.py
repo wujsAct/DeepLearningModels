@@ -37,20 +37,23 @@ def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_re
   #first find all the ents we need to process
   enti_title = enti.content.lower()
   enti_item = enti_title.split(u' ')
-  for entit in enti_item[0:1]:
-    totaldict=dict()
-    if entit in wikititle_reverse_index:
-      totaldict = wikititle_reverse_index[entit]
-      
-    for key in totaldict:
-      if is_contain_ents(enti_title,key):
-        addScore = 0
-        if enti_title == key:  #completely match
-          addScore += 0.3 
-        if key in entstr2id: #在上下文中出现了的！可以解决一部分共指问题！
-          addScore += 0.3
-        for wmid in wikititle2fb[key]:
-          distRet[wmid+u'\t'+key]=Levenshtein.ratio(enti_title,key) + addScore
+  enti = enti_item[0]
+  totaldict=dict()
+  if enti_title in wikititle_reverse_index:
+    totaldict = wikititle_reverse_index[enti_title]
+  else:
+    if enti in wikititle_reverse_index:
+      totaldict = wikititle_reverse_index[enti]
+    
+  for key in totaldict:
+    if is_contain_ents(enti_title,key):
+      addScore = 0
+      if enti_title == key:  #completely match
+        addScore += 0.3 
+      if key in entstr2id: #在上下文中出现了的！可以解决一部分共指问题！
+        addScore += 0.3
+      for wmid in wikititle2fb[key]:
+        distRet[wmid+u'\t'+key]=Levenshtein.ratio(enti_title,key) + addScore
   distRet= sorted(distRet.iteritems(), key=lambda d:d[1], reverse = True)
   #cantent_mid={}
   for item in distRet:
@@ -160,7 +163,6 @@ def get_final_ent_cands(data_flag,w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_h
     
     for j in range(len(ents)):
       allentmention_numbers+=1
-      tag= False
       totalCand = 0
       
       enti = ents[j]
@@ -175,11 +177,18 @@ def get_final_ent_cands(data_flag,w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_h
       '''
       enti_linktag_item = ent_ment_link_tags[ent_id]
       tag = enti_linktag_item[1]
+      #有个小错误不太好排除，先这样处理吧！
       if tag == 'NIL':
         pass_nums = pass_nums + 1
-        ent_id += 1
+        if ent_id ==16787:
+          ent_id += 2
+        else:
+          ent_id += 1
         continue
-      ent_id += 1
+      if ent_id == 16787:
+        ent_id +=2
+      else:
+        ent_id += 1
       aNo = ent_ctx[j][0]
       entids = entstr2id[enti_name]
       listentcs = []
@@ -205,7 +214,7 @@ def get_final_ent_cands(data_flag,w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_h
         #print 'right:',enti_name,totalCand
       else:
         wrong_nums = wrong_nums + 1
-        #print 'wrong:',tag,mid2entstr_lower[tag],enti.content,len(cantent_mid1),'\t',len(cantent_mid2),'\t',len(cantent_mid),'\t',len(cantent_mid3),'\t',totalCand
+        print 'wrong:',tag,enti.content,len(final_mid),final_mid
         #print cantent_mid1,cantent_mid2,cantent_mid3
         #exit()
         
