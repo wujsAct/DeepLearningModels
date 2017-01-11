@@ -23,7 +23,7 @@ pp = pprint.PrettyPrinter()
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
 flags.DEFINE_integer("batch_size",256,"batch size of training")
-flags.DEFINE_integer("sentence_length",50,"max sentence length")
+flags.DEFINE_integer("sentence_length",124,"max sentence length")
 flags.DEFINE_integer("class_size",5,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
 flags.DEFINE_integer("word_dim",111,"hidden dimension of rnn")
@@ -196,6 +196,7 @@ def main(_):
   sess.run(init)
   
   maximum = 0
+  maximum_linking=0
   saver = tf.train.Saver()  #prepare to save the trained models
   start_tr = time.time()
   
@@ -231,7 +232,7 @@ def main(_):
         loss1,pred,length = sess.run([loss_ent,model.prediction,model.length],
                           {model.input_data:train_input[ptr:ptr+args.batch_size],
                           model.output_data:train_out[ptr:ptr+args.batch_size],
-                          model.keep_prob:0.5})
+                          model.keep_prob:1})
         fscore = f1(args, pred, train_out[ptr:ptr+args.batch_size], length)
         print("train: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
         
@@ -268,6 +269,13 @@ def main(_):
                               model.keep_prob:1})
           fscore = f1(args, pred, testb_out, length)
           print("testb: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
+        if accuracy > maximum_linking:
+          maximum_linking = accuracy
+          loss1,pred,length,lstm_output = sess.run([loss_ent,model.prediction,model.length,model.output],
+                             {model.input_data:testb_input,
+                              model.output_data:testb_out,
+                              model.keep_prob:1})
+
           ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
                                                   getLinkingFeature(lstm_output,testb_ent_mention_index,testb_ent_mention_tag,\
                                                   testb_ent_relcoherent,testb_ent_mention_link_feature,testb_ent_linking_type,testb_ent_linking_candprob,0,flag='testb')

@@ -80,7 +80,7 @@ class nameEntityRecognition():
                                   self.model.output_data:test_out,
                                   self.model.keep_prob:1})
     fscore = f1(args, pred, test_out, length)
-    #cPickle.dump(pred,open('aida_testa_pred.p','wb'))
+    cPickle.dump(pred,open('data/ace/features/ace_NERresult.p','wb'))
     print "-----------------"
     print("test: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
     return lstm_output
@@ -90,13 +90,33 @@ if __name__=='__main__':
   testaUtils = inputUtils(args.rawword_dim,"testa")
   test_input = testaUtils.emb; test_out = testaUtils.tag
   '''
+  print 'start to load data...'
+  start_time = time.time()
+  dir_path = '/home/wjs/demo/entityType/informationExtract/data/ace/features'
+  test_input = cPickle.load(open(dir_path+'/ace_embed.p100','rb'))
+  print 'load data cost time:', time.time()-start_time
+  
+  testShape = np.shape(test_input)
+  
+  print testShape
+  
+  test_input  = np.concatenate((test_input,np.zeros([testShape[0],max(0,124-testShape[1]),testShape[2]])),axis=1)
+  
+  print np.shape(test_input)
+  testShape = np.shape(test_input)
+  assert testShape[1]==124
+  
+  test_out = np.zeros([testShape[0],testShape[1],args.class_size],dtype=np.float32)
+  
   config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
   config.gpu_options.allow_growth=True
   sess = tf.InteractiveSession(config=config);
   nerClass = nameEntityRecognition(sess);
-  print 'start to load data...'
-  start_time = time.time()
+  
+  '''
   testbUtils = inputUtils(args.rawword_dim,"testb")
   test_input = testbUtils.emb; test_out = testbUtils.tag;
-  print 'load data cost time:', time.time()-start_time
-  nerClass.getEntityRecognition(test_input,test_out)
+  '''
+  
+  #对ACE数据进行NER，但是其没有test_out部分数据，由于是test，所以我们自己去build一个zeros的矩阵代替，然后feed到网络中去！
+  lstm_output = nerClass.getEntityRecognition(test_input,test_out)
