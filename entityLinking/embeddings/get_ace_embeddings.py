@@ -64,14 +64,21 @@ def chunk(tag):
   return one_hot
 
 
-def capital(word):
+def capital(word,wtitleIndex):
+  wordl = word.lower()
   if ord('A') <= ord(word[0]) <= ord('Z'):
-      return np.array([1])
+    if wordl not in wtitleIndex:
+      if wordl in wtitleIndex[wordl]:
+        return np.array([1,0,0,0])  #whole in wtitle
+      else:
+        return np.array([0,1,0,0]) #part in wtitle
+    else:
+      return np.array([0,0,1,0]) #only big words
   else:
-      return np.array([0])
+    return np.array([0,0,0,1]) #lower words
 
 
-def get_input(model, word_dim, input_file,output_embed,sentence_length=-1):
+def get_input(model,wtitleIndex, word_dim, input_file,output_embed,sentence_length=-1):
   print('processing %s' % input_file)
   word = []
   tag = []
@@ -91,7 +98,7 @@ def get_input(model, word_dim, input_file,output_embed,sentence_length=-1):
     if line in [u'\n', u'\r\n']:
       for _ in range(max_sentence_length - sentence_length):
         tag.append(np.array([0] * 5))
-        temp = np.array([0 for _ in range(word_dim + 11)])
+        temp = np.array([0 for _ in range(word_dim + 14)])
         word.append(temp)
       
       sentence.append(word)
@@ -106,7 +113,7 @@ def get_input(model, word_dim, input_file,output_embed,sentence_length=-1):
       assert len(temp) == word_dim
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-      temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
+      temp = np.append(temp, capital(line.split()[0],wtitleIndex))  # adding capital embedding
       word.append(temp)
       '''
       t = line.split()[3]
@@ -138,10 +145,11 @@ if __name__ == '__main__':
   parser.add_argument('--use_model', type=str, help='model location', required=True)
   parser.add_argument('--model_dim', type=int, help='model dimension of words', required=True)
   
+  wtitleIndex = pkl.load(open('data/wtitleReverseIndex.p','rb')) 
   args = parser.parse_args()
   
   trained_model = pkl.load(open(args.use_model, 'rb'))
   #print trained_model.wvec_model.vocab
-  get_input(trained_model, args.model_dim, args.train, 
+  get_input(trained_model,wtitleIndex, args.model_dim, args.train, 
             args.dir_path+'/features/ace_embed.p'+str(args.model_dim),
             sentence_length=args.sentence_length)

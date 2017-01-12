@@ -6,7 +6,6 @@ function: generate entity mention using NER model results
 revise: 2017/1/11
 '''
 
-
 import sys
 sys.path.append('utils')
 sys.path.append('main1')
@@ -160,15 +159,15 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
   assert (len(sentence) == len(sentence_tag))
   print('start to save the data!!')
   
-  cpkl.dump(sentence, open(output_embed, 'wb'))
-  cpkl.dump(sentence_tag, open(output_tag, 'wb'))
+  #cpkl.dump(sentence, open(output_embed, 'wb'))
+  #cpkl.dump(sentence_tag, open(output_tag, 'wb'))
   '''
   @author:wujs
   revise time:2017/1/9, utilzie tf record to store the data
   '''
   print np.shape(sentence)
   print np.shape(sentence_tag)
-  #ner_d3array_TFRecord(sentence,sentence_tag,output_embed+'.tfrecords',output_embed+'.shape')
+  ner_d3array_TFRecord(sentence,sentence_tag,output_embed+'.tfrecords',output_embed+'.shape')
   #param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs}
   #cpkl.dump(param_dict, open(output_entms, 'wb'))
 
@@ -188,13 +187,14 @@ if __name__ == '__main__':
   print 'start to load wtitleReverseIndex'
   start_time = time.time()
   wtitleIndex = cpkl.load(open('data/wtitleReverseIndex.p','rb')) 
-  print 'finish load cost time:',time.time()-start_time
+  
   args = parser.parse_args()
   
-  
+  print 'start to load word2vec models!'
   trained_model = cpkl.load(open(args.use_model, 'rb'))
+  print 'finish load cost time:',time.time()-start_time
   #print trained_model.wvec_model.vocab
-  '''
+  
   data = cpkl.load(open(args.data_train,'r'))
   aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
   sents2id = {sent:i for i,sent in enumerate(sents)}
@@ -204,8 +204,9 @@ if __name__ == '__main__':
             args.dir_path+'/features/train_entms.p'+str(args.model_dim),
             id2aNosNo,sents2id,ents,tags,
             sentence_length=args.sentence_length)
-  '''
   
+  
+  '''
   data = cpkl.load(open(args.data_testa,'r'))
   aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
 
@@ -227,4 +228,4 @@ if __name__ == '__main__':
             args.dir_path+'/features/testb_entms.p'+str(args.model_dim),
             id2aNosNo,sents2id,ents,tags,
             sentence_length=args.sentence_length)
-  
+  '''

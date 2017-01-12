@@ -18,6 +18,7 @@ from glob import glob
 import linecache
 from spacy.en import English
 nlp = English()
+randvec = pkl.load(open('/home/wjs/demo/entityType/informationExtract/data/randomvec.p'))
 
 class MyCorpus:
   def __init__(self,args):
@@ -65,6 +66,7 @@ class WordVec:
   def __init__(self, args):
     self.restore = args.restore
     self.corpuss=MyCorpus(args)
+    
   def __train__(self,):
     if self.restore == None:
       print('start to train word2vec models ... ')
@@ -75,15 +77,18 @@ class WordVec:
                                  )
     else:
       self.wvec_model = Word2Vec.load_word2vec_format(args.restore, binary=True)
-    self.rand_model = RandomVec(args.dimension)
-
+    #self.rand_model = RandomVec(args.dimension)
+    '''
+    @revise 2017/1/12 所有的无法embedding的word都被embedding到'None'这个实体上去！
+    '''
+    #self.randvec = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/randomvec.p'))
   def __getitem__(self, word):
     word = word.lower()
     try:
       return self.wvec_model[word]
     except KeyError:
       print(word, 'is random initialize the words')
-      return self.rand_model[word]
+      return randvec
 
 
 if __name__ == '__main__':

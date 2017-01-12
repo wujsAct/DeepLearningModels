@@ -25,7 +25,7 @@ class ctxSum(Model):
       #entity linking 需要修正的是bilinear weights          
       self.bilinear_w_descrip = tf.get_variable(
                     "bilinear_w_description",
-                    shape=[self.args.rawword_dim,2*self.args.rnn_size],
+                    shape=[int(self.args.rawword_dim),2*self.args.rnn_size],
                     initializer=tf.contrib.layers.xavier_initializer())
       print self.bilinear_w_descrip
                   
@@ -58,7 +58,7 @@ class ctxSum(Model):
       '''
     #for every entity mention, there are 30 candidates entities
     self.ent_mention_linking_tag = tf.placeholder(tf.float32,[None,self.args.candidate_ent_num])
-    self.candidate_ent_linking_feature= tf.placeholder(tf.float32,[None,self.args.candidate_ent_num,self.args.rawword_dim])
+    self.candidate_ent_linking_feature= tf.placeholder(tf.float32,[None,self.args.candidate_ent_num,int(self.args.rawword_dim)])
     self.candidate_ent_type_feature = tf.placeholder(tf.float32,[None,self.args.candidate_ent_num,self.args.figer_type_num])
     self.candidate_ent_prob_feature = tf.placeholder(tf.float32,[None,self.args.candidate_ent_num,3])
     self.ent_mention_lstm_feature = tf.placeholder(tf.float32,[None,2*self.args.rnn_size,1])

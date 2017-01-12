@@ -5,13 +5,16 @@ import numpy as np
 class nelInputUtils(object):
   def __init__(self,dims,flag='train'):
     dir_path ='/home/wjs/demo/entityType/informationExtract/data/aida/features'
+#    if flag=='train':
+#      self.emb = pkl.load(open(dir_path+'/train_embed.p'+dims,'rb'))
+#      self.tag = pkl.load(open(dir_path+'/train_tag.p'+dims,'rb'))
+#      self.ent_linking  = pkl.load(open(dir_path+'/train_ent_linking.p','rb'))
+#      self.ent_linking_type  = pkl.load(open(dir_path+'/train_ent_linking_type.p','rb'))
+#      self.ent_relcoherent  = pkl.load(open(dir_path+'/train_ent_relcoherent.p','rb'))
+#      self.ent_linking_candprob = pkl.load(open(dir_path+'/train_ent_linking_candprob.p','rb'))
     if flag=='train':
-      self.emb = pkl.load(open(dir_path+'/train_embed.p'+dims,'rb'))
-      self.tag = pkl.load(open(dir_path+'/train_tag.p'+dims,'rb'))
-      self.ent_linking  = pkl.load(open(dir_path+'/train_ent_linking.p','rb'))
-      self.ent_linking_type  = pkl.load(open(dir_path+'/train_ent_linking_type.p','rb'))
-      self.ent_relcoherent  = pkl.load(open(dir_path+'/train_ent_relcoherent.p','rb'))
-      self.ent_linking_candprob = pkl.load(open(dir_path+'/train_ent_linking_candprob.p','rb'))
+      self.TFfileName = dir_path+'/trainNEL.tfrecord'
+      self.nelShapeFile = dir_path +'/trainNEL.shape'
     elif flag=='testa':
       self.emb = pkl.load(open(dir_path+'/test_a_embed.p'+dims,'rb'))
       self.tag = pkl.load(open(dir_path+'/test_a_tag.p'+dims,'rb'))
@@ -40,10 +43,11 @@ def getLinkingFeature(args,lstm_output,ent_mention_index,ent_mention_tag,ent_rel
   
   ent_index=[] #记录ent mention的位置
   lstm_index=[] #记录index的位置
-  if flag == 'train':
-    last_range = min(ptr+args.batch_size,allLenght)
-  else:
-    last_range = allLenght
+#  if flag == 'train':
+#    last_range = min(ptr+args.batch_size,allLenght)
+#  else:
+#    last_range = allLenght
+  last_range = allLenght
   for ids in xrange(ptr,last_range):
     tagid = 0
     for ent_item in ent_mention_index[ids]:
@@ -69,11 +73,14 @@ def getLinkingFeature(args,lstm_output,ent_mention_index,ent_mention_tag,ent_rel
         candidate_ent_prob_feature.append(ent_prob_candidates)
         ent_mention_lstm_feature.append(np.sum(lstm_output[ids-ptr][ent_item[0]:ent_item[1]],axis=0))
       tagid += 1
-  ent_mention_linking_tag_list = np.asarray(ent_mention_linking_tag_list)
-  candidate_ent_relcoherent_feature = np.asarray(candidate_ent_relcoherent_feature)
-  candidate_ent_linking_feature = np.asarray(candidate_ent_linking_feature)
-  candidate_ent_type_feature = np.asarray(candidate_ent_type_feature)
-  candidate_ent_prob_feature = np.asarray(candidate_ent_prob_feature)
-  ent_mention_lstm_feature = np.expand_dims(np.asarray(ent_mention_lstm_feature),2)
+  
+  ent_mention_linking_tag_list = np.asarray(ent_mention_linking_tag_list,dtype=np.int64)
+  candidate_ent_relcoherent_feature = np.asarray(candidate_ent_relcoherent_feature,dtype=np.float)
+  candidate_ent_linking_feature = np.asarray(candidate_ent_linking_feature,dtype=np.float)
+  candidate_ent_type_feature = np.asarray(candidate_ent_type_feature,dtype=np.float)
+  candidate_ent_prob_feature = np.asarray(candidate_ent_prob_feature,dtype=np.float)
+  ent_mention_lstm_feature = np.expand_dims(np.asarray(ent_mention_lstm_feature,dtype=np.float),2)
   
   return ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature
+  
+  
