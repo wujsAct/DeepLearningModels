@@ -7,9 +7,23 @@ revise: 2017/1/10
 import cPickle
 import numpy as np
 import codecs
+import collections
 
 dir_path = 'data/ace/'
 class_size = 5
+
+def getSents():
+  input_file = dir_path+'aceData.txt'
+  sents=[];senti =[]; chunki =[];
+  for line in codecs.open(input_file,'r','utf-8'):
+    if line in [u'\n', u'\r\n']:
+      sents.append([senti,chunki])
+      senti=[];chunki=[]
+    else:
+      line = line.strip()
+      items = line.split('\t')
+      senti.append(items[0]); chunki.append(items[2])
+  return sents
 
 def getNERTag(retlist):
   retlist = np.asarray(retlist)
@@ -20,6 +34,8 @@ def getNERTag(retlist):
   return ''.join(ret)
 
 '''load sentid2aNosNoid'''
+
+sents = getSents()
 sentid2aNosNoid = {}
 sentid = 0
 with open(dir_path+'sentid2aNosNoid.txt','r') as file:
@@ -27,6 +43,9 @@ with open(dir_path+'sentid2aNosNoid.txt','r') as file:
     line = line.strip()
     sentid2aNosNoid[sentid] = line
     sentid += 1
+aNosNoid2sentid ={}
+for key,value in sentid2aNosNoid.items():
+  aNosNoid2sentid[value]=key
 
 '''load the standard entity recognition result'''
 AFP_dict = {}
@@ -38,7 +57,8 @@ with codecs.open(dir_path+'entMen2aNosNoid.txt','r','utf-8') as file:
     line = line.strip()
     items = line.split(u'\t')
     #print items
-    ids=items[2]+'\t'+items[3]#+'\t'+items[4]
+    #ids=items[2]+'\t'+items[3]#+'\t'+items[4]
+    ids = items[2]+'\t'+items[3]+'\t'+items[4]
     if items[0] == u'AFP':
       AFP_dict[ids] = 1
       
@@ -58,40 +78,10 @@ aceShape = np.shape(ace_NERresult)
 '''
 we need to merge the adjacent same type 
 '''
-#right = 0
-#entMent=[]
-sents = aceShape[0]; seqLent = 124;
-#for i in xrange(sents):
-#  for j in xrange(seqLent):
-#    ret = getNERTag(ace_NERresult[i][j])
-#    item = [sentid2aNosNoid[i],j,tag_dict[ret]]
-#    afp_ids = item[0]+'\t'+str(item[1])
-#    if afp_ids in AFP_dict:
-#      print item,ace_NERresult[i][j]    
-#    if ret in tag_dict and ret !='00001':
-#      t1 = j -1
-#      if len(entMent) == 0:
-#        entMent.append(item)
-#      else:
-#        if item[0]==entMent[-1][0] and t1==entMent[-1][1] and item[2]==entMent[-1][2]:
-#          entMent.append(item)
-#        else:
-#          ids = entMent[0][0]+'\t'+str(entMent[0][1])#+'\t'+str(entMent[-1][1]+1)
-#          if ids in AFP_dict:
-#            print 'AFP:',item
-#          if ids in standard_entment:
-#            standard_entment[ids] = 1
-#            right += 1
-#          #print entMent[0][0],'\t',entMent[0][1],'\t',entMent[-1][1]+1,'\t',entMent[0][2]
-#          entMent=[item]
-#for key in standard_entment:
-#  if standard_entment[key]==0:
-#    print standard_entment_name[key]
-#print len(standard_entment)
-#print right*1.0
-#print right*1.0/len(standard_entment)
+sentlent = aceShape[0]; seqLent = 124;
+
 right = 0
-for i in xrange(sents):
+for i in xrange(sentlent):
   for j in xrange(seqLent):
     ids = sentid2aNosNoid[i]+'\t'+str(j)
     if ids in standard_entment:
@@ -102,3 +92,47 @@ for i in xrange(sents):
 print len(standard_entment)
 print right
 print right*1.0/len(standard_entment)
+
+'''
+@这种entity recognition的方法啦！假如已经全部处理完毕了哈
+'''
+
+'''
+entity mentions!
+'''
+sentid_entmention=collections.defaultdict(list)
+
+right = 0
+for key in standard_entment:
+  i = aNosNoid2sentid[key.split('\t')[0]]
+  j1 = int(key.split('\t')[1])
+  j2 = int(key.split('\t')[2])
+  print i,'\t',j1,'\t',j2
+  temp = 0
+  for j in xrange(j1,j2):  
+    tt = standard_entment_name[key].replace("'"," ").replace("."," ")
+    #print tt.split(" ")
+   
+    if getNERTag(ace_NERresult[i][j])!='00001' or 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j]:
+    #or tt.split(" ")[j-j1]==u'of' or tt.split(" ")[j-j1]==u'and':
+      temp +=1
+      
+  if temp == j2-j1:
+    right += 1
+    sentid_entmention[i].append([j1,j2,' '.join(sents[i][0][j1:j2])])  #代表所有的实体啦！
+  else:
+    print 'ents:',key,standard_entment_name[key],'\t',temp,j1,'\t',j2
+print right
+print len(sentid_entmention)
+
+ent_mention_index = [] 
+for i in xrange(sentlent):
+  ent_index = []
+  if i in sentid_entmention:
+    ent_index = sentid_entmention[i]
+  ent_mention_index.append(ent_index)
+  
+print sentlent
+print len(ent_mention_index)
+print ent_mention_index
+cPickle.dump(ent_mention_index,open(dir_path+'features/ent_mention_index.p','wb'))
