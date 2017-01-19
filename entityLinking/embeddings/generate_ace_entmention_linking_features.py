@@ -7,6 +7,7 @@ time: 2017/1/14
 import sys
 sys.path.append('/home/wjs/demo/entityType/informationExtract')
 sys.path.append('/home/wjs/demo/entityType/informationExtract/utils')
+from description_embed_model import MyCorpus,WordVec
 import cPickle
 import gensim
 import numpy as np
@@ -158,7 +159,7 @@ def get_candidate_ent_features():
       for mid in cand_mid_dict:  #仅有description,实体共现！
         if mid not in mid2description:   #用来去抓取需要linking的实体啦！filter to ensure all the result candidates has the description!
           print 'mide not in mid2description', mid
-          exit(-1)
+          #exit(-1)
       
         twordv = np.zeros((100,)) 
         ttypev = np.zeros((113,))
@@ -170,8 +171,10 @@ def get_candidate_ent_features():
           line = mid2description[mid]
           descript = processDescription(line)
           descrip_lent.append(len(descript))
+          #print descript
           for i in range(min(15,len(descript))):
             word = descript[i]
+            #print 'word:',word
             if word in descript_Words:
               twordv += descript_Words[word]
         '''
@@ -196,7 +199,7 @@ def get_candidate_ent_features():
       temps_tag.append(ent_mention_tag_temp)
       temps_cand_prob.append(tcandprob)
       #temps_ent_index.append((enti.startIndex,enti.endIndex))  #通过这个flag去抽取lstm最后一层的特征啦！
-      temps_ent_index.append(enti[0],enti[1])
+      temps_ent_index.append((enti[0],enti[1]))
     ent_mention_type_feature.append(temps_type)
     ent_mention_cand_prob_feature.append(temps_cand_prob)
     ent_mention_link_feature.append(temps)
@@ -250,15 +253,17 @@ print 'load mid2figer cost time:',time.time()-stime
   
 
 all_candidate_mids = cPickle.load(open("data/ace/features/ace_ent_cand_mid.p"))
-print all_candidate_mids
-get_all_candidate_mid_cocurrent()
+#print all_candidate_mids
+#get_all_candidate_mid_cocurrent()
 
-allcandents_coents = cPickle.load(open('data/ace/features/ace_ent_relcoherent.ptemp','rb'))   
-get_candidate_rel_features()
+#allcandents_coents = cPickle.load(open('data/ace/features/ace_ent_relcoherent.ptemp','rb'))   
+#get_candidate_rel_features()
 
 stime = time.time()
 descript_Words = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p', 'rb'))
 print 'load wordvec_model_100 cost time: ', time.time()-stime
+
+descript_Words = descript_Words.wvec_model
 
 stime = time.time()
 mid2description={}  #nearly 2.3G
@@ -269,3 +274,4 @@ with codecs.open('/home/wjs/demo/entityType/informationExtract/data/mid2descript
       mid2description[items[0]] =items[1]
 print 'load mid2descriptioon cost time: ', time.time()-stime
 
+get_candidate_ent_features()
