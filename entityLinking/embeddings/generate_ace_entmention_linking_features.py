@@ -149,7 +149,7 @@ def get_candidate_ent_features():
     #print i,'\tentM:',len(ents)
     for j in range(len(ents)):
       enti = ents[j][2];#enti_name = enti.lower()
-      print ents[j]
+      #print ents[j]
       k += 1  
       ent_mention_tag_temp = np.zeros((30,))
       tdescip = [];tcanditetype=[];tcandprob = []
@@ -201,7 +201,7 @@ def get_candidate_ent_features():
       temps_tag.append(ent_mention_tag_temp)
       temps_cand_prob.append(tcandprob)
       #temps_ent_index.append((enti.startIndex,enti.endIndex))  #通过这个flag去抽取lstm最后一层的特征啦！
-      temps_ent_index.append((enti[j][0],enti[j][1]))
+      temps_ent_index.append((ents[j][0],ents[j][1]))
     ent_mention_type_feature.append(temps_type)
     ent_mention_cand_prob_feature.append(temps_cand_prob)
     ent_mention_link_feature.append(temps)
