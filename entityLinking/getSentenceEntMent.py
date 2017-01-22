@@ -1,6 +1,12 @@
-#get aritcle_no sentence_no sentence entity_mentions
+# -*- coding: utf-8 -*-
+'''
+@time: 2016/12/5
+@editor: wujs
+@function: to generate the final candidate
+'''
 
 import sys
+import os
 sys.path.append('utils')
 sys.path.append('main1')
 sys.path.append('main2')
@@ -11,6 +17,7 @@ import cPickle
 from spacyUtils import spacyUtils
 from PhraseRecord import EntRecord
 from urllibUtils import urllibUtils
+from getCandiates import funcs
 
   
 if __name__=='__main__':
@@ -23,21 +30,24 @@ if __name__=='__main__':
   f_output1 = dir_path + sys.argv[4]
   f_output2 = dir_path + sys.argv[5]
   
-  #f_input context is: para_dict={'aNosNo2id':aNosNo2id,'id2aNosNo':id2aNosNo,'sents':sents,'tags':tags,'ents':ents,'depTrees':depTrees}
-  data = cPickle.load(open(f_input,'r'))
-  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['all_sentence_list']; ents=data['ents'];sents_real=data['sents'];tags=data['tags'];mentags=data['mentags']
-  f_output_w = codecs.open(f_output1,'w','utf-8')
-  for i in xrange(len(sents)):
-    f_output_w.write(sents[i]+'\n')
   
-  w2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wid2fbid.p','rb'))
-  wikititle2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
-  
-  #we also need to add the candidates ents description context!
   data = cPickle.load(open(f_input_canents,'r'))
   entstr2id = data['entstr2id'];
   id2entstr = {value:key for key,value in entstr2id.items()}
   candiate_ent = data['candiate_ent'];candiate_coCurrEnts = data['candiate_coCurrEnts']
+  
+  #f_input context is: para_dict={'aNosNo2id':aNosNo2id,'id2aNosNo':id2aNosNo,'sents':sents,'tags':tags,'ents':ents,'depTrees':depTrees}
+  data = cPickle.load(open(f_input,'r'))
+  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['all_sentence_list']; ents=data['ents'];sents_real=data['sents'];tags=data['tags'];mentags=data['mentags']
+  #这个word2vec，直接利用文本本身的信息作为训练集！
+  f_output_w = codecs.open(f_output1,'w','utf-8')
+  for i in xrange(len(sents)):
+    f_output_w.write(sents[i]+'\n')
+  f_output_w.close() 
+  print 'finish generate all sentences...'
+  '''
+  w2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wid2fbid.p','rb'))
+  wikititle2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))  
   candEnt_descrip_dict={}
   for ents in candiate_ent:
     for enti in ents:
@@ -59,6 +69,5 @@ if __name__=='__main__':
             candEnt_descrip_dict[wikititle2fb[titles]] = new_descrip
             print new_descrip
   cPickle.dump(candEnt_descrip_dict,open(f_output2,'wb'))          
-  f_output_w.close()
-   
+  '''
   

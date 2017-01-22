@@ -42,6 +42,8 @@ class namedEntityLinking(object):
     ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
                                                 getLinkingFeature(args,lstm_output_test,test_ent_mention_index,test_ent_mention_tag,\
                                                 test_ent_relcoherent,test_ent_mention_link_feature,test_ent_linking_type,test_ent_linking_candprob,0,flag='ace')
+    print 'ent_mention_linking_tag_list:',np.shape(ent_mention_linking_tag_list)
+    print 'candidate_ent_type_feature shape:',np.shape(candidate_ent_type_feature)
     loss2,accuracy,pred = self.sess.run([self.loss_linking,self.modelNEL.accuracy,self.modelNEL.prediction],
                                {self.modelNEL.ent_mention_linking_tag:ent_mention_linking_tag_list,
                                 self.modelNEL.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
@@ -72,8 +74,9 @@ if __name__=='__main__':
   test_ent_mention_link_feature=test_entliking['ent_mention_link_feature'];
   test_ent_mention_tag = test_entliking['ent_mention_tag']; 
   test_ent_relcoherent = testUtils.ent_relcoherent
-  test_ent_linking_type = testUtils.ent_linking_type; 
+  test_ent_linking_type = testUtils.ent_linking_type
   test_ent_linking_candprob = testUtils.ent_linking_candprob
+  
   
   features = {}
   features['test_ent_mention_index']=test_ent_mention_index

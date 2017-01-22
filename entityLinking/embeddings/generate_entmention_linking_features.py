@@ -89,7 +89,6 @@ def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fo
         ent_id += 1
         
       cand_mid_dict = all_candidate_mids[k]
-      cand_mid_coocurmid = []
       for mid in cand_mid_dict:    #注意细节的处理，不然数据处理非常麻烦呢！
         midt = mid.replace(u'/',u'.')[1:]
         new_mid = u'<http://rdf.freebase.com/ns/'+midt+u'>' #/m/0h5k 转换成freebase中完整的格式啦！

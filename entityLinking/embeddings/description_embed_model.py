@@ -83,11 +83,12 @@ class WordVec:
     '''
     #self.randvec = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/randomvec.p'))
   def __getitem__(self, word):
+    #需要是小写的字符
     word = word.lower()
     try:
       return self.wvec_model[word]
     except KeyError:
-      print(word, 'is random initialize the words')
+      #print(word, 'is random initialize the words')
       return randvec
 
 

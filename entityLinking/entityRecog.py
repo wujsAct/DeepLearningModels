@@ -21,7 +21,7 @@ flags.DEFINE_string("datasets","aida","dataset name")
 flags.DEFINE_integer("sentence_length",124,"max sentence length")
 flags.DEFINE_integer("class_size",5,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
-flags.DEFINE_integer("word_dim",111,"hidden dimension of rnn")
+flags.DEFINE_integer("word_dim",114,"hidden dimension of rnn")
 flags.DEFINE_integer("candidate_ent_num",30,"hidden dimension of rnn")
 flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
 flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
@@ -63,9 +63,7 @@ def f1(args, prediction, target, length):
 class nameEntityRecognition():
   def __init__(self,sess):
     self.sess = sess
-    start_time = time.time()
     #optimizer = tf.train.AdamOptimizer(0.003)   #when training, we do not need to build those.
-    
     self.model = seqLSTM(args)
     start_time = time.time()
     #print 'initiliaze parameters cost time:', time.time()-start_time
@@ -104,6 +102,7 @@ if __name__=='__main__':
   
   print np.shape(test_input)
   testShape = np.shape(test_input)
+  print testShape
   assert testShape[1]==124
   
   test_out = np.zeros([testShape[0],testShape[1],args.class_size],dtype=np.float32)

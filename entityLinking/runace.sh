@@ -13,4 +13,28 @@ generate named entity recognition datasets.
 !
 #rm -rf data/ace/features;
 #mkdir data/ace/features;
-python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --train ${dir_path}/aceData.txt --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
+#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --train ${dir_path}/aceData.txt --sentence_length 124 --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
+
+:<<!
+Named entity recognition using pre-trained NER model on CONLL datasets, very import module of our system
+only has the 98 percent correctness
+!
+#python entityRecog.py
+
+:<<!
+Extract entity mention from NER results
+generate data/ace/features/ent_mention_index.p
+!
+#python getNERentMentions.py
+
+:<<!
+generate candidate entities for entity mentions
+!
+#python getACECandiates.py
+
+
+:<<!
+generate entity linking features
+!
+#we also need to delete the non entity mention sentences!
+python embeddings/generate_ace_entmention_linking_features.py

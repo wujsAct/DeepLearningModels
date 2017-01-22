@@ -1,4 +1,4 @@
-from __future__ import print_function
+#from __future__ import print_function
 import argparse
 import cPickle
 import os
@@ -21,18 +21,24 @@ def remove_crap(input_file):
     ff.writelines(l)
     ff.close()
 
+'''
+@need to revise
+'''
 
 def modify_data_size(output_file, trim,sents):
     final_list = list()
     l = list()
     temp_len = 0
     count = 0
+    max_length=0
     for line in open('temp.txt', 'r'):
         if line in ['\n', '\r\n']:
+            if temp_len > max_length:
+              max_length = temp_len
             if temp_len == 0:
                 l = []
             elif temp_len > trim:
-                #print(l)
+                print(l)
                 count += 1
                 l = []
                 temp_len = 0
@@ -53,11 +59,12 @@ def modify_data_size(output_file, trim,sents):
             f.writelines(i)
         else:
             non_ents = non_ents + 1
-            print(i)
-            print('wrong....')
+            #print(i)
+            #print('wrong....')
     f.close()
     print('non entmentions sentences:%d' %(non_ents))
     print('%d sentences trimmed out of %d total sentences' % (count, len(final_list)))
+    print 'max_length:',max_length
     #os.system('rm temp.txt')
 
 

@@ -86,7 +86,7 @@ def main(_):
         average_linking_accuracy_train += accuracy
         average_loss_train += loss2
         id_epoch += 1
-
+      
         ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
                                                 getLinkingFeature(args,lstm_output_testa,testa_ent_mention_index,testa_ent_mention_tag,\
                                                 testa_ent_relcoherent,testa_ent_mention_link_feature,testa_ent_linking_type,testa_ent_linking_candprob,0,flag='testa')

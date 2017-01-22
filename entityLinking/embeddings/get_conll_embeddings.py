@@ -159,17 +159,17 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
   assert (len(sentence) == len(sentence_tag))
   print('start to save the data!!')
   
-  #cpkl.dump(sentence, open(output_embed, 'wb'))
-  #cpkl.dump(sentence_tag, open(output_tag, 'wb'))
+  cpkl.dump(sentence, open(output_embed, 'wb'))
+  cpkl.dump(sentence_tag, open(output_tag, 'wb'))
   '''
   @author:wujs
   revise time:2017/1/9, utilzie tf record to store the data
   '''
-  print np.shape(sentence)
-  print np.shape(sentence_tag)
-  ner_d3array_TFRecord(sentence,sentence_tag,output_embed+'.tfrecords',output_embed+'.shape')
-  #param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs}
-  #cpkl.dump(param_dict, open(output_entms, 'wb'))
+  #print np.shape(sentence)
+  #print np.shape(sentence_tag)
+  #ner_d3array_TFRecord(sentence,sentence_tag,output_embed+'.tfrecords',output_embed+'.shape')
+  param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs}
+  cpkl.dump(param_dict, open(output_entms, 'wb'))
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()

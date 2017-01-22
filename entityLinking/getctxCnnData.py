@@ -35,15 +35,15 @@ def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_re
   #print 'go into entNGD...'
   distRet = {};
   #first find all the ents we need to process
-  enti_title = enti.content.lower()
+  enti_title = enti.lower()
   enti_item = enti_title.split(u' ')
-  enti = enti_item[0]
+  enti_f = enti_item[0]
   totaldict=dict()
   if enti_title in wikititle_reverse_index:
     totaldict = wikititle_reverse_index[enti_title]
   else:
-    if enti in wikititle_reverse_index:
-      totaldict = wikititle_reverse_index[enti]
+    if enti_f in wikititle_reverse_index:
+      totaldict = wikititle_reverse_index[enti_f]
     
   for key in totaldict:
     if is_contain_ents(enti_title,key):
@@ -88,7 +88,7 @@ def get_cantent_mid(listentcs,w2fb,wikititle2fb):
   return cantent_mid
 
 def get_ent_word2vec_cands(enti,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1):
-  entiw = enti.content.replace(u' ',u'_')
+  entiw = enti.replace(u' ',u'_')
   if entiw in w2vModel:
     coherent_ents = w2vModel.most_similar(entiw,topn=10) #convert to gensim style
     k=1
@@ -121,7 +121,7 @@ def get_ent_word2vec_cands(enti,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_en
       
   return cantent_mid1
 
-def get_final_ent_cands(data_flag,w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,candiate_coCurrEnts,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index):
+def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index):
   '''
   @2016/12/15 目前可以达到89%的覆盖率了！ cut-off 设置为30
   
@@ -159,7 +159,6 @@ def get_final_ent_cands(data_flag,w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_h
   
   for i in tqdm(range(len(ent_Mentions))):
     ents = ent_Mentions[i]
-    ent_ctx = ent_ctxs[i]  #ent_ctx.append([aNo,ctx])
     
     for j in range(len(ents)):
       allentmention_numbers+=1
@@ -189,7 +188,6 @@ def get_final_ent_cands(data_flag,w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_h
         ent_id +=2
       else:
         ent_id += 1
-      aNo = ent_ctx[j][0]
       entids = entstr2id[enti_name]
       listentcs = []
       for entid in entids:
@@ -201,11 +199,11 @@ def get_final_ent_cands(data_flag,w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_h
           #cantent_mid1[wmid] = enti_name
           cantent_mid1[wmid] = [1,0,0]
   
-      cantent_mid2 = get_ent_word2vec_cands(enti,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1) #get word2vec coherent candidates
+      cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1) #get word2vec coherent candidates
       
       freebaseNum = max(0,30 - len(cantent_mid2))
       
-      cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching 这部分将花费很多的时间！
+      cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti.content,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching 这部分将花费很多的时间！
       final_mid = cantent_mid3
       totalCand = len(final_mid)
       #if tag in cantent_mid1 or tag in cantent_mid2 or tag in cantent_mid3:
@@ -261,6 +259,6 @@ if __name__=='__main__':
   
   print 'start to solve problems...'
   w2vModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin',binary=True)
-  all_candidate_mids = get_final_ent_cands(data_flag,w2vModel,ent_ctxs,entstr2id,ent_Mentions,aNo_has_ents,candiate_coCurrEnts,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index)
+  all_candidate_mids = get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index)
   cPickle.dump(all_candidate_mids,open(f_output,'wb'))
   

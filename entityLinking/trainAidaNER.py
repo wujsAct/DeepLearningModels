@@ -21,7 +21,7 @@ import time
 pp = pprint.PrettyPrinter()
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch",50,"Epoch to train[25]")
+flags.DEFINE_integer("epoch",25,"Epoch to train[25]")
 flags.DEFINE_integer("batch_size",256,"batch size of training")
 flags.DEFINE_string("datasets","aida","dataset name")
 flags.DEFINE_integer("sentence_length",124,"max sentence length")
