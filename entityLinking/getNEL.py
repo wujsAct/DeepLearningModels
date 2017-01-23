@@ -29,6 +29,7 @@ dir_path = 'data/ace/'
 entsFile = dir_path+'entMen2aNosNoid.txt'
 hasMid = 0
 entMentsTags={}
+entMents2surfaceName={}
 with codecs.open(entsFile,'r','utf-8') as file:
   for line in file:
     line = line.strip()
@@ -43,7 +44,7 @@ with codecs.open(entsFile,'r','utf-8') as file:
       print wikititle2fb[linkingEnt]
       hasMid +=1 
       entMentsTags[key] =wikititle2fb[linkingEnt]
-    
+      entMents2surfaceName[key] = entMent
 print 'entMentsTags nums:',len(entMentsTags)
 
 '''read sents2aNosNo'''
@@ -91,6 +92,8 @@ for ids in range(allLenght):
           recall += 1
         if predMid in entMentsTags[key] or entMentsTags[key]=='NIL':
           rightPred += 1
+        else:
+          print entMents2surfaceName[key],' right tag:',entMentsTags[key],' wrong tag:',predMid
       else:
         notinentmenttags += 1
       entids += 1
