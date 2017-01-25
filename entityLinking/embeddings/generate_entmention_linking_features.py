@@ -3,7 +3,7 @@
 @time: 2016/12/15
 @editor: wujs
 @function: to generate the entity linking features
-@description: 目前先使用freebase提供的entity embedding的结果。后期可以修改成transE等其他embedding的结果
+@description: 脛驴脟掳脧脠脢鹿脫脙freebase脤谩鹿漏碌脛entity embedding碌脛陆谩鹿没隆拢潞贸脝脷驴脡脪脭脨脼赂脛鲁脡transE碌脠脝盲脣没embedding碌脛陆谩鹿没
 '''
 
 import sys
@@ -31,7 +31,7 @@ mongoutils= mongoUtils()
 
 def processDescription(line):
   strs = line.split(u'@en')[0]          
-  strs = strs.replace(u'\\n',u' ') #此处有点奇怪呢！否则分句的时候会出现问题！
+  strs = strs.replace(u'\\n',u' ') #麓脣麓娄脫脨碌茫脝忙鹿脰脛脴拢隆路帽脭貌路脰戮盲碌脛脢卤潞貌禄谩鲁枚脧脰脦脢脤芒拢隆
   
   doc = nlp(strs)
   descript=[]
@@ -44,7 +44,7 @@ def processDescription(line):
         
 def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fout):
   '''
-  @2016/12/26 抽取候选实体间，是否在freebase中有共现
+  @2016/12/26 鲁茅脠隆潞貌脩隆脢碌脤氓录盲拢卢脢脟路帽脭脷freebase脰脨脫脨鹿虏脧脰
   '''
   ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
   if data_flag=='train':
@@ -60,7 +60,7 @@ def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fo
   k=-1
   for i in tqdm(range(len(ent_Mentions))):
   #for i in tqdm(xrange(145,200)):
-    ents = ent_Mentions[i]  #ents 中的entities表示在同一个doc中的实体！
+    ents = ent_Mentions[i]  #ents 脰脨碌脛entities卤铆脢戮脭脷脥卢脪禄赂枚doc脰脨碌脛脢碌脤氓拢隆
     tag = False
     doc_ents_cand_mid_dict=[]
     for j in range(len(ents)):
@@ -75,7 +75,7 @@ def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fo
       '''
       enti_linktag_item = ent_ment_link_tags[ent_id]
       tag = enti_linktag_item[1]
-      #有个小错误不太好排除，先这样处理吧！
+      #脫脨赂枚脨隆麓铆脦贸虏禄脤芦潞脙脜脜鲁媒拢卢脧脠脮芒脩霉麓娄脌铆掳脡拢隆
       if tag == 'NIL':
         if ent_id ==16787:
           ent_id += 2
@@ -89,9 +89,9 @@ def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fo
         ent_id += 1
         
       cand_mid_dict = all_candidate_mids[k]
-      for mid in cand_mid_dict:    #注意细节的处理，不然数据处理非常麻烦呢！
+      for mid in cand_mid_dict:    #脳垄脪芒脧赂陆脷碌脛麓娄脌铆拢卢虏禄脠禄脢媒戮脻麓娄脌铆路脟鲁拢脗茅路鲁脛脴拢隆
         midt = mid.replace(u'/',u'.')[1:]
-        new_mid = u'<http://rdf.freebase.com/ns/'+midt+u'>' #/m/0h5k 转换成freebase中完整的格式啦！
+        new_mid = u'<http://rdf.freebase.com/ns/'+midt+u'>' #/m/0h5k 脳陋禄禄鲁脡freebase脰脨脥锚脮没碌脛赂帽脢陆脌虏拢隆
         #print new_mid
         if new_mid not in allcandents:
           allcandents[new_mid] = mongoutils.get_coOccurent_ents(new_mid)
@@ -99,7 +99,7 @@ def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fo
 
 def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,allcandents_coents):
   '''
-  @2016/12/26 抽取候选实体间，是否在freebase中有共现
+  @2016/12/26 鲁茅脠隆潞貌脩隆脢碌脤氓录盲拢卢脢脟路帽脭脷freebase脰脨脫脨鹿虏脧脰
   '''
 #  param_dict = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
 #  entstr_lower2mid=param_dict['entstr_lower2mid']; mid2entstr_lower=param_dict['mid2entstr_lower']
@@ -117,7 +117,7 @@ def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,al
   k=-1
   for i in tqdm(range(len(ent_Mentions))):
   #for i in tqdm(xrange(145,200)):
-    ents = ent_Mentions[i]  #ents 中的entities表示在同一个doc中的实体！
+    ents = ent_Mentions[i]  #ents 脰脨碌脛entities卤铆脢戮脭脷脥卢脪禄赂枚doc脰脨碌脛脢碌脤氓拢隆
     doc_ents_cand_mid_dict=[]
     for j in range(len(ents)):
       enti = ents[j]
@@ -131,7 +131,7 @@ def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,al
       '''
       enti_linktag_item = ent_ment_link_tags[ent_id]
       tag = enti_linktag_item[1]
-      #有个小错误不太好排除，先这样处理吧！
+      #脫脨赂枚脨隆麓铆脦贸虏禄脤芦潞脙脜脜鲁媒拢卢脧脠脮芒脩霉麓娄脌铆掳脡拢隆
       if tag == 'NIL':
         if ent_id ==16787:
           ent_id += 2
@@ -148,22 +148,22 @@ def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,al
       cand_mid_coocurmid = []
       for mid in cand_mid_dict:
         midt = mid.replace(u'/',u'.')[1:]
-        new_mid = u'<http://rdf.freebase.com/ns/'+midt+u'>' #/m/0h5k 转换成freebase中完整的格式啦！
+        new_mid = u'<http://rdf.freebase.com/ns/'+midt+u'>' #/m/0h5k 脳陋禄禄鲁脡freebase脰脨脥锚脮没碌脛赂帽脢陆脌虏拢隆
         #print new_mid
         
         cand_mid_coocurmid.append(allcandents_coents[new_mid])
       doc_ents_cand_mid_dict.append(cand_mid_coocurmid)
     
     doc_temprelCoherent=[]
-    for i in range(len(doc_ents_cand_mid_dict)):
+    for icand in range(len(doc_ents_cand_mid_dict)):
       temprelCoherent = np.zeros((30,))
-      i_coocurmid=doc_ents_cand_mid_dict[i]
+      i_coocurmid=doc_ents_cand_mid_dict[icand]
       for ci in range(len(i_coocurmid)):
         midi=i_coocurmid[ci]
         hasRel = 0
-        for j in range(len(doc_ents_cand_mid_dict)):
-          j_coocurmid=doc_ents_cand_mid_dict[j]
-          if i!=j:
+        for jcand in range(len(doc_ents_cand_mid_dict)):
+          j_coocurmid=doc_ents_cand_mid_dict[jcand]
+          if icand!=jcand:
             for midj in j_coocurmid:
               if len(midi&midj)!=0:
                 hasRel +=1
@@ -177,7 +177,7 @@ def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,al
      
 def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2description,descript_Words,mid2figer,f_output,f_output1,f_output2):
   '''
-  @2016/12/15  v1: 最好的方法，根据mid去找相对应的wiki页面，然后进行训练！
+  @2016/12/15  v1: 脳卯潞脙碌脛路陆路篓拢卢赂霉戮脻mid脠楼脮脪脧脿露脭脫娄碌脛wiki脪鲁脙忙拢卢脠禄潞贸陆酶脨脨脩碌脕路拢隆
   '''
   ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
   if data_flag=='train':
@@ -192,7 +192,7 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
   descrip_lent=[]
   
   '''
-  此处特征的产生比较拗口呢！
+  麓脣麓娄脤脴脮梅碌脛虏煤脡煤卤脠陆脧脼脰驴脷脛脴拢隆
   '''
   ent_mention_index=[]
   ent_mention_link_feature=[] #shape: [line,ent_mention_num, 30(candidates number) * 100(dimension)]
@@ -217,14 +217,14 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
       enti_name = enti.content.lower()
       '''
       if enti_name not in entstr_lower2mid:
-        continue   # pass entity我们不进行处理啦！
+        continue   # pass entity脦脪脙脟虏禄陆酶脨脨麓娄脌铆脌虏拢隆
       else:
         k += 1
         tag = entstr_lower2mid[enti_name]
       ''' 
       enti_linktag_item = ent_ment_link_tags[ent_id]
       tag = enti_linktag_item[1]
-      #有个小错误不太好排除，先这样处理吧！
+      #脫脨赂枚脨隆麓铆脦贸虏禄脤芦潞脙脜脜鲁媒拢卢脧脠脮芒脩霉麓娄脌铆掳脡拢隆
       if tag == 'NIL':
         if ent_id ==16787:
           ent_id += 2
@@ -244,8 +244,8 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
       
       cand_mid_dict = all_candidate_mids[k]
   
-      for mid in cand_mid_dict:  #仅有description,实体共现！
-        if mid not in mid2description and mid == tag:   #用来去抓取需要linking的实体啦！filter to ensure all the result candidates has the description!
+      for mid in cand_mid_dict:  #陆枚脫脨description,脢碌脤氓鹿虏脧脰拢隆
+        if mid not in mid2description and mid == tag:   #脫脙脌麓脠楼脳楼脠隆脨猫脪陋linking碌脛脢碌脤氓脌虏拢隆filter to ensure all the result candidates has the description!
           print 'mide not in mid2description', mid
         if mid == tag:
           ent_mention_tag_temp[tag_t] = 1
@@ -253,18 +253,31 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
         
         twordv = np.zeros((100,)) 
         ttypev = np.zeros((113,))
-        if mid in mid2figer:         #也有很多实体并没有figer的type所以这个特征也为0
+        if mid in mid2figer:         #脪虏脫脨潞脺露脿脢碌脤氓虏垄脙禄脫脨figer碌脛type脣霉脪脭脮芒赂枚脤脴脮梅脪虏脦陋0
           for midtype in mid2figer[mid]:
             ttypev[midtype]=1
            
-        if mid in mid2description:  #不需要这个条件的哈，因为很多实体都缺少这个条件，对于那些不popular的候选实体啦！
+        if mid in mid2description:  #虏禄脨猫脪陋脮芒赂枚脤玫录镁碌脛鹿镁拢卢脪貌脦陋潞脺露脿脢碌脤氓露录脠卤脡脵脮芒赂枚脤玫录镁拢卢露脭脫脷脛脟脨漏虏禄popular碌脛潞貌脩隆脢碌脤氓脌虏拢隆
           line = mid2description[mid]
           descript = processDescription(line)
           descrip_lent.append(len(descript))
-          for i in range(min(15,len(descript))):
-            word = descript[i]
+          '''@2017/1/25 position encoding(PE)'''
+          qlent = 0
+          tempWordEmbed=[]
+          for idescrip in range(min(15,len(descript))):
+            
+            word = descript[idescrip]
             if word in descript_Words:
-              twordv += descript_Words[word]
+              qlent +=1
+              tempWordEmbed.append(descript_Words[word])
+              
+          for idescrip in range(qlent):
+            li =[]
+            for jdescrip in range(100):  #100 stands for embedding dimension
+              li.append(min((idescrip+1)*100/((jdescrip+1)*qlent),((jdescrip+1)*qlent)/((idescrip+1)*100)))
+            twordv += tempWordEmbed[idescrip] * np.asarray(li)
+              
+          
         '''
         @add candidate entity type features!
         '''
@@ -286,7 +299,7 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
       temps.append(tdescip)
       temps_tag.append(ent_mention_tag_temp)
       temps_cand_prob.append(tcandprob)
-      temps_ent_index.append((enti.startIndex,enti.endIndex))  #通过这个flag去抽取lstm最后一层的特征啦！
+      temps_ent_index.append((enti.startIndex,enti.endIndex))  #脥篓鹿媒脮芒赂枚flag脠楼鲁茅脠隆lstm脳卯潞贸脪禄虏茫碌脛脤脴脮梅脌虏拢隆
     ent_mention_type_feature.append(temps_type)
     ent_mention_cand_prob_feature.append(temps_cand_prob)
     ent_mention_link_feature.append(temps)
@@ -318,7 +331,7 @@ if __name__=='__main__':
   data_flag = sys.argv[9]
   '''
   @time: 2016/12/23
-  @function: load re-rank feature：entity type
+  @function: load re-rank feature拢潞entity type
   '''
   
   stime = time.time()
@@ -333,9 +346,9 @@ if __name__=='__main__':
   print 'load dataEnts candidates cost time:',time.time()-stime
   
   
-  #get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,f_outputtemp)   #之前已经从freebase里面抽取了的！  每次调试程序的时候，可以把这个注释掉，先优先跑一遍这个结果！
-  #allcandents_coents = cPickle.load(open(f_outputtemp,'rb'))   
-  #get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,f_output3,allcandents_coents)
+  #get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,f_outputtemp)   #脰庐脟掳脪脩戮颅麓脫freebase脌茂脙忙鲁茅脠隆脕脣碌脛拢隆  脙驴麓脦碌梅脢脭鲁脤脨貌碌脛脢卤潞貌拢卢驴脡脪脭掳脩脮芒赂枚脳垄脢脥碌么拢卢脧脠脫脜脧脠脜脺脪禄卤茅脮芒赂枚陆谩鹿没拢隆
+  allcandents_coents = cPickle.load(open(f_outputtemp,'rb'))   
+  get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,f_output3,allcandents_coents)
   
   
   
