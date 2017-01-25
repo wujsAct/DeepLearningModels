@@ -107,15 +107,15 @@ def get_candidate_rel_features():
       doc_ents_cand_mid_dict.append(cand_mid_coocurmid)
       
     doc_temprelCoherent=[]
-    for i in range(len(doc_ents_cand_mid_dict)):
+    for icand in range(len(doc_ents_cand_mid_dict)):
       temprelCoherent = np.zeros((30,))
-      i_coocurmid=doc_ents_cand_mid_dict[i]
+      i_coocurmid=doc_ents_cand_mid_dict[icand]
       for ci in range(len(i_coocurmid)):
         midi=i_coocurmid[ci]
         hasRel = 0
-        for j in range(len(doc_ents_cand_mid_dict)):
-          j_coocurmid=doc_ents_cand_mid_dict[j]
-          if i!=j:
+        for jcand in range(len(doc_ents_cand_mid_dict)):
+          j_coocurmid=doc_ents_cand_mid_dict[jcand]
+          if icand!=jcand:
             for midj in j_coocurmid:
               if len(midi&midj)!=0:
                 hasRel +=1
@@ -172,11 +172,26 @@ def get_candidate_ent_features():
           descript = processDescription(line)
           descrip_lent.append(len(descript))
           #print descript
-          for i in range(min(15,len(descript))):
-            word = descript[i]
-            #print 'word:',word
+#          for i in range(min(15,len(descript))):
+#            word = descript[i]
+#            #print 'word:',word
+#            if word in descript_Words:
+#              twordv += descript_Words[word]
+          '''@2017/1/25 position encoding(PE)'''
+          qlent = 0
+          tempWordEmbed=[]
+          for idescrip in range(min(15,len(descript))):
+            
+            word = descript[idescrip]
             if word in descript_Words:
-              twordv += descript_Words[word]
+              qlent +=1
+              tempWordEmbed.append(descript_Words[word])
+              
+          for idescrip in range(qlent):
+            li =[]
+            for jdescrip in range(100):  #100 stands for embedding dimension
+              li.append(min((idescrip+1)*100/((jdescrip+1)*qlent),((jdescrip+1)*qlent)/((idescrip+1)*100)))
+            twordv += tempWordEmbed[idescrip] * np.asarray(li)
         '''
         @add candidate entity type features!
         '''
