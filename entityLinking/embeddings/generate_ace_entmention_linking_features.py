@@ -157,8 +157,8 @@ def get_candidate_ent_features():
       cand_mid_dict = all_candidate_mids[k]
   
       for mid in cand_mid_dict:  #仅有description,实体共现！
-        if mid not in mid2description:   #用来去抓取需要linking的实体啦！filter to ensure all the result candidates has the description!
-          print 'mide not in mid2description', mid
+        if mid not in mid2description:#用来去抓取需要linking的实体啦！filter to ensure all the result candidates has the description!
+          print 'mid not in mid2description', mid
           #exit(-1)
       
         twordv = np.zeros((100,)) 
