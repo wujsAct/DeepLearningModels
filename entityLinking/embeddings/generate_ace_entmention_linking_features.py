@@ -273,8 +273,8 @@ all_candidate_mids = cPickle.load(open("data/ace/features/ace_ent_cand_mid.p"))
 #print all_candidate_mids
 #get_all_candidate_mid_cocurrent()
 
-#allcandents_coents = cPickle.load(open('data/ace/features/ace_ent_relcoherent.ptemp','rb'))   
-#get_candidate_rel_features()
+allcandents_coents = cPickle.load(open('data/ace/features/ace_ent_relcoherent.ptemp','rb'))   
+get_candidate_rel_features()
 
 stime = time.time()
 descript_Words = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p', 'rb'))
