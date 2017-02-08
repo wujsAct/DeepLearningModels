@@ -37,11 +37,12 @@ class namedEntityLinking(object):
     test_ent_relcoherent = features['test_ent_relcoherent']
     test_ent_linking_type = features['test_ent_linking_type']
     test_ent_linking_candprob = features['test_ent_linking_candprob']
+    test_ent_surfacewordv_feature = features['test_ent_surfacewordv_feature']
     
     lstm_output_test=features['lstm_output_test']
-    ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
+    ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,ent_mention_lstm_feature,candidate_ent_relcoherent_feature,ent_surfacewordv_feature = \
                                                 getLinkingFeature(args,lstm_output_test,test_ent_mention_index,test_ent_mention_tag,\
-                                                test_ent_relcoherent,test_ent_mention_link_feature,test_ent_linking_type,test_ent_linking_candprob,0,flag='ace')
+                                                test_ent_relcoherent,test_ent_mention_link_feature,test_ent_linking_type,test_ent_linking_candprob,test_ent_surfacewordv_feature,0,flag='ace')
     print 'ent_mention_linking_tag_list:',np.shape(ent_mention_linking_tag_list)
     print 'candidate_ent_type_feature shape:',np.shape(candidate_ent_type_feature)
     loss2,accuracy,pred = self.sess.run([self.loss_linking,self.modelNEL.accuracy,self.modelNEL.prediction],
@@ -50,7 +51,8 @@ class namedEntityLinking(object):
                                 self.modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
                                 self.modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
                                 self.modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                                self.modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature
+                                self.modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature,
+                                self.modelNEL.ent_surfacewordv_feature:ent_surfacewordv_feature
                                })
      
     cPickle.dump(pred,open('data/ace/entityLinkingResult.p','wb'))                                           
@@ -68,7 +70,7 @@ if __name__=='__main__':
   assert testShape[1]==124
   
   test_out = np.zeros([testShape[0],testShape[1],args.class_size],dtype=np.float32)
-  #test_out = testaUtils.tag; 需要根据test_input shape to generate all zeros 
+  #test_out = testaUtils.tag;
   test_entliking= testUtils.ent_linking;
   test_ent_mention_index = test_entliking['ent_mention_index'];
   test_ent_mention_link_feature=test_entliking['ent_mention_link_feature'];
@@ -76,6 +78,7 @@ if __name__=='__main__':
   test_ent_relcoherent = testUtils.ent_relcoherent
   test_ent_linking_type = testUtils.ent_linking_type
   test_ent_linking_candprob = testUtils.ent_linking_candprob
+  test_ent_surfacewordv_feature = testUtils.ent_surfacewordv_feature
   
   
   features = {}
@@ -85,6 +88,7 @@ if __name__=='__main__':
   features['test_ent_relcoherent']=test_ent_relcoherent
   features['test_ent_linking_type']=test_ent_linking_type
   features['test_ent_linking_candprob']=test_ent_linking_candprob
+  features['test_ent_surfacewordv_feature'] = test_ent_surfacewordv_feature
   
   '''function: lstm_output from seqLSTM'''
   config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)

@@ -131,36 +131,50 @@ def get_candidate_ent_features():
   '''
   此处特征的产生比较拗口呢！
   '''
+  ent_mention_surface_wordv=[]
+  ent_mention_cand_prob_feature=[]
+  ''''
   ent_mention_index=[]
   ent_mention_link_feature=[] #shape: [line,ent_mention_num, 30(candidates number) * 100(dimension)]
   ent_mention_tag = []  #shape:[line,ent_mention_num,30]
   ent_mention_type_feature=[]   #shape:[line,ent_mention_num,30* 113(one hot type dimension)]
-  ent_mention_cand_prob_feature=[]
   
+  '''
   k  = -1
   for i in tqdm(range(len(ent_Mentions))):
   #for i in tqdm(range(100)):
     ents = ent_Mentions[i]
+    temps_mentwordv=[]
+    temps_cand_prob=[]
+    '''
     temps =[]
     temps_type=[]
     temps_tag = []
-    temps_cand_prob=[]
+    
     temps_ent_index=[]
+    '''
     #print i,'\tentM:',len(ents)
     for j in range(len(ents)):
       enti = ents[j][2];#enti_name = enti.lower()
       #print ents[j]
       k += 1  
+      tmentwordv=[]
+      tcandprob = []
+      '''
       ent_mention_tag_temp = np.zeros((30,))
-      tdescip = [];tcanditetype=[];tcandprob = []
-      
+      tdescip = [];tcanditetype=[];
+      '''
       cand_mid_dict = all_candidate_mids[k]
   
       for mid in cand_mid_dict:  #仅有description,实体共现！
         if mid not in mid2description:#用来去抓取需要linking的实体啦！filter to ensure all the result candidates has the description!
           print 'mid not in mid2description', mid
           #exit(-1)
-      
+        if mid in fid2vec:
+          tmentv = fid2vec[mid]
+        else:
+          tmentv = np.zeros((100,))
+        '''
         twordv = np.zeros((100,)) 
         ttypev = np.zeros((113,))
         if mid in mid2figer:         #也有很多实体并没有figer的type所以这个特征也为0
@@ -177,7 +191,7 @@ def get_candidate_ent_features():
 #            #print 'word:',word
 #            if word in descript_Words:
 #              twordv += descript_Words[word]
-          '''@2017/1/25 position encoding(PE)'''
+          #@2017/1/25 position encoding(PE)
           qlent = 0
           tempWordEmbed=[]
           for idescrip in range(min(15,len(descript))):
@@ -193,13 +207,11 @@ def get_candidate_ent_features():
               li.append(min((idescrip+1)*100/((jdescrip+1)*qlent),((jdescrip+1)*qlent)/((idescrip+1)*100)))
             twordv += tempWordEmbed[idescrip] * np.asarray(li)
         '''
+        
+        '''
         @add candidate entity type features!
         '''
-        if len(tcandprob)==0:
-          tcandprob = np.asarray(cand_mid_dict[mid])
-        else:
-          tcandprob = np.concatenate((tcandprob,np.asarray(cand_mid_dict[mid])))
-        
+        '''
         if len(tcanditetype)==0:
           tcanditetype = ttypev
         else:
@@ -211,17 +223,43 @@ def get_candidate_ent_features():
           tdescip = np.concatenate((tdescip,twordv))
         assert np.shape(tcanditetype)[0]/113 == np.shape(tdescip)[0]/100
         assert np.shape(tcandprob)[0]/3 == np.shape(tcanditetype)[0]/113
+        '''
+        temp_cand_prob_mid = []
+        for i_temp_cand_mid in range(len(cand_mid_dict[mid])):
+          if cand_mid_dict[mid][i_temp_cand_mid] >0:
+            temp_cand_prob_mid.append(1)
+          else:
+            temp_cand_prob_mid.append(0)
+        if len(tcandprob)==0:
+          #tcandprob = np.asarray(cand_mid_dict[mid])
+          tcandprob = np.asarray(temp_cand_prob_mid)
+        else:
+          #tcandprob = np.concatenate((tcandprob,np.asarray(cand_mid_dict[mid])))
+          tcandprob = np.concatenate((tcandprob,np.asarray(temp_cand_prob_mid))) 
+        if len(tmentwordv)==0:
+          tmentwordv = tmentv
+        else:
+          tmentwordv = np.concatenate((tmentwordv,tmentv))  
+      temps_mentwordv.append(tmentwordv)
+      temps_cand_prob.append(tcandprob)
+      '''
       temps_type.append(tcanditetype)
       temps.append(tdescip)
       temps_tag.append(ent_mention_tag_temp)
-      temps_cand_prob.append(tcandprob)
+      
       #temps_ent_index.append((enti.startIndex,enti.endIndex))  #通过这个flag去抽取lstm最后一层的特征啦！
       temps_ent_index.append((ents[j][0],ents[j][1]))
-    ent_mention_type_feature.append(temps_type)
+      '''
+    ent_mention_surface_wordv.append(temps_mentwordv)
     ent_mention_cand_prob_feature.append(temps_cand_prob)
+    '''
+    ent_mention_type_feature.append(temps_type)
+    
     ent_mention_link_feature.append(temps)
     ent_mention_tag.append(temps_tag)
-    ent_mention_index.append(temps_ent_index)   
+    ent_mention_index.append(temps_ent_index)  
+    '''
+  '''
   print len(ent_mention_link_feature),len(ent_mention_link_feature[3]),len(ent_mention_link_feature[3][0])
   print len(ent_mention_tag),len(ent_mention_tag[3]),len(ent_mention_tag[3][0])
   print len(ent_mention_index),len(ent_mention_index[3]),len(ent_mention_index[3][0])
@@ -230,9 +268,10 @@ def get_candidate_ent_features():
   cPickle.dump(param_dict,open("data/ace/features/ace_ent_linking.p",'wb'))
   print len(ent_mention_type_feature),len(ent_mention_type_feature[3]),len(ent_mention_type_feature[3][0])
   cPickle.dump(ent_mention_type_feature,open("data/ace/features/ace_ent_linking_type.p",'wb'))
-  cPickle.dump(ent_mention_cand_prob_feature,open("data/ace/features/testa_ent_linking_candprob.p",'wb'))     
-              
-            
+  '''
+  cPickle.dump(ent_mention_cand_prob_feature,open("data/ace/features/ace_ent_linking_candprob.p",'wb'))     
+  
+  cPickle.dump(ent_mention_surface_wordv,open("data/ace/features/ace_ent_mentwordv.p",'wb'))         
             
 ent_Mentions = cPickle.load(open('data/ace/features/ent_mention_index.p'))
 print ent_Mentions
@@ -264,6 +303,41 @@ all_candidate_mids = get_final_ent_cands()
 
 cPickle.dump(all_candidate_mids,open(f_output,'wb'))
 '''
+
+
+'''
+@time: 2017/2/8
+@function: load re-rank feature£ºentity type
+'''
+fid2title = collections.defaultdict(list)
+fid2vec = {}
+wtitle2fid = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
+for key in wtitle2fid:
+  for item in wtitle2fid[key]:
+    fid2title[item].append(key)
+'''
+@time: 2016/12/23
+@function: load re-rank feature£ºentity type
+'''  
+stime = time.time()
+descript_Words = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p', 'rb'))
+print 'load wordvec_model_100 cost time: ', time.time()-stime
+
+wordsVectors = descript_Words.wvec_model
+    
+for key in fid2title:
+  num = 0
+  fwordv = np.zeros((100,))
+  for item in fid2title[key]:    
+    num += 1
+    twordv = np.zeros((100,))
+    for word in item.split(u' '):
+      if word in wordsVectors:
+        twordv += wordsVectors[word]
+    fwordv += twordv
+  fwordv /=num
+  fid2vec[key] = fwordv  
+           
 stime = time.time()
 mid2figer = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/mid2figer.p','rb'))
 print 'load mid2figer cost time:',time.time()-stime
@@ -273,8 +347,8 @@ all_candidate_mids = cPickle.load(open("data/ace/features/ace_ent_cand_mid.p"))
 #print all_candidate_mids
 #get_all_candidate_mid_cocurrent()
 
-allcandents_coents = cPickle.load(open('data/ace/features/ace_ent_relcoherent.ptemp','rb'))   
-get_candidate_rel_features()
+#allcandents_coents = cPickle.load(open('data/ace/features/ace_ent_relcoherent.ptemp','rb'))   
+#get_candidate_rel_features()
 
 stime = time.time()
 descript_Words = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p', 'rb'))
