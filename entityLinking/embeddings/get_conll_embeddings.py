@@ -66,21 +66,19 @@ def chunk(tag):
   return one_hot
 
 '''
-revise time: 2017/1/11, 闇�瑕佸姞涓婄壒寰佹槸鍚﹀湪鐭ヨ瘑搴撲腑瀛樺湪杩欎釜瀹炰綋锛宒ata/wtitleReverseIndex.p  ==锛熸潵鎻愬崌瀵规病瑙佽繃鐨勫疄浣撹繘琛屾娊鍙栧搱锛?涓嶇劧浣跨敤conell杩涜鐗瑰緛璁粌鐨勮瘽锛屽お渚濊禆word embedding杩欎釜鍙橀噺浜嗭紒
+revise time: 2017/1/11
 '''
-def capital(word,wtitleIndex):
+def capital(word,prevword,wtitleIndex):
   wordl = word.lower()
+  ret = np.array([0,0,0,0])
   if ord('A') <= ord(word[0]) <= ord('Z'):
-    if wordl not in wtitleIndex:
-      if wordl in wtitleIndex[wordl]:
-        return np.array([1,0,0,0])  #whole in wtitle
-      else:
-        return np.array([0,1,0,0]) #part in wtitle
-    else:
-      return np.array([0,0,1,0]) #only big words
-  else:
-    return np.array([0,0,0,1]) #lower words
-
+    ret[0]=1
+  if wordl in wtitleIndex:
+    ret[1]=1
+    if wordl in wtitleIndex[wordl]:
+      ret[2]=1
+  if ord('A') <= ord(prevword[0]) <= ord('Z'):  #前一个是否为大写，类似crf的特征了！
+    ret[3]=1
 
 def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,output_entms,id2aNosNo,sents2id,ents,tags, sentence_length=-1):
   print('processing %s' % input_file)
@@ -97,9 +95,11 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
   else:
     max_sentence_length = sentence_length
   sentence_length = 0
+  prevword=''
   print("max sentence length is %d" % max_sentence_length)
   for line in codecs.open(input_file,'r','utf-8'):
     if line in [u'\n', u'\r\n']:
+      
       for _ in range(max_sentence_length - sentence_length):
         tag.append(np.array([0] * 5))
         temp = np.array([0 for _ in range(word_dim + 14)])   #此处出现了一个错误哈！
@@ -131,14 +131,17 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
       sent=[]
     else:
       assert (len(line.split()) == 4)
+      if sentence_length==0:
+        prevword=' '
       sentence_length += 1
+     
       temp = model[line.split()[0]]
       sent.append(line.split()[0])
       #print(line.split()[0])
       assert len(temp) == word_dim
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-      temp = np.append(temp, capital(line.split()[0],wtitleIndex))  # adding capital embedding
+      temp = np.append(temp, prevword,capital(line.split()[0],wtitleIndex))  # adding capital embedding
       word.append(temp)
       t = line.split()[3]
       # Five classes 0-None,1-Person,2-Location,3-Organisation,4-Misc
@@ -155,6 +158,7 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
       else:
         print("error in input tag {%s}" % t)
         sys.exit(0)
+      prevword = line.split()[0]
   print('finished!!')
   assert (len(sentence) == len(sentence_tag))
   print('start to save the data!!')
