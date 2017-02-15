@@ -5,9 +5,6 @@ sys.path.append('utils')
 sys.path.append('main1')
 sys.path.append('main2')
 sys.path.append('embeddings')
-from spacyUtils import spacyUtils
-from mongoUtils import mongoUtils
-from PhraseRecord import EntRecord
 from gensim.models.word2vec import Word2Vec
 from random_vec import RandomVec
 from description_embed_model import WordVec,MyCorpus
@@ -24,13 +21,15 @@ import argparse
 def find_max_length(file_name):
   temp_len = 0
   max_length = 0
-  for line in open(file_name):
-      if line in ['\n', '\r\n']:
-          if temp_len > max_length:
-              max_length = temp_len
-          temp_len = 0
-      else:
-          temp_len += 1
+  maxlenLine = ""
+  with codecs.open(file_name,'r','utf-8') as content_file:
+    text = content_file.read()
+    for items in text.split('\n\n'):
+      temp_len = len(items.split('\n'))
+      if temp_len > max_length:
+        max_length = temp_len
+        maxlenLine = items
+  print maxlenLine
   return max_length
 
 
@@ -64,35 +63,32 @@ def chunk(tag):
   return one_hot
 
 
-def capital(word,wtitleIndex):
+def capital(word,prevword,wtitleIndex):
   wordl = word.lower()
+  ret = np.array([0,0,0,0])
   if ord('A') <= ord(word[0]) <= ord('Z'):
-    if wordl not in wtitleIndex:
-      if wordl in wtitleIndex[wordl]:
-        return np.array([1,0,0,0])  #whole in wtitle
-      else:
-        return np.array([0,1,0,0]) #part in wtitle
-    else:
-      return np.array([0,0,1,0]) #only big words
-  else:
-    return np.array([0,0,0,1]) #lower words
+    ret[0]=1
+  if wordl in wtitleIndex:
+    ret[1]=1
+    if wordl in wtitleIndex[wordl]:
+      ret[2]=1
+  if ord('A') <= ord(prevword[0]) <= ord('Z'):  #previous tags!
+    ret[3]=1
+  return ret
 
 
 def get_input(model,wtitleIndex, word_dim, input_file,output_embed,sentence_length=-1):
   print('processing %s' % input_file)
   word = []
   tag = []
-  sent=[]
   sentence = []
-  ent_Mentions = []
-  ent_ctxs = []
-  aNo_has_ents=collections.defaultdict(set)
   if sentence_length == -1:
     max_sentence_length = find_max_length(input_file)
   else:
     max_sentence_length = sentence_length
   print 'max sentence length:',max_sentence_length
   sentence_length = 0
+  prevword=''
   print("max sentence length is %d" % max_sentence_length)
   for line in codecs.open(input_file,'r','utf-8'):
     if line in [u'\n', u'\r\n']:
@@ -108,13 +104,16 @@ def get_input(model,wtitleIndex, word_dim, input_file,output_embed,sentence_leng
       tag = []
     else:
       assert (len(line.split()) == 3)
+      if sentence_length==0:
+        prevword=' '
       sentence_length += 1
       temp = model[line.split()[0]]
       assert len(temp) == word_dim
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-      temp = np.append(temp, capital(line.split()[0],wtitleIndex))  # adding capital embedding
+      temp = np.append(temp, capital(line.split()[0],prevword,wtitleIndex))  # adding capital embedding
       word.append(temp)
+      prevword = line.split()[0]
       '''
       t = line.split()[3]
       # Five classes 0-None,1-Person,2-Location,3-Organisation,4-Misc
@@ -144,12 +143,21 @@ if __name__ == '__main__':
   parser.add_argument('--sentence_length', type=int, default=-1, help='max sentence length')
   parser.add_argument('--use_model', type=str, help='model location', required=True)
   parser.add_argument('--model_dim', type=int, help='model dimension of words', required=True)
-  
-  wtitleIndex = pkl.load(open('data/wtitleReverseIndex.p','rb')) 
   args = parser.parse_args()
+  max_sentence_length = find_max_length(args.train)
   
+  print max_sentence_length
+  print 'start to load wtitleReverseIndex'
+  start_time = time.time()
+  wtitleIndex = pkl.load(open('data/wtitleReverseIndex.p','rb')) 
+  
+  print 'load data cost time:',time.time()-start_time
+  
+  print 'start to load word2vec'
+  start_time = time.time()
   trained_model = pkl.load(open(args.use_model, 'rb'))
+  print 'load data cost time:',time.time()-start_time
   #print trained_model.wvec_model.vocab
   get_input(trained_model,wtitleIndex, args.model_dim, args.train, 
-            args.dir_path+'/features/ace_embed.p'+str(args.model_dim),
+            args.dir_path+'/features/msnbc_embed.p'+str(args.model_dim),
             sentence_length=args.sentence_length)

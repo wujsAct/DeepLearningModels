@@ -112,7 +112,7 @@ def nel_d3array_read_and_decode(TFfileName,nerShapeFile,num_epochs):
                                                'candidate_ent_prob_feature':tf.FixedLenFeature([f4dim],tf.float32),
                                                'ent_mention_lstm_feature':tf.FixedLenFeature([f5dim],tf.float32)
                                                })
-  label = tf.cast(features['ent_mention_linking_tag'],tf.int32)
+  label = tf.cast(features['ent_mention_linking_tag'],tf.float32)
   f1 = features['candidate_ent_coherent_feature']
   f2 = features['candidate_ent_linking_feature']
   f3= features['candidate_ent_type_feature']
@@ -121,9 +121,16 @@ def nel_d3array_read_and_decode(TFfileName,nerShapeFile,num_epochs):
   return f1,f2,f3,f4,f5,label
   
 def nel_read_TFRecord(sess,TFfileName,nerShapeFile,batch_size,num_epochs):
+  '''
+  param_dict={'ent_mention_linking_tag':[lents,args.candidate_ent_num],
+              'candidate_ent_coherent_feature':[lents,args.candidate_ent_num],
+              'candidate_ent_linking_feature':[lents,args.candidate_ent_num,int(args.rawword_dim)],
+              'candidate_ent_type_feature':[lents,args.candidate_ent_num,args.figer_type_num],
+              'candidate_ent_prob_feature':[lents,args.candidate_ent_num,3],
+              'ent_mention_lstm_feature':[lents,2*args.rnn_size,1]
+              }
+  '''
   param_dict = cPickle.load(open(nerShapeFile))
-  #label_shape = param_dict['ent_mention_linking_tag']
-  #feat1_shape = param_dict['candidate_ent_coherent_feature']
   feat2_shape = param_dict['candidate_ent_linking_feature']
   feat3_shape = param_dict['candidate_ent_type_feature']
   feat4_shape = param_dict['candidate_ent_prob_feature']
@@ -131,10 +138,8 @@ def nel_read_TFRecord(sess,TFfileName,nerShapeFile,batch_size,num_epochs):
   
   f1,f2,f3,f4,f5,label = nel_d3array_read_and_decode(TFfileName,nerShapeFile,num_epochs)
   
-  f1_batch,f2_batch,f3_batch,f4_batch,f5_batch,label_batch = tf.train.shuffle_batch([f1,f2,f3,f4,f5,label],
-                                                     batch_size=batch_size,
-                                                     num_threads=4,capacity=50000,
-                                                     min_after_dequeue=10000)
+  f1_batch,f2_batch,f3_batch,f4_batch,f5_batch,label_batch = tf.train.batch([f1,f2,f3,f4,f5,label],
+                                                     batch_size=batch_size)
                                                      
   
   sess.run(tf.local_variables_initializer())
@@ -171,5 +176,5 @@ if __name__=="__main__":
   
   sess.run(tf.global_variables_initializer())
   for l,f1,f2,f3,f4,f5 in nel_read_TFRecord(sess,TFfileName,nerShapeFile,32,2):
-    print np.shape(l),np.shape(f2)
+    print np.shape(l),np.shape(f1),np.shape(f2),np.shape(f3),np.shape(f4),np.shape(f5)
   sess.close()
