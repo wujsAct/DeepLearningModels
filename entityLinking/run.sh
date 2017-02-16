@@ -61,8 +61,9 @@ get data embddings for bi-LSTM layers
 #mkdir ${dir_path}/features;
 #time:2017/1/9 revise train data into TFRecord, so that we can do 
 #
-python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --data_train ${dir_path}/process/train.p --data_testa ${dir_path}/process/testa.p --data_testb ${dir_path}/process/testb.p --train ${dir_path}/process/train.out --test_a ${dir_path}/process/testa.out --test_b ${dir_path}/process/testb.out --use_model data/wordvec_model_${dims}.p --model_dim ${dims}  --sentence_length 124
+#python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --data_train ${dir_path}/process/train.p --data_testa ${dir_path}/process/testa.p --data_testb ${dir_path}/process/testb.p --train ${dir_path}/process/train.out --test_a ${dir_path}/process/testa.out --test_b ${dir_path}/process/testb.out --use_model data/wordvec_model_${dims}.p --model_dim ${dims}  --sentence_length 124
 
+#python trainAidaNER.py
 
 :<<!
 generate entity linking tag data/aida/aida-annotation.p
@@ -79,12 +80,13 @@ generate all candiate entities to entity mentions. flag testa: annotation train 
 :<<!
 generate entity linking features cPickle
 !
-#python embeddings/generate_entmention_linking_features.py ${dir_path} testa_entms.p100 test_a_embed.p100 testa_ent_cand_mid.p testa_ent_linking.p testa_ent_linking_type.p testa_ent_linking_candprob.p testa_ent_relcoherent.p testa
-#python embeddings/generate_entmention_linking_features.py ${dir_path} testb_entms.p100 test_b_embed.p100 testb_ent_cand_mid.p testb_ent_linking.p testb_ent_linking_type.p testb_ent_linking_candprob.p testb_ent_relcoherent.p testb
-#python embeddings/generate_entmention_linking_features.py ${dir_path} train_entms.p100 train_embed.p100 train_ent_cand_mid.p train_ent_linking.p train_ent_linking_type.p train_ent_linking_candprob.p train_ent_relcoherent.p train
+#python embeddings/generate_entmention_linking_features.py ${dir_path} testa_entms.p100 test_a_embed.p100 testa_ent_cand_mid.p testa_ent_linking.p testa_ent_linking_type.p testa_ent_linking_candprob.p testa_ent_relcoherent.p testa_ent_mentwordv.p testa
+#python embeddings/generate_entmention_linking_features.py ${dir_path} testb_entms.p100 test_b_embed.p100 testb_ent_cand_mid.p testb_ent_linking.p testb_ent_linking_type.p testb_ent_linking_candprob.p testb_ent_relcoherent.p testb_ent_mentwordv.p testb
+#python embeddings/generate_entmention_linking_features.py ${dir_path} train_entms.p100 train_embed.p100 train_ent_cand_mid.p train_ent_linking.p train_ent_linking_type.p train_ent_linking_candprob.p train_ent_relcoherent.p train_ent_mentwordv.p train
 
 :<<!
 #time:2017/1/10 revise entity linking train data into TFRecord! train.tfrecord
 !
 #python generateNELfeature.py 
 
+#python trainAidaNEL1.py

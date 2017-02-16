@@ -10,24 +10,27 @@ import codecs
 import collections
 import time
 
-dir_path = 'data/ace/'
+
+#dir_path = 'data/ace/'
+dir_path = 'data/msnbc/'
+data_tag = 'msnbc'
 class_size = 5
 start_time = time.time()
 #wtitle2ments = cPickle.load(open('data/wtitleReverseIndex.p'))
-#print 'end time:',time.time()-start_time
+print 'end time:',time.time()-start_time
 
 
 def getSents():
-  input_file = dir_path+'aceData.txt'
-  sents=[];senti =[]; chunki =[];
+  input_file = dir_path+data_tag+'Data.txt'
+  sents=[];senti =[]; chunki =[];posi=[];
   for line in codecs.open(input_file,'r','utf-8'):
     if line in [u'\n', u'\r\n']:
-      sents.append([senti,chunki])
-      senti=[];chunki=[]
+      sents.append([senti,chunki,posi])
+      senti=[];chunki=[];posi=[]
     else:
       line = line.strip()
       items = line.split('\t')
-      senti.append(items[0]); chunki.append(items[2])
+      senti.append(items[0]); chunki.append(items[2]);posi.append(items[1])
   return sents
 
 def getNERTag(retlist):
@@ -57,13 +60,17 @@ AFP_dict = {}
 
 standard_entment = {}
 standard_entment_name={}
-with codecs.open(dir_path+'entMen2aNosNoid.txt','r','utf-8') as file:
+non_link_ents = {}
+with codecs.open(dir_path+'new_entMen2aNosNoid.txt','r','utf-8') as file:
   for line in file:
     line = line.strip()
     items = line.split(u'\t')
+    
     #print items
     #ids=items[2]+'\t'+items[3]#+'\t'+items[4]
     ids = items[2]+'\t'+items[3]+'\t'+items[4]
+    if items[0] != items[len(items)-1]:
+      non_link_ents[ids] = 1
     if items[0] == u'AFP':
       AFP_dict[ids] = 1
       
@@ -75,31 +82,34 @@ generate entity mention using ace_NERresult.p
 one-hot 特征啦
 PER [1,0,0,0,0]; LOC [0, 1, 0, 0, 0] ; ORG [0, 0, 1, 0, 0]; MISC [0, 0, 0, 1, 0];
 '''
-tag_dict = {'10000':'PER','01000':'LOC','00100':'ORG','00010':'MISC','00001':'o'}
-ace_NERresult = cPickle.load(open(dir_path+'features/ace_NERresult.p'))
+tag_dict = {'10000':'I-PER','01000':'I-LOC','00100':'I-ORG','00010':'I-MISC','00001':'O'}
+NERresult = cPickle.load(open(dir_path+'features/'+data_tag+'_NERresult.p'))
 
-aceShape = np.shape(ace_NERresult)
+Shape = np.shape(NERresult)
+print Shape
 
 '''
 we need to merge the adjacent same type 
 '''
 
-sentlent = aceShape[0]; seqLent = 124;
-                  
+sentlent = Shape[0]; seqLent = 124;
 '''
+aNotag = -1
+fret = codecs.open(dir_path+"eng.ace",'w','utf-8')
 right = 0
 for i in xrange(sentlent):
   for j in xrange(seqLent):
-    ids = sentid2aNosNoid[i]+'\t'+str(j)
-    if ids in standard_entment:
-      print getNERTag(ace_NERresult[i][j])
-      if getNERTag(ace_NERresult[i][j])!='00001':
-        right+=1
-      else:
-        print ids,standard_entment_name[ids],ace_NERresult[i][j]#getNERTag(ace_NERresult[i][j])
-print len(standard_entment)
-print 'right:',right
-print 'percents:',right*1.0/len(standard_entment)
+    aNosNoid = sentid2aNosNoid[i]
+    aNo = aNosNoid.split('_')[0]
+    if(int(aNo)!=aNotag):
+      fret.write('-DOCSTART- -X- -X- O'+'\n\n')
+      aNotag += 1
+    if(j<len(sents[i][2])):
+      mtag= getNERTag(ace_NERresult[i][j])
+      fret.write(sents[i][0][j]+' '+sents[i][2][j]+' '+sents[i][1][j]+' '+tag_dict[mtag]+'\n')
+  fret.write('\n')
+fret.close()
+  #print ids,standard_entment_name[ids],ace_NERresult[i][j]#getNERTag(ace_NERresult[i][j])
 '''
 
 '''
@@ -141,10 +151,15 @@ for i in xrange(sentlent):
 '''
 entity mentions!
 '''
-sentid_entmention=collections.defaultdict(list)
 
+print len(non_link_ents)
+sentid_entmention=collections.defaultdict(list)
+allents = 0
 right = 0
 for key in standard_entment:
+  if key in non_link_ents:
+    continue
+  allents +=1
   i = aNosNoid2sentid[key.split('\t')[0]]
   j1 = int(key.split('\t')[1])
   j2 = int(key.split('\t')[2])
@@ -158,33 +173,40 @@ for key in standard_entment:
     #if getNERTag(ace_NERresult[i][j])!='00001' or 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j]:
     #if getNERTag(ace_NERresult[i][j])!='00001' or 'NP' in sents[i][1][j]: #or 'PP' in sents[i][1][j]:
     #or tt.split(" ")[j-j1]==u'of' or tt.split(" ")[j-j1]==u'and':
-    if getNERTag(ace_NERresult[i][j])!='00001' or 'NP' in sents[i][1][j] or 'O' in sents[i][1][j]: #or 'PP' in sents[i][1][j]:
-      temp +=1
+    #if getNERTag(ace_NERresult[i][j])!='00001' or 'NP' in sents[i][1][j] or 'O' in sents[i][1][j]: #or 'PP' in sents[i][1][j]:
+    #  temp +=1
     
       
-#    if getNERTag(ace_NERresult[i][j])!='00001':
-#      temp +=1
-#      tempj.append([j,getNERTag(ace_NERresult[i][j])])
-#    else:
-#      tempj.append([j,getNERTag(ace_NERresult[i][j])])
-#      if 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j] or 'O' in sents[i][1][j]:
-#        if j-j1>=1:
-#          twogram = sents[i][0][j-1].lower()+' '+sents[i][0][j].lower() #:
-#          flaggram = False
-#          for keyi in wtitle2ments[sents[i][0][j-1].lower()]:
-#            if twogram in keyi:
-#              flaggram = True
-#            
-#          twogram1 = sents[i][0][j-1].lower()+''+sents[i][0][j].lower()
-#          for keyi in wtitle2ments[sents[i][0][j-1].lower()]:
-#            if twogram1 in keyi:
-#              flaggram = True
-#          if flaggram:
-#            temp+=1
-#        else:
-#          if sents[i][0][j].lower() in wtitle2ments:
-#            temp += 1
+    if getNERTag(NERresult[i][j])!='00001':
+      temp +=1
+      tempj.append([j,getNERTag(NERresult[i][j])])
       
+    else:
+      if 'VP' in sents[i][1][j] or 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j] or 'O' in sents[i][1][j]:
+        tempj.append([j,getNERTag(NERresult[i][j])])
+        temp+=1
+      
+    '''
+    else:
+      tempj.append([j,getNERTag(ace_NERresult[i][j])])
+      if 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j] or 'O' in sents[i][1][j]:
+        if j-j1>=1:
+          twogram = sents[i][0][j-1].lower()+' '+sents[i][0][j].lower() #:
+          flaggram = False
+          for keyi in wtitle2ments[sents[i][0][j-1].lower()]:
+            if twogram in keyi:
+              flaggram = True
+            
+          twogram1 = sents[i][0][j-1].lower()+sents[i][0][j].lower()
+          for keyi in wtitle2ments[sents[i][0][j-1].lower()]:
+            if twogram1 in keyi:
+              flaggram = True
+          if flaggram:
+            temp+=1
+        else:
+          if sents[i][0][j].lower() in wtitle2ments:
+            temp += 1
+    '''
       
   if temp >= j2-j1:
     right += 1
@@ -193,6 +215,7 @@ for key in standard_entment:
     print 'ents:',key,standard_entment_name[key],'\t',temp,j1,'\t',j2,sents[i][0][j1:j2],sents[i][1][j1:j2]
     print tempj
     print '-------------------------'
+print 'all mentions:',allents
 print 'right mentions:',right
 print 'all sents:',len(sentid_entmention)
 
@@ -204,7 +227,7 @@ for i in xrange(sentlent):
   ent_mention_index.append(ent_index)
   
 #print sentlent
-#print len(ent_mention_index)
+print len(ent_mention_index)
 #print ent_mention_index
 
-#cPickle.dump(ent_mention_index,open(dir_path+'features/ent_mention_index.p','wb'))
+cPickle.dump(ent_mention_index,open(dir_path+'features/ent_mention_index.p','wb'))

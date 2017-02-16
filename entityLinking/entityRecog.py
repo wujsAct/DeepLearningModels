@@ -78,7 +78,8 @@ class nameEntityRecognition():
                                   self.model.output_data:test_out,
                                   self.model.keep_prob:1})
     fscore = f1(args, pred, test_out, length)
-    cPickle.dump(pred,open('data/ace/features/ace_NERresult.p','wb'))
+    #cPickle.dump(pred,open('data/ace/features/ace_NERresult.p','wb'))
+    cPickle.dump(pred,open('data/msnbc/features/msnbc_NERresult.p','wb'))
     print "-----------------"
     print("test: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
     return lstm_output
@@ -90,8 +91,9 @@ if __name__=='__main__':
   '''
   print 'start to load data...'
   start_time = time.time()
-  dir_path = '/home/wjs/demo/entityType/informationExtract/data/ace/features'
-  test_input = cPickle.load(open(dir_path+'/ace_embed.p100','rb'))
+  #dir_path = '/home/wjs/demo/entityType/informationExtract/data/ace/features'
+  dir_path = '/home/wjs/demo/entityType/informationExtract/data/msnbc/features'
+  test_input = cPickle.load(open(dir_path+'/msnbc_embed.p100','rb'))
   print 'load data cost time:', time.time()-start_time
   
   testShape = np.shape(test_input)
@@ -116,6 +118,4 @@ if __name__=='__main__':
   testbUtils = inputUtils(args.rawword_dim,"testb")
   test_input = testbUtils.emb; test_out = testbUtils.tag;
   '''
-  
-  #对ACE数据进行NER，但是其没有test_out部分数据，由于是test，所以我们自己去build一个zeros的矩阵代替，然后feed到网络中去！
   lstm_output = nerClass.getEntityRecognition(test_input,test_out)

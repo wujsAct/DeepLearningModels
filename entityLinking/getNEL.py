@@ -15,14 +15,16 @@ import numpy as np
 '''read mid2name'''
 fname = 'data/mid2name.tsv'
 wikititle2fb = collections.defaultdict(list)
+fb2wikititle={}
 with codecs.open(fname,'r','utf-8') as file:
   for line in tqdm(file):
     line = line.strip()
     items = line.split('\t')
     if len(items)==2:
-      fbId = items[0]; title = items[1]  #所有地方均采用小写字母啦！
-      wikititle2fb[title].append(fbId)  #没法倒着来，因为一个mid可能对应着很多不用的alias！
-#print wikititle2fb
+      fbId = items[0]; title = items[1]  
+      fb2wikititle[fbId] = title
+      wikititle2fb[title].append(fbId)
+fb2wikititle['NIL'] = 'NIL'
 
 dir_path = 'data/ace/'    
 '''read entmention 2 aNosNoid'''
@@ -93,7 +95,21 @@ for ids in range(allLenght):
         if predMid in entMentsTags[key] or entMentsTags[key]=='NIL':
           rightPred += 1
         else:
-          print entMents2surfaceName[key],' right tag:',entMentsTags[key],' wrong tag:',predMid
+          print ret
+          candmidlist = []
+          for item in candMids:
+            if item in fb2wikititle:
+              candmidlist.append(fb2wikititle[item])
+            else:
+              candmidlist.append(item)
+          print candmidlist
+          print entMents2surfaceName[key]
+          print 'right tag:',entMentsTags[key]
+          print fb2wikititle[entMentsTags[key][0]]
+          if predMid in fb2wikititle:
+            print 'wrong tag:',predMid,fb2wikititle[predMid]
+          else:
+            print predMid
       else:
         notinentmenttags += 1
       entids += 1

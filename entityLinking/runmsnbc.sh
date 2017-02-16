@@ -4,14 +4,18 @@
 #step1. we uitlize this model to extract mention in ace, we evaluate the accuracy; we assume the same entity mentions in one doc refer to the same entity in KG.
 #step2. we do entity linking for the extracted entity mentions
 #step3. an entity mentions linking is right, when and only when entity mention recognition is right and linked entity is right!
-data="acebc"
-dir_path="data/ace"
+data="msnbc"
+dir_path="data/msnbc"
 dims="100"
 
 :<<!
 generate named entity recognition datasets.
 !
-#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --train ${dir_path}/aceData.txt --sentence_length -1 --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
+if [ ! -d "data/msnbc/features" ]; then
+ mkdir "data/msnbc/features"
+fi
+#python utils/getCoref.py
+#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --train ${dir_path}/msnbcData.txt --sentence_length 124 --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
 
 :<<!
 Named entity recognition using pre-trained NER model on CONLL datasets, very import module of our system
@@ -36,9 +40,9 @@ generate candidate entities for entity mentions
 generate entity linking features
 !
 #we also need to delete the non entity mention sentences!
-#python embeddings/generate_ace_entmention_linking_features.py
-#python trainAidaNEL1.py
+python embeddings/generate_ace_entmention_linking_features.py
+#python trainAidaNEL.py
 
-python entityLinking.py
+#python entityLinking.py
 
-python getNEL.py
+#python getNEL.py

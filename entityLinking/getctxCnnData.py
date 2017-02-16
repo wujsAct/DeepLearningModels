@@ -63,6 +63,7 @@ def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_re
     wmid = item_it[0]
     if wmid not in cantent_mid2:
       #cantent_mid2[item_it[0]] = item_it[1]
+      #cantent_mid2[wmid] = [0,0,item[1]]
       cantent_mid2[wmid] = [0,0,item[1]]
       freebaseNum -=1
     else:

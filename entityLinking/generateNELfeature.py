@@ -2,20 +2,31 @@ import tensorflow as tf
 import numpy as np
 import cPickle
 import time
-from entityRecog import nameEntityRecognition,args #get seqLSTM features
+from entityRecog import nameEntityRecognition,pp,flags,args #get seqLSTM features
 from sklearn.metrics import f1_score
 from utils import nelInputUtils as inputUtils
 from utils import getLinkingFeature
 from tqdm import tqdm
 
-def nel_d3array_TFRecord(sess,TFfileName,nerShapeFile):
+def main(_):
+  pp.pprint(flags.FLAGS.__flags)
+  
+  sess = tf.InteractiveSession()
+  TFfileName = 'data/aida/trainNEL.tfrecord'
+  nerShapeFile ='data/aida/trainNEL.shape'
+  
   print 'start to load data...'
   start_time = time.time()
   trainUtils = inputUtils(args.rawword_dim,"train")
-  train_input = trainUtils.emb; train_out = trainUtils.tag; train_entliking= trainUtils.ent_linking;
-  train_ent_mention_index = train_entliking['ent_mention_index']; train_ent_mention_link_feature=train_entliking['ent_mention_link_feature'];
-  train_ent_mention_tag = train_entliking['ent_mention_tag']; train_ent_relcoherent = trainUtils.ent_relcoherent
-  train_ent_linking_type = trainUtils.ent_linking_type; train_ent_linking_candprob = trainUtils.ent_linking_candprob
+  train_input = trainUtils.emb
+  train_out = trainUtils.tag
+  train_entliking= trainUtils.ent_linking
+  train_ent_mention_index = train_entliking['ent_mention_index']
+  train_ent_mention_link_feature=train_entliking['ent_mention_link_feature']
+  train_ent_mention_tag = train_entliking['ent_mention_tag']
+  train_ent_relcoherent = trainUtils.ent_relcoherent
+  train_ent_linking_type = trainUtils.ent_linking_type
+  train_ent_linking_candprob = trainUtils.ent_linking_candprob
   print 'load data cost:',time.time()-start_time
   
   
@@ -33,9 +44,7 @@ def nel_d3array_TFRecord(sess,TFfileName,nerShapeFile):
                                   modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
                                   modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
                                   modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                                  modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature  
-  
-  
+                                  modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature
   '''
   
   '''
@@ -54,7 +63,7 @@ def nel_d3array_TFRecord(sess,TFfileName,nerShapeFile):
               'candidate_ent_prob_feature':[lents,args.candidate_ent_num,3],
               'ent_mention_lstm_feature':[lents,2*args.rnn_size,1]
               }
-              
+  print param_dict
   cPickle.dump(param_dict,open(nerShapeFile,'wb'))
   
   writer = tf.python_io.TFRecordWriter(TFfileName)
@@ -79,15 +88,4 @@ def nel_d3array_TFRecord(sess,TFfileName,nerShapeFile):
   
 
 if __name__=="__main__":
-#  nerfile = "ner.tfrecords"
-#  nershape = "ner.shape"
-  #mu = 0;sigma=1
-  #rarray=np.random.normal(mu,sigma,[2580,2,5])
-  #label=np.zeros([2580,2,3],dtype=np.int64)
-  #ner_d3array_TFRecord(rarray,label,nerfile,nershape)
-  config = tf.ConfigProto(allow_soft_placement=True)
-  config.gpu_options.allow_growth=True
-  sess = tf.InteractiveSession(config=config)
-  TFfileName = 'data/aida/trainNEL.tfrecord'
-  nerShapeFile ='data/aida/trainNEL.shape'
-  nel_d3array_TFRecord(sess,TFfileName,nerShapeFile)
+  tf.app.run()

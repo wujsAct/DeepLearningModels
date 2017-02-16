@@ -133,6 +133,10 @@ if __name__=='__main__':
   
   para_dict={'aNosNo2id':aNosNo2id,'id2aNosNo':id2aNosNo,'sents':sents,'tags':tags,'ents':ents,'mentags':mentags,
                'depTrees':depTrees,'all_sentence_list':all_sentence_list}
+  allents =0
+  for key in ents:
+    allents+= len(key[0])
+  print allents
   cPickle.dump(para_dict,open(f_output,'wb'))
   #cPickle.dump(ents,open(f_output,'wb'))
   

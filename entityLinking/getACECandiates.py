@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 '''
 @time:2017/1/14
 '''
@@ -12,10 +11,10 @@ import multiprocessing
 import cPickle
 from getCandiates import funcs
 
-dir_path ='data/ace'
-
-f_input = 'data/ace/features/ent_mention_index.p'
-f_output = 'data/ace/features/ace_candEnts.p'
+dir_path ='data/msnbc/'
+data_tag = 'msnbc'
+f_input = dir_path+'features/ent_mention_index.p'
+f_output = dir_path+'features/'+data_tag+'_candEnts.p'
 ents = cPickle.load(open(f_input,'r'))
 
 entstr2id = {}

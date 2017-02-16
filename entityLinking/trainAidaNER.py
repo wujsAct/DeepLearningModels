@@ -118,21 +118,7 @@ def main(_):
   
   for train_input,train_out in ner_read_TFRecord(sess,train_TFfileName,
                                                  train_nerShapeFile,train_batch_size,args.epoch):
-    k += 1
-    _,lstm_output = sess.run([train_op,model.output],
-                      {model.input_data:train_input,
-                       model.output_data:train_out,
-                       model.keep_prob:0.5})
-    loss1,pred,length = sess.run([model.loss,model.prediction,model.length],
-                            {model.input_data:train_input,
-                             model.output_data:train_out,
-                             model.keep_prob:1})
-    id_epoch += 1
-    fscore = f1(args, pred, train_out, length)
-    if id_epoch %10==0:
-      print("train: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
-
-
+  
     loss1,pred,length,lstm_output = sess.run([model.loss,model.prediction,model.length,model.output],
                        {model.input_data:testa_input,
                         model.output_data:testa_out,
@@ -151,8 +137,21 @@ def main(_):
                         model.keep_prob:1})
       fscore = f1(args, pred, testb_out, length)
       print("testb: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
-          
+           
     print "-----------------"
+    k += 1
+    _,lstm_output = sess.run([train_op,model.output],
+                      {model.input_data:train_input,
+                       model.output_data:train_out,
+                       model.keep_prob:0.5})
+    loss1,pred,length = sess.run([model.loss,model.prediction,model.length],
+                            {model.input_data:train_input,
+                             model.output_data:train_out,
+                             model.keep_prob:1})
+    id_epoch += 1
+    fscore = f1(args, pred, train_out, length)
+    if id_epoch %10==0:
+      print("train: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
 #  except:
 #    print 'finished train'
 if __name__=='__main__':
