@@ -23,13 +23,13 @@ class ctxSum(Model):
                     shape=[int(self.args.rawword_dim),2*self.args.rnn_size],
                     initializer=tf.contrib.layers.xavier_initializer())
       print self.bilinear_w_descrip
-      '''
+      
       self.bilinear_w_mentWordv = tf.get_variable(
                     "bilinear_w_mentWordv",
                     shape=[int(self.args.rawword_dim),2*self.args.rnn_size],
                     initializer=tf.contrib.layers.xavier_initializer())
       print self.bilinear_w_mentWordv
-      '''
+      
                   
       self.bilinear_w_type = tf.get_variable(
                     "bilinear_w_type",
@@ -50,7 +50,7 @@ class ctxSum(Model):
       self.w2 = tf.Variable(tf.ones([1],dtype=tf.float32),name='w2')
       self.w3 = tf.Variable(tf.ones([1],dtype=tf.float32),name='w3')
       self.w4 = tf.Variable(tf.ones([1],dtype=tf.float32),name='w4')
-      #self.w5 = tf.Variable(tf.ones([1],dtype=tf.float32),name='w5')
+      self.w5 = tf.Variable(tf.ones([1],dtype=tf.float32),name='w5')
       
       
     #for every entity mention, there are 30 candidates entities
@@ -62,15 +62,13 @@ class ctxSum(Model):
     all embedding vectors!
     #candidate entity surface name vs. entity mention embedding
     '''
-    #self.ent_surfacewordv_feature= tf.placeholder(tf.float32,[None,self.args.candidate_ent_num,int(self.args.rawword_dim)])
+    self.ent_surfacewordv_feature= tf.placeholder(tf.float32,[None,self.args.candidate_ent_num,int(self.args.rawword_dim)])
     
     self.candidate_ent_type_feature = tf.placeholder(tf.float32,[None,self.args.candidate_ent_num,self.args.figer_type_num])
     self.candidate_ent_prob_feature = tf.placeholder(tf.float32,[None,self.args.candidate_ent_num,3])
     self.ent_mention_lstm_feature = tf.placeholder(tf.float32,[None,2*self.args.rnn_size,1])
     self.candidate_ent_coherent_feature = tf.placeholder(tf.float32,[None,self.args.candidate_ent_num])
-    
-  
-    #self.ent_surfacewordv_feature = tf.nn.l2_normalize(self.ent_surfacewordv_feature,1)
+    self.ent_surfacewordv_feature = tf.nn.l2_normalize(self.ent_surfacewordv_feature,2)
     
     self.candidate_ent_linking_feature = tf.nn.l2_normalize(self.candidate_ent_linking_feature,2)
     self.ent_mention_lstm_feature = tf.nn.l2_normalize(self.ent_mention_lstm_feature,1)
@@ -83,22 +81,22 @@ class ctxSum(Model):
     '''
     temp_descrip = tf.scan(lambda a,x: tf.matmul(x,self.bilinear_w_descrip),self.candidate_ent_linking_feature,initializer=tf.Variable(tf.random_normal((self.args.candidate_ent_num,2*self.args.rnn_size))))
     
-    #temp_mentWordV = tf.scan(lambda a,x: tf.matmul(x,self.bilinear_w_mentWordv),self.ent_surfacewordv_feature,initializer=tf.Variable(tf.random_normal((self.args.candidate_ent_num,2*self.args.rnn_size))))
+    temp_mentWordV = tf.scan(lambda a,x: tf.matmul(x,self.bilinear_w_mentWordv),self.ent_surfacewordv_feature,initializer=tf.Variable(tf.random_normal((self.args.candidate_ent_num,2*self.args.rnn_size))))
     
     
     temp_type = tf.scan(lambda a,x: tf.matmul(x,self.bilinear_w_type),self.candidate_ent_type_feature,initializer=tf.Variable(tf.random_normal((self.args.candidate_ent_num,2*self.args.rnn_size))))
 
-    
-    self.prediction_descrip = tf.batch_matmul(temp_descrip,self.ent_mention_lstm_feature)[:,:,0]
-    
-    #self.prediction_mentWordV = tf.batch_matmul(temp_mentWordV,self.ent_mention_lstm_feature)[:,:,0]
-    
-    self.prediction_type = tf.batch_matmul(temp_type,self.ent_mention_lstm_feature)[:,:,0]
-    self.prediction_prob = tf.scan(lambda a,x: tf.matmul(x,self.w_prob)+self.bias_prob,self.candidate_ent_prob_feature,initializer=tf.Variable(tf.random_normal((self.args.candidate_ent_num,1))))[:,:,0]
+    '''
+    @transfer the result into probability!
+    '''
+    self.prediction_descrip = tf.nn.sigmoid(tf.batch_matmul(temp_descrip,self.ent_mention_lstm_feature)[:,:,0])
+    self.prediction_mentWordV = tf.nn.sigmoid(tf.batch_matmul(temp_mentWordV,self.ent_mention_lstm_feature)[:,:,0])
+    self.prediction_type = tf.nn.sigmoid(tf.batch_matmul(temp_type,self.ent_mention_lstm_feature)[:,:,0])
+    self.prediction_prob = tf.nn.sigmoid(tf.scan(lambda a,x: tf.matmul(x,self.w_prob)+self.bias_prob,self.candidate_ent_prob_feature,initializer=tf.Variable(tf.random_normal((self.args.candidate_ent_num,1))))[:,:,0])
     
     '''need to imporve the features'''
     
-    self.prediction =  tf.nn.softmax(tf.add(self.w1*self.prediction_prob,tf.add(self.w2*self.candidate_ent_coherent_feature,tf.add(self.w3*self.prediction_descrip,self.w4*self.prediction_type))))
+    self.prediction =  tf.nn.softmax(tf.add(0*self.prediction_mentWordV,tf.add(self.w1*self.prediction_prob,tf.add(self.w2*self.candidate_ent_coherent_feature,tf.add(self.w3*self.prediction_descrip,self.w4*self.prediction_type)))))
     print 'ctx prediction:',self.prediction
     print 'ctxSum ent_mention_linking_tag', self.ent_mention_linking_tag
     
