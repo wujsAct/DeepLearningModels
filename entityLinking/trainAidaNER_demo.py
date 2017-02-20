@@ -21,7 +21,7 @@ import time
 pp = pprint.PrettyPrinter()
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
+flags.DEFINE_integer("epoch",25,"Epoch to train[25]")
 flags.DEFINE_integer("batch_size",256,"batch size of training")
 flags.DEFINE_string("datasets","aida","dataset name")
 flags.DEFINE_integer("sentence_length",124,"max sentence length")
@@ -44,6 +44,7 @@ def f1(args, prediction, target, length):
   #target = np.argmax(target, 2)
   #prediction = np.argmax(prediction, 2) #crf prediction is this kind .
   for i in range(len(target)):
+    print len(prediction[i]),length[i]
     for j in range(length[i]):
       if target[i][j] == prediction[i][j]:
         tp[target[i][j]] += 1
@@ -63,6 +64,7 @@ def f1(args, prediction, target, length):
     precision.append(tp[i] * 1.0 / (tp[i] + fp[i]))
     recall.append(tp[i] * 1.0 / (tp[i] + fn[i]))
     fscore.append(2.0 * precision[i] * recall[i] / (precision[i] + recall[i]))
+
   return fscore
 
 def getCRFRet(tf_unary_scores,tf_transition_params,y,sequence_lengths):
@@ -86,8 +88,6 @@ def getCRFRet(tf_unary_scores,tf_transition_params,y,sequence_lengths):
   
   return np.array(predict),accuracy
 
-
-
 def main(_):
   pp.pprint(flags.FLAGS.__flags)
 
@@ -102,20 +102,12 @@ def main(_):
 #  train_TFfileName = trainUtils.TFfileName; train_nerShapeFile = trainUtils.nerShapeFile;
 #  train_batch_size = args.batch_size;
   
-  trainUtils = inputUtils(args.rawword_dim,"train")
-  train_input = trainUtils.emb;train_out = np.argmax(trainUtils.tag,2)
-  
-  testaUtils = inputUtils(args.rawword_dim,"testa")
-  testa_input = testaUtils.emb;testa_out =  np.argmax(testaUtils.tag,2)
-  testa_num_example = np.shape(testa_input)[0]
-  
  
-  
-  testbUtils = inputUtils(args.rawword_dim,"testb")
-  testb_input = testbUtils.emb;testb_out =  np.argmax(testbUtils.tag,2)
-  testb_num_example = np.shape(testb_input)[0]
-  print 'load data cost time:',time.time()-start_time
-  
+  testaUtils = inputUtils(args.rawword_dim,"testa")
+  testa_input = testaUtils.emb;testa_out =  np.argmax(testaUtils.tag,2);testa_sentLent = testaUtils.sentLents
+  testa_num_example = np.shape(testa_input)[0]
+  print 'testa_out shape:',np.shape(testa_out)
+ 
   print 'start to build seqLSTM'
   start_time = time.time()
   config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
@@ -138,68 +130,33 @@ def main(_):
     print "[*] seqLSTM is loaded..."
   else:
     print "[*] There is no checkpoint for aida"
-
-  id_epoch = 0
-  '''
-  @train named entity recognition models
-  '''
-  maximum=0
-  k = 0
-  
-#  for train_input,train_out in ner_read_TFRecord(sess,train_TFfileName,
-#                                                 train_nerShapeFile,train_batch_size,args.epoch):
+    
   for e in range(args.epoch):
-    id_epoch = 0
-    print 'Epoch: %d------------' %(e)
-    for ptr in xrange(0,len(train_input),args.batch_size):
-      id_epoch = id_epoch + 1
-    
-      loss1,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,model.length,model.output,model.unary_scores,model.transition_params],
-                       {model.input_data:testa_input,
-                        model.output_data:testa_out,
-                        model.num_examples:testa_num_example,
+    all_pred = []
+    all_length=[]
+    for ptr in xrange(0,len(testa_input),args.batch_size):
+      num_examples = min(ptr+args.batch_size,len(testa_input)) - ptr
+      _,loss1,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([train_op,model.loss,model.length,model.output,model.unary_scores,model.transition_params],
+                       {model.input_data:testa_input[ptr:min(ptr+args.batch_size,len(testa_input))],
+                        model.output_data:testa_out[ptr:min(ptr+args.batch_size,len(testa_input))],
+                        model.num_examples:num_examples,
                         model.keep_prob:1})
-      pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testa_out,length)
-        
-      fscore = f1(args, pred, testa_out, length)
-      print "-----------------"
-      print("testa: loss:%.4f accuracy:%f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,accuracy,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
-      m = fscore[args.class_size]
-    
-      if m > maximum:
-        model.save(sess,args.restore,"aida") #optimize in the dev file!
-        maximum = m
-        
-        loss1,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,model.length,model.output,model.unary_scores,model.transition_params],
-                         {model.input_data:testb_input,
-                          model.output_data:testb_out,
-                          model.num_examples:testb_num_example,
-                          model.keep_prob:1})
-        pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testb_out,length)
-        fscore = f1(args, pred, testb_out, length)
-        print("testb: loss:%.4f accuracy:%f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,accuracy,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
-        print "-----------------"
-      
-      k += 1
-      num_example = min(ptr+args.batch_size,len(train_input)) - ptr  
-      _,lstm_output = sess.run([train_op,model.output],
-                        {model.input_data:train_input[ptr:min(ptr+args.batch_size,len(train_input))],
-                         model.output_data:train_out[ptr:min(ptr+args.batch_size,len(train_input))],
-                         model.num_examples: num_example,
-                         model.keep_prob:0.5})
-  
-      
-      loss1,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,model.length,model.output,model.unary_scores,model.transition_params],
-                              {model.input_data:train_input[ptr:min(ptr+args.batch_size,len(train_input))],
-                               model.output_data:train_out[ptr:min(ptr+args.batch_size,len(train_input))],
-                               model.num_examples: num_example,
-                               model.keep_prob:1})
-      id_epoch += 1
-      pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,train_out[ptr:min(ptr+args.batch_size,len(train_input))],length)
-      fscore = f1(args, pred,train_out[ptr:min(ptr+args.batch_size,len(train_input))],length)
-      if id_epoch %10==0:
-        print("train: loss:%.4f accuracy:%f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,accuracy,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
-#  except:
-#    print 'finished train'
+      print length[1:10],
+      pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testa_out[ptr:min(ptr+args.batch_size,len(testa_input))],length)
+      print 'accuracy:',accuracy
+      if len(all_pred)==0:
+        all_pred = np.array(pred)
+        all_length = np.array(length)
+      else:
+        all_pred = np.concatenate((all_pred,pred))
+        all_length = np.concatenate((all_length,length))
+    print 'predict:',np.shape(all_pred)
+    print 'testa_out shape:',np.shape(testa_out)
+    print 'all_length shape:',all_length
+    fscore = f1(args, all_pred, testa_out, all_length)
+    print "-----------------"
+    print("testa: loss:%.4f accuracy:%f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,accuracy,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
+    m = fscore[args.class_size]
+    print m
 if __name__=='__main__':
   tf.app.run()

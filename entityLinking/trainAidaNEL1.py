@@ -22,7 +22,7 @@ def main(_):
   
   trainUtils = inputUtils(args.rawword_dim,"train")
   train_input = trainUtils.emb; 
-  train_out = trainUtils.tag; 
+  train_out = np.argmax(trainUtils.tag,2); 
   train_entliking= trainUtils.ent_linking
   train_ent_mention_index = train_entliking['ent_mention_index'];
   train_ent_mention_link_feature=train_entliking['ent_mention_link_feature'];
@@ -33,7 +33,7 @@ def main(_):
   #train_ent_surfacewordv_feature = trainUtils.ent_surfacewordv_feature
 
   testaUtils = inputUtils(args.rawword_dim,"testa")
-  testa_input = testaUtils.emb; testa_out = testaUtils.tag; testa_entliking= testaUtils.ent_linking;
+  testa_input = testaUtils.emb; testa_out = np.argmax(testaUtils.tag,2); testa_entliking= testaUtils.ent_linking;
   testa_ent_mention_index = testa_entliking['ent_mention_index']; testa_ent_mention_link_feature=testa_entliking['ent_mention_link_feature'];
   testa_ent_mention_tag = testa_entliking['ent_mention_tag']; testa_ent_relcoherent = testaUtils.ent_relcoherent
   testa_ent_linking_type = testaUtils.ent_linking_type; testa_ent_linking_candprob = testaUtils.ent_linking_candprob
@@ -41,7 +41,7 @@ def main(_):
   
   
   testbUtils = inputUtils(args.rawword_dim,"testb")
-  testb_input = testbUtils.emb; testb_out = testbUtils.tag; testb_entliking= testbUtils.ent_linking
+  testb_input = testbUtils.emb; testb_out = np.argmax(testbUtils.tag,2); testb_entliking= testbUtils.ent_linking
   testb_ent_mention_index = testb_entliking['ent_mention_index']; testb_ent_mention_link_feature=testb_entliking['ent_mention_link_feature'];
   testb_ent_mention_tag = testb_entliking['ent_mention_tag']; testb_ent_relcoherent = testbUtils.ent_relcoherent
   testb_ent_linking_type = testbUtils.ent_linking_type; testb_ent_linking_candprob = testbUtils.ent_linking_candprob
@@ -52,7 +52,8 @@ def main(_):
   config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
   config.gpu_options.allow_growth=True
   sess_ner = tf.InteractiveSession(config=config)
-  nerInstance = nameEntityRecognition(sess_ner)
+  
+  nerInstance = nameEntityRecognition(sess_ner,'data/aida/','aida')
   
   lstm_output_testa = nerInstance.getEntityRecognition(testa_input,testa_out)
   lstm_output_testb = nerInstance.getEntityRecognition(testb_input,testb_out)
@@ -72,7 +73,7 @@ def main(_):
     grads,_ = tf.clip_by_global_norm(tf.gradients(loss_linking,tvars),10)
     train_op_linking = optimizer.apply_gradients(zip(grads,tvars))
     sess.run(tf.global_variables_initializer())
-
+    
     if modelNEL.load(sess,args.restore,"aida"):
       print "[*] ctxSum is loaded..."
     else:

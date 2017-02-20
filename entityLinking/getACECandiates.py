@@ -10,9 +10,17 @@ sys.path.append('main2')
 import multiprocessing
 import cPickle
 from getCandiates import funcs
+import argparse
 
-dir_path ='data/msnbc/'
-data_tag = 'msnbc'
+parser = argparse.ArgumentParser()
+parser.add_argument('--data_tag', type=str, help='which data file(ace or msnbc)', required=True)
+parser.add_argument('--dir_path', type=str, help='data directory path(data/ace or data/msnbc) ', required=True)
+  
+data_args = parser.parse_args()
+
+data_tag = data_args.data_tag
+dir_path = data_args.dir_path
+
 f_input = dir_path+'features/ent_mention_index.p'
 f_output = dir_path+'features/'+data_tag+'_candEnts.p'
 ents = cPickle.load(open(f_input,'r'))

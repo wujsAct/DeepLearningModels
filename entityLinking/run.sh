@@ -63,8 +63,11 @@ get data embddings for bi-LSTM layers
 #
 #python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --data_train ${dir_path}/process/train.p --data_testa ${dir_path}/process/testa.p --data_testb ${dir_path}/process/testb.p --train ${dir_path}/process/train.out --test_a ${dir_path}/process/testa.out --test_b ${dir_path}/process/testb.out --use_model data/wordvec_model_${dims}.p --model_dim ${dims}  --sentence_length 124
 
-#python trainAidaNER.py
+#python embeddings/getNERSequenceLength.py --dir_path ${dir_path} --model_dim ${dims}
 
+python trainAidaNER.py
+
+python trainAidaNEL1.py
 :<<!
 generate entity linking tag data/aida/aida-annotation.p
 !

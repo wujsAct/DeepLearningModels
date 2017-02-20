@@ -9,11 +9,17 @@ import numpy as np
 import codecs
 import collections
 import time
+import argparse
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--data_tag', type=str, help='which data file(ace or msnbc)', required=True)
+parser.add_argument('--dir_path', type=str, help='data directory path(data/ace or data/msnbc) ', required=True)
+  
+data_args = parser.parse_args()
 
-#dir_path = 'data/ace/'
-dir_path = 'data/msnbc/'
-data_tag = 'msnbc'
+data_tag = data_args.data_tag
+dir_path = data_args.dir_path
+
 class_size = 5
 start_time = time.time()
 #wtitle2ments = cPickle.load(open('data/wtitleReverseIndex.p'))
@@ -61,22 +67,37 @@ AFP_dict = {}
 standard_entment = {}
 standard_entment_name={}
 non_link_ents = {}
-with codecs.open(dir_path+'new_entMen2aNosNoid.txt','r','utf-8') as file:
-  for line in file:
-    line = line.strip()
-    items = line.split(u'\t')
-    
-    #print items
-    #ids=items[2]+'\t'+items[3]#+'\t'+items[4]
-    ids = items[2]+'\t'+items[3]+'\t'+items[4]
-    if items[0] != items[len(items)-1]:
-      non_link_ents[ids] = 1
-    if items[0] == u'AFP':
-      AFP_dict[ids] = 1
+if data_tag=='msmbc':
+  with codecs.open(dir_path+'new_entMen2aNosNoid.txt','r','utf-8') as file:
+    for line in file:
+      line = line.strip()
+      items = line.split(u'\t')
       
-    standard_entment[ids]=0
-    standard_entment_name[ids]=items[0]
+      #print items
+      #ids=items[2]+'\t'+items[3]#+'\t'+items[4]
+      ids = items[2]+'\t'+items[3]+'\t'+items[4]
+      if items[0] != items[len(items)-1]:
+        non_link_ents[ids] = 1
+      if items[0] == u'AFP':
+        AFP_dict[ids] = 1
+        
+      standard_entment[ids]=0
+      standard_entment_name[ids]=items[0]
+else:
+  with codecs.open(dir_path+'entMen2aNosNoid.txt','r','utf-8') as file:
+    for line in file:
+      line = line.strip()
+      items = line.split(u'\t')
+      #print items
+      #ids=items[2]+'\t'+items[3]#+'\t'+items[4]
+      ids = items[2]+'\t'+items[3]+'\t'+items[4]
+      if items[0] == u'AFP':
+        AFP_dict[ids] = 1
+        
+      standard_entment[ids]=0
+      standard_entment_name[ids]=items[0]
 print AFP_dict
+
 '''
 generate entity mention using ace_NERresult.p
 one-hot 特征啦
