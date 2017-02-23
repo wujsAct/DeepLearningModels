@@ -5,6 +5,7 @@
 function: get coreference for entity mentions
 '''
 import codecs
+import cPickle
 import collections
 from tqdm import tqdm
 from collections import Counter
@@ -36,6 +37,7 @@ with codecs.open(entsFile,'r','utf-8') as file:
     line = line.strip()
     items = line.split('\t')
     entMent = items[0]; linkingEnt = items[1]; aNosNo = items[2]; start = items[3]; end = items[4]
+  
     if "Walters" in entMent:
       print line
     key = aNosNo + '\t' + start+'\t'+end
@@ -58,6 +60,7 @@ with codecs.open(entsFile,'r','utf-8') as file:
       entMents2surfaceName[key] = entMent
 print 'entMentsTags nums:',len(entMentsTags)
 print 'has mid:',hasMid
+
 '''
 with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
   for line in file:
@@ -75,10 +78,11 @@ with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
 
 print "coreference length:",len(entMent2repMent)     
 '''
-
+'''
 #just split 's and , relative clause
 entMent2repMent = {}
-
+Line2WordDict = {}
+Line2entRep={}  #a little complex
 with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
   for line in file:
     line =line.strip()
@@ -97,9 +101,9 @@ with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
     for enti in items:
       aNosNo, start, end, mention = enti.split('\t')
       key = aNosNo +'\t'+start+'\t'+end
-      '''
-      representive entity is the longest entities and exist in the extracted entity mentions!
-      '''
+      
+      #representive entity is the longest entities and exist in the extracted entity mentions!
+      
       flag = False
       if key in entMentsTags:
         for iment in mention.split(' '):
@@ -108,34 +112,143 @@ with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
         if flag:
           entInDict[enti] = len(mention.split(" "))
       else:
-        '''
-        @开始尝试n-gram哈
-        '''
-        if len(wordDict) >0:
-          for il in range(int(start),int(end)):
-            for jl in range(1,int(end)-int(start)-il+1):
-              keyNgram = aNosNo +'\t'+str(il)+'\t'+str(il+jl)
-              if keyNgram in entMentsTags:
-#                for iment in entMents2surfaceName[keyNgram].split(' '):
-#                  if iment == wordDict[0][0]:
-#                    flag = True
-#                if flag:
-                  print 'submention in this datasets:',keyNgram,entMents2surfaceName[keyNgram]
+        for keyi in entMentsTags:  #relative cluase deleted!
+          aNosNok, startk, endk = keyi.split(u'\t')
+          mentionk = entMents2surfaceName[keyi]
+          if aNosNok == aNosNo and int(start) >= int(startk) and int(end) <= int(endk):
+            entInDict[keyi+'\t'+mentionk]=len(mentionk.split(' '))
                   
     
     entInDict = sorted(entInDict.iteritems(), key=lambda d:d[1], reverse = True)
     if len(entInDict)>0:
-      print entInDict[0],':',line
+      if '. Nick' in entInDict[0][0]:
+        print 'wrong step1...'
+        exit(0)
+      Line2entRep[line] = entInDict[0][0]
+      Line2WordDict[line] = wordDict
+      #print entInDict[0],':',line
+#print 'the firest iteration:',Line2entRep.values()
+
+needMerge=[]
+lineDelete=set()
+with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
+  for line in file:
+    line =line.strip()
+    items = line.split(u"\t\t")
+    if line in Line2entRep:
+      entRep = Line2entRep[line]
+      repaNosNo, repstart, repend, repmention = entRep.split('\t')
       
+      for enti in items:
+        if enti != entRep:
+          aNosNo, start, end, mention = enti.split(u'\t')
+          aNo = aNosNo.split('_')[0]
+          key = aNosNo +'\t'+start+'\t'+end 
+          if key not in entMentsTags:
+            #ent2RepEnt[enti] = entRep
+            for il in range(int(start),int(end)):
+              for jl in range(1,int(end)-int(start)-il+1):
+                keyNgram = aNosNo +'\t'+str(il)+'\t'+str(il+jl)
+                
+                if keyNgram in entMentsTags:
+                  #search entRep
+                  mergeListi=[]
+                  for linei in Line2WordDict:
+                    flag=False
+                    wordDict = Line2WordDict[linei]
+                    entRep1 = Line2entRep[linei]
+                    entRep1MentLent = len(entRep1.split('\t')[-1].split(' '))
+                    aNosNorep = entRep1.split('\t')[0].split('_')[0]
+                    if aNo == aNosNorep:
+                      for iment in entMents2surfaceName[keyNgram].split(' '):
+                        if iment == wordDict[0][0]:
+                          flag = True
+                      
+                      if flag:
+                        if len(entMents2surfaceName[keyNgram].split(' '))>entRep1MentLent:
+                          #Line2entRep.pop(linei)
+                          lineDelete.add(linei)
+                          linei = linei + '\t\t' + keyNgram+'\t'+entMents2surfaceName[keyNgram] +'\t\t'+ entRep1
+                          if '. Nick' in entMents2surfaceName[keyNgram]:
+                            print 'wrong step2...'
+                            exit(0)
+                          Line2entRep[linei] = keyNgram+'\t'+entMents2surfaceName[keyNgram]
+                          
+                        else:
+                          lineDelete.add(linei)
+                          #Line2entRep.pop(linei)
+                          linei = linei + '\t\t' + keyNgram+'\t'+entMents2surfaceName[keyNgram] +'\t\t'+ entRep1
+                          if '. Nick' in entRep1:
+                            print 'wrong step3...'
+                            exit(0)                                                          
+                          Line2entRep[linei] = entRep1
+                          
+                          
+                        mergeListi.append(linei)
+                        #print 'submention in this datasets:',entRep1,':',keyNgram,entMents2surfaceName[keyNgram]
+                  needMerge.append(mergeListi)
+#print 'second process..',Line2entRep.values()                  
+for key in needMerge:
+  if len(mergeListi) >1:
+    maxentLents = 0
+    repent = ''
+    finalline = ''
+    for linei in needMerge:
+      if linei not in lineDelete:
+        lents = len(Line2entRep[linei].split('\t')[-1].split(' '))
+        if lents > maxentLents:
+          maxentLents = lents
+          repent = Line2entRep[linei]
+        finalline = finalline + linei +'\t\t'
+        Line2entRep.pop(linei)
+        lineDelete.append(linei)
+    finalline= finalline.strip()
+    Line2entRep[finalline] = repent
+
+entMent2repMent={}
+
+for line in Line2entRep:
+  if line not in lineDelete:
+    line = line.strip()
+    entRep = Line2entRep[line]
+    entMention = entRep.split('\t')[-1]
+    
+    for item in line.split('\t\t'):
+      if item != entRep:
+        aNosNo,start,end,mention = item.split('\t')
+        itemkey = '\t'.join(item.split('\t')[0:3])
+        if itemkey in entMentsTags:
+          #itemment= item.split('\t')[3]
+          itemment=entMents2surfaceName[itemkey]
+          if itemment == entMention:
+            continue
+          if itemment in entMention or entMention in itemment:
+            entMent2repMent[item] = entRep
+            #print entRep,':',item
+            
+print 'reference entity nums:',len(entMent2repMent)            
 
 
+for key in entMent2repMent:
+  print key,entMent2repMent[key]
+  
 '''
+'''
+@there are also some entity has no reference, such as Diaze,Saban ...
+'''
+entMent2repMent = cPickle.load(open(dir_path+'entMent2repMent.p','rb'))    
+#for key in entMent2repMent:
+#  print key,entMent2repMent[key]                     
 newEntsFile = codecs.open(dir_path+'new_entMen2aNosNoid.txt','w','utf-8')
-for key in tqdm(entMentsTags):
+for key in entMentsTags:
   line = entMent2line[key]
-  if key in entMent2repMent and entMent2repMent.get(key) in entMentsTags:  #we do not need to do entity linking for this kind of entity!
-    newEntsFile.write(line+'\t'+entMent2line.get(entMent2repMent[key]).split('\t')[0]+'\n')
-  else:
-    newEntsFile.write(line+'\t'+line.split('\t')[0]+'\n')
-'''
+  aNo = key.split('\t')[0].split('_')[0]
+  mention = entMents2surfaceName[key]
+  item = key+'\t'+mention
+  if item in entMent2repMent:# and entMent2repMent.get(key) in entMentsTags:  #we do not need to do entity linking for this kind of entity!
+    repEntsMents = entMent2repMent[item].split('\t')[-1]
+    print repEntsMents
+    newEntsFile.write(line+'\t'+repEntsMents+'\n')
+  
+
     
