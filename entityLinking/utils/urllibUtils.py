@@ -116,7 +116,7 @@ class urllibUtils():
     soup = BeautifulSoup(pages,"lxml")
     tags = soup.find_all('div',class_='mw-search-result-heading')
     ##print 'tags',tags
-    cadents = set()
+    cadents = []
     ##print len(tags)
     if len(tags)>=1:
       for tag in tags:
@@ -125,7 +125,8 @@ class urllibUtils():
           if '/wiki/' in a_item['href']:
             ntitle = a_item.get('title')
             if (ntitle!=None) and ('disambiguation' not in ntitle):
-              cadents.add(ntitle)
+              if ntitle not in cadents:
+                cadents.append(ntitle)
     print searchent,':parseEntCandFromWikiSearch'
     return cadents
   
@@ -136,7 +137,7 @@ class urllibUtils():
     pages = urllib2.urlopen(req,timeout=200).read()
     soup = BeautifulSoup(pages,"lxml")
     tags = soup.find_all('p')
-    cadents =set()
+    cadents =[]
     if len(tags)>=1:
       tag = tags[0]
       if 'may refer to:' in tag.text:
@@ -149,13 +150,16 @@ class urllibUtils():
             if '/wiki/' in ai['href']:
               #print ai['href']+'\t'+ai.text
               if '(disambiguation)' in ai.text:
+                
                 temp = ai.text.replace('(disambiguation)','').strip()
-                cadents.add(temp)
-              else: 
-                cadents.add(ai.text)
-              if len(cadents) >=3:
+                if temp not in cadents:
+                  cadents.append(temp)
+              else:
+                if ai.text not in cadents:
+                  cadents.add(ai.text)
+              if len(cadents) >=10:
                 break;
-          if len(cadents)>=3:
+          if len(cadents)>=10:
             break;
     print searchent,':getDirectFromWikiPage'
     return cadents
@@ -166,7 +170,7 @@ class urllibUtils():
     pages = urllib2.urlopen(req,timeout=200).read()
     soup = BeautifulSoup(pages,"lxml")
     tags = soup.find_all('p')
-    cadents =set()
+    cadents =[]
     if len(tags)>=1:
       tag = tags[0]
       if 'may refer to:' in tag.text:
@@ -180,12 +184,14 @@ class urllibUtils():
               #print ai['href']+'\t'+ai.text
               if '(disambiguation)' in ai.text:
                 temp = ai.text.replace('(disambiguation)','').strip()
-                cadents.add(temp)
+                if temp not in cadents:
+                  cadents.append(temp)
               else: 
-                cadents.add(ai.text)
-              if len(cadents) >=3:
+                if ai.text not in cadents:
+                  cadents.append(ai.text)
+              if len(cadents) >=10:
                 break;
-          if len(cadents)>=3:
+          if len(cadents)>=10:
             break;
     print searchent,':getDirectFromWikiPage'
     return cadents

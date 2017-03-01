@@ -17,16 +17,21 @@ def getCanEnts(searchent):
   candidate_ent=[];co_occurence_ent=[];
   try:
     metonymyflag,candidate_ent,co_occurence_ent = urllibutil.get_candidate_entities(searchent,num='5')   #words matching!
-    candentSet1=set();candentSet2=set();candentSet=set()
+    candentSet1=[];candentSet2=[];candentSet=[]
     if metonymyflag:   #sometimes may have troubles!
       candentSet1 = urllibutil.getDirectFromWikiPage(searchent)
       if len(candentSet1)==0:
         candentSet1 = urllibutil.getDirectFromWikiDisambiugationPage(searchent)
         
     candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
-    candentSet = candentSet1 | candentSet2
-    if searchent in candentSet:
-      candentSet.remove(searchent)
+    
+    if len(candentSet1)!=0:
+      candentSet = list(candentSet1)
+    
+    for key in candentSet2:
+      if key not in candentSet:
+        candentSet.append(key)
+    
     for candenti in candentSet:
       metonymyflag,candidate_enti,co_occurence_enti = urllibutil.get_candidate_entities(candenti,num='1')
       candidate_ent += candidate_enti
