@@ -20,6 +20,8 @@ import string
 from tqdm import tqdm
 import collections
 
+import numpy as np
+
 def is_contain_ents(enti,entj):
   enti = enti.lower()
   entj = entj.lower()
@@ -29,9 +31,7 @@ def is_contain_ents(enti,entj):
     return False
 
 def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum):
-  #找出全部包含jordan的实体，然后使用NGD和REL进行消解，找到答案！今天下午把这个问题解决掉
-  #部分与整体的coreference也能够解决一部分的问题呢！
-  candi = 0
+
   #print 'go into entNGD...'
   distRet = {};
   #first find all the ents we need to process
@@ -39,6 +39,9 @@ def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_re
   enti_item = enti_title.split(u' ')
   enti_f = enti_item[0]
   totaldict=dict()
+  '''
+  @exits a very 
+  '''
   if enti_title in wikititle_reverse_index:
     totaldict = wikititle_reverse_index[enti_title]
   else:
@@ -48,14 +51,16 @@ def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_re
   for key in totaldict:
     if is_contain_ents(enti_title,key):
       addScore = 0
-      if enti_title == key:  #completely match
-        addScore += 0.3 
-      if key in entstr2id: #在上下文中出现了的！可以解决一部分共指问题！
+#      if enti_title == key:  #completely match, score is too low!
+#        addScore += 0.3 
+      if key in entstr2id: 
         addScore += 0.3
       for wmid in wikititle2fb[key]:
         distRet[wmid+u'\t'+key]=Levenshtein.ratio(enti_title,key) + addScore
   distRet= sorted(distRet.iteritems(), key=lambda d:d[1], reverse = True)
+  
   #cantent_mid={}
+  #freebaseNum=50
   for item in distRet:
     if freebaseNum==0:
       break
@@ -64,28 +69,31 @@ def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_re
     if wmid not in cantent_mid2:
       #cantent_mid2[item_it[0]] = item_it[1]
       #cantent_mid2[wmid] = [0,0,item[1]]
-      cantent_mid2[wmid] = [0,0,item[1]]
+      cantent_mid2[wmid] = list([0,0,item[1]])
       freebaseNum -=1
     else:
-      temp = cantent_mid2[wmid]
+      temp = list(cantent_mid2[wmid])
       temp[2]=temp[2]+item[1]
-      cantent_mid2[wmid]= temp
+      cantent_mid2[wmid]= list(temp)
   #print cantent_mid2
   return cantent_mid2
 
 def get_cantent_mid(listentcs,w2fb,wikititle2fb):
-  flag = False
   cantent_mid={}
   for cent in listentcs:
-    ids = cent[u'ids']
-    titles = cent[u'title'].lower()
+    if isinstance(cent,dict):
+      ids = cent[u'ids']
+      titles = cent[u'title'].lower()
+    else:
+      ids = cent
+      titles = cent.lower()
     if ids in w2fb:
       #cantent_mid[w2fb[ids]] = titles
-      cantent_mid[w2fb[ids]] = [1,0,0]
+      cantent_mid[w2fb[ids]] = list([1,0,0])
     elif titles in wikititle2fb:
       for wmid in wikititle2fb[titles]:
         #cantent_mid[wmid] =titles
-        cantent_mid[wmid] =[1,0,0]
+        cantent_mid[wmid] =list([1,0,0])
   return cantent_mid
 
 def get_ent_word2vec_cands(enti,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1):
@@ -99,39 +107,32 @@ def get_ent_word2vec_cands(enti,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_en
         entids = entstr2id[cents.lower()]
         listentcs =[]
         for entid in entids:
-          listentcs += candiate_ent[entid][0:1]
+          listentcs += candiate_ent[entid][0:1]  #very important things!
         if len(listentcs)>=1:
           #cantent_mid =dict(cantent_mid,**get_cantent_mid(listentcs,w2fb,wikititle2fb))
           for wmid in get_cantent_mid(listentcs,w2fb,wikititle2fb):
             if wmid not in cantent_mid1:
-              cantent_mid1[wmid] = [0,1/k,0]
+              #cantent_mid1[wmid] = [0,1/k,0]
+              cantent_mid1[wmid] = list([0,citems[1],0])
             else:
-              temp = cantent_mid1[wmid]
-              temp[1]=temp[1]+1/k
-              cantent_mid1[wmid]= temp
+              temp = list(cantent_mid1[wmid])
+              #temp[1]=temp[1]+1/k
+              temp[1]=citems[1]
+              cantent_mid1[wmid]= list(temp)
       if cents.lower() in wikititle2fb:
         for wmid in wikititle2fb[cents.lower()]:
           #cantent_mid[wmid] = cents.lower()
           if wmid not in cantent_mid1:
-            cantent_mid1[wmid] = [0,1/k,0]
+            cantent_mid1[wmid] = list([0,citems[1],0])
           else:
-            temp = cantent_mid1[wmid]
-            temp[1]= temp[1]+1/k
-            cantent_mid1[wmid]= temp
+            temp = list(cantent_mid1[wmid])
+            temp[1]= temp[1]+citems[1]
+            cantent_mid1[wmid]= list(temp)
       k += 1
       
   return cantent_mid1
 
-def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index):
-  '''
-  @2016/12/15 目前可以达到89%的覆盖率了！ cut-off 设置为30
-  
-  @2016/12/27 需要计算p(e|m),即在基于information retrieval搜集候选实体的时候，要给每一个候选实体打分！
-  这个特征我们的人为因素非常大了呢！
-  [dbpedia search, word2vec, freebase entity surface name], 总分就是求和吗？
-  如果一个实体出现多次的话，那么需要给多次分数！
-  cantent_mid: key 是candidate entity mid, value 是各项得分啦！根据训练集来观察到底是哪种特征对entity linking会有影响哈！
-  '''
+def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index,docId_entstr2id,entMent2repMent,id2aNosNo):
   all_candidate_mids = []
   allentmention_numbers = 0
   '''
@@ -146,7 +147,7 @@ def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w
         entstr_lower2mid[item[2].lower()] = item[6]
         mid2entstr_lower[item[6]] = item[3].lower()
   '''
-  ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
+  ent_ment_link_tags = cPickle.load(open('data/aida/aida-annotation.p_new','rb'))
   if data_flag=='train':
     ent_id = 0
   if data_flag=='testa':
@@ -157,17 +158,24 @@ def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w
   #exit(-1)
   right_nums = 0;wrong_nums =0
   pass_nums = 0
-  
+  totalRepCand = 0
   for i in tqdm(range(len(ent_Mentions))):
+    aNosNo = id2aNosNo[i]
+    docId = aNosNo.split('_')[0]
     ents = ent_Mentions[i]
-    
+    context_ents = docId_entstr2id[docId]
     for j in range(len(ents)):
+      isRepflag =False 
+      
       allentmention_numbers+=1
-      totalCand = 0
+      
       
       enti = ents[j]
       
       enti_name = enti.content.lower()
+      #mention = enti.content
+      startI = enti.startIndex; endI = enti.endIndex
+      aNosNoMSE = aNosNo+'\t'+str(startI)+'\t'+str(endI)
       '''
       if enti_name not in entstr_lower2mid:
         pass_nums = pass_nums + 1
@@ -177,43 +185,52 @@ def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w
       '''
       enti_linktag_item = ent_ment_link_tags[ent_id]
       tag = enti_linktag_item[1]
-      #有个小错误不太好排除，先这样处理吧！
+      
       if tag == 'NIL':
         pass_nums = pass_nums + 1
-        if ent_id ==16787:
-          ent_id += 2
-        else:
-          ent_id += 1
-        continue
-      if ent_id == 16787:
-        ent_id +=2
-      else:
         ent_id += 1
+        continue
+      ent_id += 1
+      if aNosNoMSE in entMent2repMent:
+        isRepflag = True
+        enti_name = entMent2repMent[aNosNoMSE].split('\t')[-1].lower()
+        #print 'step into the entMent2repMent'
+      
+#      if enti_name != 'wall street':
+#        continue
       entids = entstr2id[enti_name]
+      
+      
       listentcs = []
       for entid in entids:
         listentcs += (candiate_ent[entid])
       cantent_mid1 = get_cantent_mid(listentcs,w2fb,wikititle2fb)   #get wikidata&dbpedia search candidates
       
       if enti_name in wikititle2fb:
+        wmid_i = 0
         for wmid in wikititle2fb[enti_name]:
+          wmid_i +=1
           #cantent_mid1[wmid] = enti_name
-          cantent_mid1[wmid] = [1,0,0]
+          cantent_mid1[wmid] = [1/wmid_i,0,0]
   
-      cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1) #get word2vec coherent candidates
+      #cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1) #get word2vec coherent candidates
+      cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,cantent_mid1) #get word2vec coherent candidates
       
       freebaseNum = max(0,30 - len(cantent_mid2))
       
-      cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti.content,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching 这部分将花费很多的时间！
+      #cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti.content,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching
+      cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti.content,context_ents,wikititle2fb,wikititle_reverse_index,freebaseNum)
+      
       final_mid = cantent_mid3
       totalCand = len(final_mid)
       #if tag in cantent_mid1 or tag in cantent_mid2 or tag in cantent_mid3:
       if tag in final_mid:
+        if isRepflag:
+          totalRepCand += 1
         right_nums += 1
-        #print 'right:',enti_name,totalCand
       else:
         wrong_nums = wrong_nums + 1
-        print 'wrong:',tag,enti.content,len(final_mid),final_mid
+        print 'wrong:',tag,enti.content,totalCand#,final_mid
         #print cantent_mid1,cantent_mid2,cantent_mid3
         #exit()
         
@@ -223,6 +240,7 @@ def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w
   print 'right_nums:',right_nums
   print 'pass_nums:',pass_nums
   print len(all_candidate_mids), allentmention_numbers
+  print 'totalRep right:',totalRepCand
   return all_candidate_mids    
 
 
@@ -239,27 +257,108 @@ if __name__=='__main__':
   #data context:  para_dict={'entstr2id':entstr2id,'candiate_ent':candiate_ent,'candiate_coCurrEnts':candiate_coCurrEnts}
   data = cPickle.load(open(f_input,'r'))
   entstr2id_org = data['entstr2id']
+  #print entstr2id_org
+  candiate_ent = data['candiate_ent']#;candiate_coCurrEnts = data['candiate_coCurrEnts']
   print 'entstr2id_org',len(entstr2id_org)
   id2entstr_org = {value:key for key,value in entstr2id_org.items()}
   entstr2id= collections.defaultdict(set)
   for key,value in entstr2id_org.items():
     entstr2id[key.lower()].add(value)
   print 'entstr2id',len(entstr2id)
-  candiate_ent = data['candiate_ent'];candiate_coCurrEnts = data['candiate_coCurrEnts']
+  w2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wid2fbid.p','rb'))
+  wikititle2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
+  ids = entstr2id['wall street']
+#  for idi in ids:
+#    print idi
+#    for kk in candiate_ent[idi]:
+#      print kk
+#      print w2fb[kk['ids']],kk['title']
+#  exit(0)
+  averages = []
+  max_candidate = 0
+  new_candiate_ent=[]
+  for key in candiate_ent:
+    #print key
+    temnum = 0
+    new_item = []
+    for item in key:
+      if item in w2fb:
+        new_item.append(item)
+        temnum += 1
+      else:
+        if item.lower() in wikititle2fb:
+          new_item.append(item)
+          temnum += 1
+      if len(new_item) ==10:
+        break
+    new_candiate_ent.append(new_item)
+    
+    averages.append(temnum)
+    if max_candidate < temnum:
+      max_candidate = temnum
+  print max_candidate
+  print np.average(averages)
+  
+  entMent2repMent_org = cPickle.load(open(dir_path+'process/'+data_flag+'_entMent2repMent.p','rb'))  
+  #print entMent2repMent_org
+  
+  print len(entMent2repMent_org)
+  
+  entMent2repMent = {}
+  for key in entMent2repMent_org:
+    keyr = '\t'.join(key.split('\t')[0:3])
+    val = entMent2repMent_org[key].split('\t')[-1]
+  
+    entMent2repMent[keyr] = val
+             
+  data = cPickle.load(open(dir_path+'process/'+ data_flag+'.p','r'))
+  
+  aNosNo2id = data['aNosNo2id']
+  id2aNosNo = {val:key for key,val in aNosNo2id.items()}
+  
+  
   #print candiate_ent
   
   #param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs} ==>
   dataEnts = cPickle.load(open(f_input_entMents,'r'))
   
   ent_Mentions = dataEnts['ent_Mentions']; aNo_has_ents=dataEnts['aNo_has_ents'];ent_ctxs=dataEnts['ent_ctxs']
+  print len(ent_Mentions)
+  #print ent_Mentions
+  #exit(0)
   all_ents = set()
-  w2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wid2fbid.p','rb'))
-  wikititle2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
-  wikititle_reverse_index  = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitleReverseIndex.p','rb'))
-  #print wikititle_reverse_index
   
-  print 'start to solve problems...'
+  docId_entstr2id= collections.defaultdict(dict)
+  '''
+  @2017/3/1, we revise the entstr2id  to docid_entstr2id
+  '''
+  for i in tqdm(range(len(ent_Mentions))):
+    aNosNo = id2aNosNo[i]
+    docId = aNosNo.split('_')[0]
+    ents = ent_Mentions[i]
+    
+    for j in range(len(ents)):
+      enti = ents[j]
+      enti_name = enti.content
+      value = entstr2id_org.get(enti_name)
+      if enti_name.lower() not in docId_entstr2id[docId]:
+        
+        docId_entstr2id[docId][enti_name.lower()]= {value}
+      else:
+        docId_entstr2id[docId][enti_name.lower()].add(value)
+  #print docId_entstr2id
+  print 'start to load wikititle...'
+  
+  
+  wikititle2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
   w2vModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin',binary=True)
-  all_candidate_mids = get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index)
+  wikititle_reverse_index  = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitleReverseIndex.p','rb'))
+  #w2vModel=[]
+  #wikititle2fb=[]
+  #wikititle_reverse_index=[]
+  print 'start to solve problems...'
+  #
+  all_candidate_mids = get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,new_candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index,docId_entstr2id,entMent2repMent,id2aNosNo)
   cPickle.dump(all_candidate_mids,open(f_output,'wb'))
+  
   
