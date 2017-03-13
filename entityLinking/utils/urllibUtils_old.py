@@ -10,7 +10,7 @@ import json
 from bs4 import BeautifulSoup
 import ssl
 
-class urllibUtils():
+class urllibUtils_old():
   def __init__(self):
     User_Agent = 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:43.0) Gecko/20100101 Firefox/43.0'
     header = {}
@@ -22,9 +22,8 @@ class urllibUtils():
     try:
       req = urllib2.Request(url,headers=self.header)
     except:
-      print 'wrong url..'   
       pass
-      
+      #print 'wrong url..'   
     return req
 
   def getAhref(self,tags):
@@ -34,27 +33,6 @@ class urllibUtils():
         if '/wiki/' in ai['href']:
           co_occurence_ent.add(ai['href']+'\t'+ai.text)
     return co_occurence_ent
-  
-
-  def get_candidateWID_entities(self,searchent,num):
-    data = {'action': 'wbsearchentities', 'search':searchent, 'language':'en','limit':num,'format': 'json'}
-    data = urlencode(data)
-    #search all related wiki entity
-    url = 'https://www.wikidata.org/w/api.php?'+ data
-    req = self.getRequest(url)
-    res = json.loads(urllib2.urlopen(req,timeout=200).read())
-    #print res
-    candidate_ent = []
-    if u'search' in res:
-      for item in res[u'search']:
-        ids = item[u'id']
-        if 'description' in item:
-          description = item[u'description']
-          if ('disambiguation' not in description) and ('Wikimedia template' not in description) and ('Identifier for a time offset' not in description):
-            if ids not in candidate_ent:
-              candidate_ent.append(ids)
-    return candidate_ent
-            
     
   def get_candidate_entities(self,searchent,num):
     data = {'action': 'wbsearchentities', 'search':searchent, 'language':'en','limit':num,'format': 'json'}
@@ -87,7 +65,7 @@ class urllibUtils():
         
         if 'description' in item:
           description = item[u'description']
-          if ('Wikipedia disambiguation page' not in description) and ('Wikimedia template' not in description) and ('Identifier for a time offset' not in description):
+          if ('Wikipedia disambiguation page' not in description) and ('Wikimedia template' not in description):
             #diamabiguation page need to parse again
             url = 'https://www.wikidata.org/wiki/'+ids
             try:
@@ -127,18 +105,19 @@ class urllibUtils():
     return metonymyflag,candidate_ent,co_occurence_ent
     
   def parseEntCandFromWikiSearch(self,searchent):
-    #print 'step into the parseEntCandFromWikiSearch'
+    ##print 'step into the parseEntCandFromWikiSearch'
     data = {'search':searchent,'limit':'3','offset':'0','profile':'default', 'title':'Special:Search','fulltext': '1'}
     data = urlencode(data)
     #search all related wiki entity
     url = 'https://en.wikipedia.org/w/index.php?'+ data
-    #print url
+    ##print url
     req = self.getRequest(url)
     pages = urllib2.urlopen(req,timeout=200).read()
     soup = BeautifulSoup(pages,"lxml")
     tags = soup.find_all('div',class_='mw-search-result-heading')
-    
+    ##print 'tags',tags
     cadents = []
+    ##print len(tags)
     if len(tags)>=1:
       for tag in tags:
         itemss = tag.find_all('a',href=True)
@@ -148,11 +127,7 @@ class urllibUtils():
             if (ntitle!=None) and ('disambiguation' not in ntitle):
               if ntitle not in cadents:
                 cadents.append(ntitle)
-                if len(cadents) >=10:
-                  break;
-          if len(cadents)>=10:
-            break;
-   
+    print searchent,':parseEntCandFromWikiSearch'
     return cadents
   
   def getDirectFromWikiPage(self,searchent):
@@ -160,13 +135,12 @@ class urllibUtils():
     #print url
     req = self.getRequest(url)
     pages = urllib2.urlopen(req,timeout=200).read()
-    #print url
     soup = BeautifulSoup(pages,"lxml")
     tags = soup.find_all('p')
     cadents =[]
     if len(tags)>=1:
       tag = tags[0]
-      if 'refer to:' in tag.text:
+      if 'may refer to:' in tag.text:
         lis = soup.find_all('li')
         for li in lis:
           #print li
@@ -174,52 +148,43 @@ class urllibUtils():
           if len(ais)>=1:
             ai = ais[0]
             if '/wiki/' in ai['href']:
-              if 'lang' in ai:
-                if ai['lang']!='en':
-                  continue
               #print ai['href']+'\t'+ai.text
-              if ai.text not in cadents:
-                cadents.append(ai.text)
-              if len(cadents) >=1:
+              if '(disambiguation)' in ai.text:
+                
+                temp = ai.text.replace('(disambiguation)','').strip()
+                if temp not in cadents:
+                  cadents.append(temp)
+              else:
+                if ai.text not in cadents:
+                  cadents.add(ai.text)
+              if len(cadents) >=10:
                 break;
-          if len(cadents)>=1:
+          if len(cadents)>=10:
             break;
-    #print searchent,':getDirectFromWikiPage'
+    print searchent,':getDirectFromWikiPage'
     return cadents
   def getDirectFromWikiDisambiugationPage(self,searchent):
     url = 'https://en.wikipedia.org/wiki/'+searchent+'_(disambiguation)'
-    #print url
+    print url
     req = self.getRequest(url)
     pages = urllib2.urlopen(req,timeout=200).read()
     soup = BeautifulSoup(pages,"lxml")
     tags = soup.find_all('p')
+    tags = soup.find_all('p')
     context = soup.find_all(id="mw-content-text")[0]
-    '''
-    mw-content-text
-    '''
-    #print tags
     cadents =[]
     if len(tags)>=1:
-      flag = False
-      for tag in tags:
-        if 'refer to:' in tag.text:
-          flag = True
-      #print flag
-      if flag:
+      tag = tags[0]
+      if 'may refer to:' in tag.text:
+        #lis = soup.find_all('li')
         lis = context.find_all('li')
         for li in lis:
           #print li
           ais = li.find_all('a',href=True)
           if len(ais)>=1:
             ai = ais[0]
-            if '/wiki/Special' in ai['href']:
-              continue
             if '/wiki/' in ai['href']:
-              if 'lang' in ai.attrs:
-                if ai.attrs.get('lang')!='en':
-                  continue
               #print ai['href']+'\t'+ai.text
-             
               if '(disambiguation)' in ai.text:
                 temp = ai.text.replace('(disambiguation)','').strip()
                 if temp not in cadents:
@@ -227,11 +192,10 @@ class urllibUtils():
               else: 
                 if ai.text not in cadents:
                   cadents.append(ai.text)
-                
-#              if len(cadents) >=10:
-#                break;
-#          if len(cadents)>=10:
-#            break;
-    #print searchent,':getDirectFromWikiPage'
+              if len(cadents) >=10:
+                break;
+          if len(cadents)>=10:
+            break;
+    print searchent,':getDirectFromWikiPage'
     return cadents
                 

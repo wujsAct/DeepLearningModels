@@ -14,6 +14,7 @@ import collections
 from tqdm import tqdm
 from collections import Counter
 from PhraseRecord import EntRecord
+import argparse
 
 '''read mid2name'''
 
@@ -30,9 +31,16 @@ from PhraseRecord import EntRecord
 #      fb2wikititle[fbId] = title.lower()
 #      wikititle2fb[title.lower()].append(fbId)
 #fb2wikititle['NIL'] = 'NIL'
+parser = argparse.ArgumentParser()
+parser.add_argument('--data_tag', type=str, help='which data file(ace or msnbc)', required=True)
+parser.add_argument('--dir_path', type=str, help='data directory path(data/ace or data/msnbc) ', required=True)
+data_args = parser.parse_args()
+  
+data_tag = data_args.data_tag
+dir_path = data_args.dir_path
 
-dir_path = 'data/aida/'
-data_tag = 'testa'
+#dir_path = 'data/aida/'
+#data_tag = 'testa'
 f_input_ent_ments = dir_path+'features/'+data_tag+"_entms.p100"
 dataEnts = cPickle.load(open(f_input_ent_ments,'rb'))
 ent_Mentions = dataEnts['ent_Mentions']
@@ -45,6 +53,7 @@ id2aNosNo2id = {val:key for key,val in aNosNo2id.items()}
 print 'aNosNo2id',len(aNosNo2id)
 print 'ent_Mentions',len(ent_Mentions)
 ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p','rb'))
+
 #
 #print ent_ment_link_tags
 
@@ -61,6 +70,7 @@ entMentsTags={}
 entMents2surfaceName={}
 #entMent2line = {}
 hasMid =0
+allEnts = -1
 for i in tqdm(range(len(ent_Mentions))):
     aNosNo = id2aNosNo2id[i]
     
@@ -68,6 +78,9 @@ for i in tqdm(range(len(ent_Mentions))):
     
     #print i,'\tentM:',len(ents)
     for j in range(len(ents)):
+      allEnts += 1
+      
+      
       totalCand = 0
       enti = ents[j]
       
@@ -80,15 +93,9 @@ for i in tqdm(range(len(ent_Mentions))):
       tag = enti_linktag_item[1]
      
       if tag == 'NIL':
-        if ent_id ==16787:
-          ent_id += 2
-        else:
-          ent_id += 1
-        continue
-      if ent_id == 16787:
-        ent_id +=2
-      else:
         ent_id += 1
+        continue
+      ent_id += 1 
       k += 1
       linkingEnt = tag
       if linkingEnt == 'NIL':
@@ -251,11 +258,29 @@ for line in Line2entRep:
           if itemment.lower() in entMention.lower() or entMention.lower() in itemment.lower():
             entMent2repMent[item] = entRep
             #print entRep,':',item
-            
 print 'reference entity nums:',len(entMent2repMent)            
+#there are still a lot of entity can not be linked into
 
+aNoEntstr2repMent={}
 
-for key in entMent2repMent:
-  print key,entMent2repMent[key]
+for item in entMent2repMent:
+  aNosNo,start,end,mention = item.split('\t')
+  aNo = aNosNo.split("_")[0]
+  key = aNo+'\t'+mention.lower()
+  aNoEntstr2repMent[key] = entMent2repMent[item]
+
+ewai = 0
+for key in entMentsTags:
+  aNo = key.split('\t')[0].split('_')[0]
+  mention = entMents2surfaceName[key]
+  keyrep = aNo+'\t'+mention.lower()
+  if keyrep in aNoEntstr2repMent:
+    if key+"\t"+mention not in entMent2repMent:
+      ewai += 1
+      print key,'\t', mention, aNoEntstr2repMent[keyrep]
+      keyii = key+'\t'+mention
+      entMent2repMent[keyii] = aNoEntstr2repMent[keyrep]
+print len(entMent2repMent)
+
   
-  
+cPickle.dump(entMent2repMent,open(dir_path+'process/'+data_tag+'_entMent2repMent.p','wb'))  

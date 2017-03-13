@@ -12,16 +12,62 @@ from spacyUtils import spacyUtils
 from PhraseRecord import EntRecord
 from urllibUtils import urllibUtils
 
+def getCandEntsByWiki(searchent):
+  urllibutil = urllibUtils()
+  candidate_ent = []
+  candentSet1=[];candentSet2=[]
+  '''
+  @top 1
+  '''
+  try:
+    candidate_ent = urllibutil.get_candidateWID_entities(searchent,num='1')
+  except urllib2.URLError,e:
+    pass
+  
+  '''
+  @top 1
+  '''
+  try:
+    candentSet1 = urllibutil.getDirectFromWikiPage(searchent)
+  except:
+    pass
+    
+  '''
+  @we need to add all the disambiugation pages
+  '''
+  try:
+    candentSet1 += urllibutil.getDirectFromWikiDisambiugationPage(searchent)
+  except:
+    pass
+  '''
+  @top three!
+  '''
+  try:
+    #if len(candentSet1)==0:
+    candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
+  except:
+    pass
+  for ent in candentSet1:
+    if ent not in candidate_ent:
+      candidate_ent.append(ent)
+  
+  for ent in candentSet2:
+    if ent not in candidate_ent:
+      candidate_ent.append(ent)
+  return candidate_ent
+        
+
+'''  
 def getCanEnts(searchent):
   urllibutil = urllibUtils()
   candidate_ent=[];co_occurence_ent=[];
   try:
     metonymyflag,candidate_ent,co_occurence_ent = urllibutil.get_candidate_entities(searchent,num='5')   #words matching!
-    candentSet1=[];candentSet2=[];candentSet=[]
+    candentSet1={};candentSet2={};candentSet={}
     if metonymyflag:   #sometimes may have troubles!
       candentSet1 = urllibutil.getDirectFromWikiPage(searchent)
       if len(candentSet1)==0:
-        candentSet1 = urllibutil.getDirectFromWikiDisambiugationPage(searchent)
+        candentSet1 += urllibutil.getDirectFromWikiDisambiugationPage(searchent)
         
     candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
     
@@ -31,21 +77,29 @@ def getCanEnts(searchent):
     for key in candentSet2:
       if key not in candentSet:
         candentSet.append(key)
-    
-    for candenti in candentSet:
-      metonymyflag,candidate_enti,co_occurence_enti = urllibutil.get_candidate_entities(candenti,num='1')
-      candidate_ent += candidate_enti
-      co_occurence_ent += co_occurence_enti
+        
+    print 'candentSet:'
+    #for key in range(len(candentSet)):
+    #  print key,candentSet[key]
+#    for candenti in candentSet:
+#      metonymyflag,candidate_enti,co_occurence_enti = urllibutil.get_candidate_entities(candenti,num='1')
+#      for i in range(len(candidate_enti)):
+#        key = candidate_enti[i]
+#        if key not in candidate_ent:
+#          candidate_ent.append(key)
+#          co_occurence_ent += co_occurence_enti[i]
   except urllib2.URLError,e:
     print e.reason
     pass
   return candidate_ent,co_occurence_ent
+'''
 
 def funcs(ids,id2entstr,lent):
   entstr = id2entstr[ids]
   searchent = entstr.title()
-  
-  candidate_ent,co_occurence_ent = getCanEnts(searchent)  #solve Metonymy problem!
+  candidate_ent = []
+  #candidate_ent,co_occurence_ent = getCanEnts(searchent)  #solve Metonymy problem!
+  candidate_ent = getCandEntsByWiki(searchent)
   
   if len(candidate_ent)==0:
       print 'have no candidate_ent'
@@ -53,17 +107,22 @@ def funcs(ids,id2entstr,lent):
         entstr = entstr.replace(i,u' ')
       entstr = u' '.join(entstr.split(u' ')[1:])
       #print 'entstr:',entstr
-      candidate_ent,co_occurence_ent = getCanEnts(entstr.title())
+      candidate_ent = getCandEntsByWiki(entstr.title())
      
-  print 'ids:',ids,' totalids:',lent,' original:',searchent,' entstr:',entstr,'\t',len(candidate_ent),len(co_occurence_ent)
-  return [ids,candidate_ent,co_occurence_ent]
+  print 'ids:',ids,' totalids:',lent,' original:',searchent,' entstr:',entstr,'\t',len(candidate_ent)
+  return [ids,candidate_ent]
 
-  
+#candidate_ent,co_occurence_ent = getCanEnts("china")
+#print candidate_ent
+#candidate_ent,co_occurence_ent = getCanEnts("Chicago")
+#print candidate_ent
+#candidate_ent = getCandEntsByWiki("Schindler 'S List")
+#print 'candidate_ent:',candidate_ent
+ 
 if __name__=='__main__':
   if len(sys.argv) !=4:
     print 'usage: python pyfile dir_path inputfile outputfile'
     exit(1)
-  #进程池最好设置成CPU核心数量(cpu core), 不然可能出产生一奇怪的错误！
   #grep 'core id' /proc/cpuinfo | sort -u|wc -l
   dir_path = sys.argv[1]
   f_input = dir_path  + sys.argv[2]
@@ -98,7 +157,7 @@ if __name__=='__main__':
   
   for ptr in xrange(0,lent,30):
     pool = multiprocessing.Pool(processes=6)
-    for ids in xrange(ptr,min(ptr+30,lent)):  #数组越界问题！
+    for ids in xrange(ptr,min(ptr+30,lent)):
       #print '----------------------'
       #print ids,entstr
       result.append(pool.apply_async(funcs, (ids,id2entstr,lent)))
@@ -107,10 +166,10 @@ if __name__=='__main__':
     
     for ret in result:
       retget = ret.get()
-      ids = retget[0];candidate_ent_i=retget[1];co_occurence_ent_i=retget[2]
+      ids = retget[0];candidate_ent_i=retget[1]#;co_occurence_ent_i=retget[2]
       candiate_ent[ids] = candidate_ent_i
-      candiate_coCurrEnts[ids] = co_occurence_ent_i
+      #candiate_coCurrEnts[ids] = co_occurence_ent_i
   
-  para_dict={'entstr2id':entstr2id,'candiate_ent':candiate_ent,'candiate_coCurrEnts':candiate_coCurrEnts}
+  para_dict={'entstr2id':entstr2id,'candiate_ent':candiate_ent}
   cPickle.dump(para_dict,open(f_output,'wb'))
   

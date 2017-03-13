@@ -40,6 +40,8 @@ with codecs.open(entsFile,'r','utf-8') as file:
   
     if "Walters" in entMent:
       print line
+    if "Walters" in entMent:
+      print line
     key = aNosNo + '\t' + start+'\t'+end
     
     #print line
@@ -78,7 +80,7 @@ with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
 
 print "coreference length:",len(entMent2repMent)     
 '''
-'''
+
 #just split 's and , relative clause
 entMent2repMent = {}
 Line2WordDict = {}
@@ -228,15 +230,40 @@ for line in Line2entRep:
             
 print 'reference entity nums:',len(entMent2repMent)            
 
+print 'before:',len(entMent2repMent)
+aNoEntstr2repMent={}
 
-for key in entMent2repMent:
-  print key,entMent2repMent[key]
+for item in entMent2repMent:
+  aNosNo,start,end,mention = item.split('\t')
+  aNo = aNosNo.split("_")[0]
+  key = aNo+'\t'+mention.lower()
+  aNoEntstr2repMent[key] = entMent2repMent[item]
+
+ewai = 0
+for key in entMentsTags:
+  aNo = key.split('\t')[0].split('_')[0]
+  mention = entMents2surfaceName[key]
+  keyrep = aNo+'\t'+mention.lower()
+  if keyrep in aNoEntstr2repMent:
+    if key+"\t"+mention not in entMent2repMent:
+      ewai += 1
+      #print key,'\t', mention, aNoEntstr2repMent[keyrep]
+      keyii = key+'\t'+mention
+      entMent2repMent[keyii] = aNoEntstr2repMent[keyrep]
+      
+print len(entMent2repMent)
+
+entMent2repMent = cPickle.dump(entMent2repMent,open(dir_path+'entMent2repMent.p','wb'))
+
+#for key in entMent2repMent:
+#  print key,entMent2repMent[key]
   
-'''
+
 '''
 @there are also some entity has no reference, such as Diaze,Saban ...
 '''
-entMent2repMent = cPickle.load(open(dir_path+'entMent2repMent.p','rb'))    
+entMent2repMent = cPickle.load(open(dir_path+'entMent2repMent.p','rb'))
+
 #for key in entMent2repMent:
 #  print key,entMent2repMent[key]                     
 newEntsFile = codecs.open(dir_path+'new_entMen2aNosNoid.txt','w','utf-8')
@@ -247,8 +274,10 @@ for key in entMentsTags:
   item = key+'\t'+mention
   if item in entMent2repMent:# and entMent2repMent.get(key) in entMentsTags:  #we do not need to do entity linking for this kind of entity!
     repEntsMents = entMent2repMent[item].split('\t')[-1]
-    print repEntsMents
+    #print repEntsMents
     newEntsFile.write(line+'\t'+repEntsMents+'\n')
+  else:
+    newEntsFile.write(line+'\t'+mention+'\n')
   
 
     

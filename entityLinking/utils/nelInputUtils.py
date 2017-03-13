@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 import cPickle as pkl
 import numpy as np
 import time
@@ -78,17 +77,19 @@ def getLinkingFeature(args,lstm_output,ent_mention_index,ent_mention_tag,ent_rel
   candidate_ent_relcoherent_feature=[]
   ent_mention_lstm_feature = []
   allLenght = len(ent_mention_index)
-  
+  sequence_length = []
   ent_index=[]
   lstm_index=[]
+  dim3 = np.shape(lstm_output)[2]
   if flag == 'train':
-    last_range = min(ptr+args.batch_size,allLenght)
     #last_range = min(ptr+args.batch_size,allLenght)
+    last_range = min(ptr+10,allLenght)
   else:
     last_range = allLenght
   #last_range = allLenght
   for ids in xrange(ptr,last_range):
     tagid = 0
+    
     for ent_item in ent_mention_index[ids]:
       #if len(ent_mention_tag[ids])!=0:
       if np.sum(ent_mention_tag[ids][tagid]) != 0:
@@ -118,7 +119,16 @@ def getLinkingFeature(args,lstm_output,ent_mention_index,ent_mention_tag,ent_rel
         candidate_ent_surfacewordv_feature.append(ent_mentWordV_candidates)
         candidate_ent_type_feature.append(ent_type_candidates)
         candidate_ent_prob_feature.append(ent_prob_candidates)
-        ent_mention_lstm_feature.append(np.sum(lstm_output[ids-ptr][ent_item[0]:ent_item[1]],axis=0))
+        if ent_item[1]-ent_item[0] >5:
+          ent_mention_lstm_feature.append(lstm_output[ids-ptr][ent_item[0]:ent_item[0]+5])
+        else:
+          ent_mention_lstm_feature.append(np.concatenate([lstm_output[ids-ptr][ent_item[0]:ent_item[1]],np.zeros([5-(ent_item[1]-ent_item[0]),dim3])]))
+          
+        #ent_mention_lstm_feature.append(np.sum(lstm_output[ids-ptr][ent_item[0]:ent_item[1]],axis=0))
+        #ent_mention_lstm_feature.append(lstm_output[ids-ptr][ent_item[0]:ent_item[1]])
+        sequence_length.append(ent_item[1]-ent_item[0])
+    
+        
       tagid += 1
   
   ent_mention_linking_tag_list = np.asarray(ent_mention_linking_tag_list,dtype=np.int64)
@@ -127,9 +137,11 @@ def getLinkingFeature(args,lstm_output,ent_mention_index,ent_mention_tag,ent_rel
   candidate_ent_surfacewordv_feature = np.asarray(candidate_ent_surfacewordv_feature,dtype=np.float)
   candidate_ent_type_feature = np.asarray(candidate_ent_type_feature,dtype=np.float)
   candidate_ent_prob_feature = np.asarray(candidate_ent_prob_feature,dtype=np.float)
-  ent_mention_lstm_feature = np.expand_dims(np.asarray(ent_mention_lstm_feature,dtype=np.float),2)
+  ent_mention_lstm_feature = np.asarray(ent_mention_lstm_feature,dtype=np.float)
+  #print np.shape(ent_mention_lstm_feature)
+  sequence_length = np.asarray(sequence_length)
   
   return ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-         ent_mention_lstm_feature,candidate_ent_relcoherent_feature,candidate_ent_surfacewordv_feature
+         ent_mention_lstm_feature,candidate_ent_relcoherent_feature,candidate_ent_surfacewordv_feature#,sequence_length
   
   

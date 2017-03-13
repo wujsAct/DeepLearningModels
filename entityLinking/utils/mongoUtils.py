@@ -10,7 +10,6 @@ from pymongo import MongoClient
 def get_mediator_relation():
   return mediator
 
-
 class mongoUtils(object):
   def __init__(self):
     client = MongoClient('mongodb://192.168.3.196:27017')
@@ -33,7 +32,7 @@ class mongoUtils(object):
     #print ent.split('/')[-1]#,self.freebase.count({'head':ent}).limit(10000)#,self.freebase.count({'tail':ent})
     #print self.freebase.count({'head':ent})
     '''
-    @function:´ÓÇ°ÍùºóÑ°ÕÒ¹²ÏÖµÄÊµÌå£¬³öÏÖcvtµãµÄ»°£¬ÍùºóÕÒÒ»ÌøµÄ½á¹û£¡
+    @function:ä»å‰å¾€åå¯»æ‰¾å…±ç°çš„å®ä½“ï¼Œå‡ºç°cvtç‚¹çš„è¯ï¼Œå¾€åæ‰¾ä¸€è·³çš„ç»“æœï¼
     '''
     for item in self.freebase.find({'head':ent}).limit(10000):
       try:
@@ -49,23 +48,4 @@ class mongoUtils(object):
       except:
         print 'mongo api wrong'
         pass
-    '''
-    @function:´ÓºóÍùÇ°Ñ°ÕÒ¹²ÏÖµÄÊµÌå£¬³öÏÖcvtµãµÄ»°£¬ÍùÇ°ÕÒÒ»ÌøµÄ½á¹û£¡ÕâÑù»á³öÏÖ³¬´óµÄ¼¯ºÏ£¬²»ÊÊºÏÕâÑùÈ¥×öÀ²£¡
-    '''
-    '''
-    for item in self.freebase.find({'tail':ent}):
-      try:
-        head = item['head']; rel= item['rel']; tail=item['tail']
-        if enttag in head and rel not in self.mediator:
-          coents.add(head)
-        if rel in self.mediator:
-          for item2 in self.freebase.find({'tail':head}):
-            head1 = item2['head']; rel1= item2['rel']; tail1=item2['tail']
-            if enttag in head1 and rel1 not in self.mediator:
-              coents.add(head1)
-      except:
-        print 'mongo api wrong'
-        pass
-    '''
     return coents
-   
