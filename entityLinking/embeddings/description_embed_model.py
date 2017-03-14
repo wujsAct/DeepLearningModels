@@ -3,7 +3,6 @@
 @time: 2016/12/17--19
 @editor: wujs
 @function: generate word2vec feature for entity words
-����feed ��word2vec֮ǰ��ȫ��Ԥ����Ӧ�ø����ˡ���Ȼ�ᵼ��һ��ѵ����һ�ߴ������ݣ��������ģ�
 '''
 #encoding utf-8
 
@@ -79,11 +78,11 @@ class WordVec:
       self.wvec_model = Word2Vec.load_word2vec_format(args.restore, binary=True)
     #self.rand_model = RandomVec(args.dimension)
     '''
-    @revise 2017/1/12 ���е��޷�embedding��word����embedding��'None'���ʵ����ȥ��
+    @revise 2017/1/12 ËùÓÐµÄÎÞ·¨embeddingµÄword¶¼±»embeddingµ½'None'Õâ¸öÊµÌåÉÏÈ¥£¡
     '''
     #self.randvec = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/randomvec.p'))
   def __getitem__(self, word):
-    #��Ҫ��Сд���ַ�
+    #ÐèÒªÊÇÐ¡Ð´µÄ×Ö·û
     word = word.lower()
     try:
       return self.wvec_model[word]
@@ -109,7 +108,7 @@ if __name__ == '__main__':
   corpuss.preprocess_s2()
   #corpuss.__iter__()
   #sentence_split_by_spacy(strs)
-  #�����Ƚ���Ԥ�����ɣ�
+  #ï¿½ï¿½ï¿½ï¿½ï¿½È½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½É£ï¿½
 
   model = WordVec(args)
   model.__train__()

@@ -133,7 +133,7 @@ def get_input(model,wtitleIndex, word_dim, input_file,output_embed,sentence_leng
       '''
   print('finished!!')
   print('start to save the data!!')
-    
+  print len(sentence)
   pkl.dump(sentence, open(output_embed, 'wb'))
   
 if __name__ == '__main__':

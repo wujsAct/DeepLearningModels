@@ -66,7 +66,7 @@ def chunk(tag):
   return one_hot
 
 '''
-revise time: 2017/1/11
+revise time: 2017/1/11, add more extrac features!
 '''
 def capital(word,prevword,wtitleIndex):
   wordl = word.lower()
@@ -77,11 +77,14 @@ def capital(word,prevword,wtitleIndex):
     ret[1]=1
     if wordl in wtitleIndex[wordl]:
       ret[2]=1
-  if ord('A') <= ord(prevword[0]) <= ord('Z'):  #前一个是否为大写，类似crf的特征了！
+  if ord('A') <= ord(prevword[0]) <= ord('Z'):  #previous tags!
     ret[3]=1
+  return ret
 
-def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,output_entms,id2aNosNo,sents2id,ents,tags, sentence_length=-1):
+
+def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,output_entms,id2aNosNo,sents2id,ents,sentence_length=-1):
   print('processing %s' % input_file)
+  
   word = []
   tag = []
   sent=[]
@@ -89,6 +92,7 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
   sentence_tag = []
   ent_Mentions = []
   ent_ctxs = []
+  
   aNo_has_ents=collections.defaultdict(set)
   if sentence_length == -1:
     max_sentence_length = find_max_length(input_file)
@@ -102,7 +106,7 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
       
       for _ in range(max_sentence_length - sentence_length):
         tag.append(np.array([0] * 5))
-        temp = np.array([0 for _ in range(word_dim + 14)])   #此处出现了一个错误哈！
+        temp = np.array([0 for _ in range(word_dim + 14)])   #麓脣麓娄鲁枚脧脰脕脣脪禄赂枚麓铆脦贸鹿镁拢隆
         word.append(temp)
       #ctx information and candidates information
       senti = u' '.join(sent)
@@ -141,7 +145,7 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
       assert len(temp) == word_dim
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-      temp = np.append(temp, prevword,capital(line.split()[0],wtitleIndex))  # adding capital embedding
+      temp = np.append(temp ,capital(line.split()[0],prevword,wtitleIndex))  # adding capital embedding
       word.append(temp)
       t = line.split()[3]
       # Five classes 0-None,1-Person,2-Location,3-Organisation,4-Misc
@@ -169,9 +173,9 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
   @author:wujs
   revise time:2017/1/9, utilzie tf record to store the data
   '''
-  #print np.shape(sentence)
-  #print np.shape(sentence_tag)
-  #ner_d3array_TFRecord(sentence,sentence_tag,output_embed+'.tfrecords',output_embed+'.shape')
+  print np.shape(sentence)
+  print np.shape(sentence_tag)
+#  ner_d3array_TFRecord(sentence,sentence_tag,output_embed+'.tfrecords',output_embed+'.shape')
   param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs}
   cpkl.dump(param_dict, open(output_entms, 'wb'))
 
@@ -199,37 +203,41 @@ if __name__ == '__main__':
   print 'finish load cost time:',time.time()-start_time
   #print trained_model.wvec_model.vocab
   
+  
+  
   data = cpkl.load(open(args.data_train,'r'))
-  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
+  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents']
   sents2id = {sent:i for i,sent in enumerate(sents)}
   get_input(trained_model,wtitleIndex, args.model_dim, args.train,
             args.dir_path+'/features/train_embed.p'+str(args.model_dim),
             args.dir_path+'/features/train_tag.p'+str(args.model_dim),
             args.dir_path+'/features/train_entms.p'+str(args.model_dim),
-            id2aNosNo,sents2id,ents,tags,
+            id2aNosNo,sents2id,ents,
             sentence_length=args.sentence_length)
   
   
-  '''
+  
+  
+  
   data = cpkl.load(open(args.data_testa,'r'))
-  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
+  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents']
 
   sents2id = {sent:i for i,sent in enumerate(sents)}
   get_input(trained_model,wtitleIndex, args.model_dim, args.test_a,
-            args.dir_path+'/features/test_a_embed.p'+str(args.model_dim),
-            args.dir_path+'/features/test_a_tag.p'+str(args.model_dim),
+            args.dir_path+'/features/testa_embed.p'+str(args.model_dim),
+            args.dir_path+'/features/testa_tag.p'+str(args.model_dim),
             args.dir_path+'/features/testa_entms.p'+str(args.model_dim),
-            id2aNosNo,sents2id,ents,tags,
+            id2aNosNo,sents2id,ents,
             sentence_length=args.sentence_length)
   
   
-  data = cpkl.load(open(args.data_testb,'r'))
-  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents'];tags=data['tags']
-  sents2id = {sent:i for i,sent in enumerate(sents)}
-  get_input(trained_model,wtitleIndex,args.model_dim, args.test_b,
-            args.dir_path+'/features/test_b_embed.p'+str(args.model_dim),
-            args.dir_path+'/features/test_b_tag.p'+str(args.model_dim),
-            args.dir_path+'/features/testb_entms.p'+str(args.model_dim),
-            id2aNosNo,sents2id,ents,tags,
-            sentence_length=args.sentence_length)
-  '''
+#  data = cpkl.load(open(args.data_testb,'r'))
+#  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents']
+#  sents2id = {sent:i for i,sent in enumerate(sents)}
+#  get_input(trained_model,wtitleIndex,args.model_dim, args.test_b,
+#            args.dir_path+'/features/testb_embed.p'+str(args.model_dim),
+#            args.dir_path+'/features/testb_tag.p'+str(args.model_dim),
+#            args.dir_path+'/features/testb_entms.p'+str(args.model_dim),
+#            id2aNosNo,sents2id,ents,
+#            sentence_length=args.sentence_length)
+  
