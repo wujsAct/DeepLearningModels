@@ -142,7 +142,7 @@ if __name__=='__main__':
   testShape = np.shape(test_input)
   print testShape
   assert testShape[1]==124
-  if data_tag=='test_a':
+  if data_tag=='testa' or data_tag=='testb':
     test_out = cPickle.load(open(feature_dir_path+data_tag+'_tag.p100','rb'))
   else:
     test_out = np.zeros([testShape[0],testShape[1],args.class_size],dtype=np.float32)

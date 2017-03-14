@@ -9,8 +9,11 @@ sys.path.append('main1')
 sys.path.append('main2')
 import multiprocessing
 import cPickle
-from getCandiates import funcs
+import urllib2
+#from getCandiates import funcs
 import argparse
+from urllibUtils import urllibUtils
+from getCandiates import funcs
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_tag', type=str, help='which data file(ace or msnbc)', required=True)
@@ -40,13 +43,12 @@ print id2entstr[22]
 lent = len(id2entstr)
 
 candiate_ent=[None]*lent
-candiate_coCurrEnts=[None]*lent
+#candiate_coCurrEnts=[None]*lent
 result = []
 
 for ptr in xrange(0,lent,30):
   pool = multiprocessing.Pool(processes=6)
-  for ids in xrange(ptr,min(ptr+30,lent)):  #数组越界问题！
-    #print '----------------------'
+  for ids in xrange(ptr,min(ptr+30,lent)):
     #print ids,entstr
     result.append(pool.apply_async(funcs, (ids,id2entstr,lent)))
   pool.close()
@@ -54,9 +56,9 @@ for ptr in xrange(0,lent,30):
   
   for ret in result:
     retget = ret.get()
-    ids = retget[0];candidate_ent_i=retget[1];co_occurence_ent_i=retget[2]
+    ids = retget[0];candidate_ent_i=retget[1]
     candiate_ent[ids] = candidate_ent_i
-    candiate_coCurrEnts[ids] = co_occurence_ent_i
+    #candiate_coCurrEnts[ids] = co_occurence_ent_i
 
-para_dict={'entstr2id':entstr2id,'candiate_ent':candiate_ent,'candiate_coCurrEnts':candiate_coCurrEnts}
+para_dict={'entstr2id':entstr2id,'candiate_ent':candiate_ent}
 cPickle.dump(para_dict,open(f_output,'wb'))

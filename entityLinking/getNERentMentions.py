@@ -67,17 +67,24 @@ AFP_dict = {}
 standard_entment = {}
 standard_entment_name={}
 non_link_ents = {}
-if data_tag=='msmbc':
+print 'data tag:',data_tag
+print 'dir path:',dir_path
+if data_tag=='msnbc':
   with codecs.open(dir_path+'new_entMen2aNosNoid.txt','r','utf-8') as file:
     for line in file:
+      print line
       line = line.strip()
       items = line.split(u'\t')
       
       #print items
       #ids=items[2]+'\t'+items[3]#+'\t'+items[4]
       ids = items[2]+'\t'+items[3]+'\t'+items[4]
+      '''
+      @f
+      '''
       if items[0] != items[len(items)-1]:
         non_link_ents[ids] = 1
+        print 'non linking ents:',line
       if items[0] == u'AFP':
         AFP_dict[ids] = 1
         
@@ -112,68 +119,13 @@ print Shape
 '''
 we need to merge the adjacent same type 
 '''
-
 sentlent = Shape[0]; seqLent = 124;
-'''
-aNotag = -1
-fret = codecs.open(dir_path+"eng.ace",'w','utf-8')
-right = 0
-for i in xrange(sentlent):
-  for j in xrange(seqLent):
-    aNosNoid = sentid2aNosNoid[i]
-    aNo = aNosNoid.split('_')[0]
-    if(int(aNo)!=aNotag):
-      fret.write('-DOCSTART- -X- -X- O'+'\n\n')
-      aNotag += 1
-    if(j<len(sents[i][2])):
-      mtag= getNERTag(ace_NERresult[i][j])
-      fret.write(sents[i][0][j]+' '+sents[i][2][j]+' '+sents[i][1][j]+' '+tag_dict[mtag]+'\n')
-  fret.write('\n')
-fret.close()
-  #print ids,standard_entment_name[ids],ace_NERresult[i][j]#getNERTag(ace_NERresult[i][j])
-'''
-
-'''
-@an reasonable parts! 
-'''
-'''
-for i in xrange(sentlent):
-  for j in xrange(seqLent):
-    ids = sentid2aNosNoid[i]+'\t'+str(j)
-    
-    if getNERTag(ace_NERresult[i][j])!='00001':
-      print 'sent:',i,j,sents[i][0][j],sents[i][1][j],getNERTag(ace_NERresult[i][j])
-    else:
-      if j< len(sents[i][1]):
-        if 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j]:
-          if j >= 1:
-            twogram = sents[i][0][j-1].lower()+' '+sents[i][0][j].lower() #:
-            flaggram = False
-            for keyi in wtitle2ments[sents[i][0][j-1].lower()]:
-              if twogram in keyi:
-                flaggram = True
-              
-            twogram1 = sents[i][0][j-1].lower()+''+sents[i][0][j].lower()
-            for keyi in wtitle2ments[sents[i][0][j-1].lower()]:
-              if twogram1 in keyi:
-                flaggram = True
-            if flaggram:
-              print 'sent:',i,j,sents[i][0][j],sents[i][1][j],getNERTag(ace_NERresult[i][j-1])
-          else:
-            if sents[i][0][j].lower() in wtitle2ments:
-              print 'sent:',i,j,sents[i][0][j],sents[i][1][j],getNERTag(ace_NERresult[i][j])
-        else:
-          print 'sent:',i,j,sents[i][0][j],sents[i][1][j],getNERTag(ace_NERresult[i][j])
-'''           
-'''
-@we assume entity recognition has done
-'''
 
 '''
 entity mentions!
 '''
 
-print len(non_link_ents)
+print 'non linking ents:',len(non_link_ents)
 sentid_entmention=collections.defaultdict(list)
 allents = 0
 right = 0
@@ -199,6 +151,8 @@ for key in standard_entment:
     
       
     if getNERTag(NERresult[i][j])!='00001':
+#      if sents[i][0][j] == 'Ford':  #all predict person!
+#        print getNERTag(NERresult[i][j])
       temp +=1
       tempj.append([j,getNERTag(NERresult[i][j])])
       
@@ -206,6 +160,8 @@ for key in standard_entment:
       if 'VP' in sents[i][1][j] or 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j] or 'O' in sents[i][1][j]:
         tempj.append([j,getNERTag(NERresult[i][j])])
         temp+=1
+#        if sents[i][0][j] == 'Ford':
+#          print getNERTag(NERresult[i][j])
       
     '''
     else:

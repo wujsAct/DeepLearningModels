@@ -42,8 +42,8 @@ if __name__=='__main__':
         candiate_ent[ids] = candidate_enti
         candiate_coCurrEnts[ids] = co_occurence_enti
         print '-------------------------------'
-    param = {'entstr2id':entstr2id,'candiate_ent':candiate_ent,'candiate_coCurrEnts':candiate_coCurrEnts}
-    data = cPickle.dump(param,open(f_input_canents+'new','wb'))
+  param = {'entstr2id':entstr2id,'candiate_ent':candiate_ent,'candiate_coCurrEnts':candiate_coCurrEnts}
+  data = cPickle.dump(param,open(f_input_canents+'new','wb'))
   
   
   

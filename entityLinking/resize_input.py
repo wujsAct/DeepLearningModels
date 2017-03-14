@@ -24,7 +24,6 @@ def remove_crap(input_file):
 '''
 @need to revise
 '''
-
 def modify_data_size(output_file, trim,sents):
     final_list = list()
     l = list()
@@ -51,20 +50,21 @@ def modify_data_size(output_file, trim,sents):
             l.append(line)
             temp_len += 1
     f = open(output_file, 'w')
-    #we need to filter the sentence contians non-ner! 
-    non_ents = 0
     for i in final_list:
-        senti = u' '.join(i)
-        if ('LOC' in senti) or ('PER' in senti) or ('MISC' in senti) or ('ORG' in senti):
-            f.writelines(i)
-        else:
-            non_ents = non_ents + 1
-            #print(i)
-            #print('wrong....')
+      f.writelines(i)
+        
+#    #we need to filter the sentence contians non-ner!  @revise, this operation is very funny!
+#    non_ents = 0
+#    for i in final_list:
+#        senti = u' '.join(i)
+#        if ('LOC' in senti) or ('PER' in senti) or ('MISC' in senti) or ('ORG' in senti):
+#            f.writelines(i)
+#        else:
+#            non_ents = non_ents + 1
+#            #print(i)
+#            #print('wrong....')
     f.close()
-    print('non entmentions sentences:%d' %(non_ents))
     print('%d sentences trimmed out of %d total sentences' % (count, len(final_list)))
-    print 'max_length:',max_length
     #os.system('rm temp.txt')
 
 

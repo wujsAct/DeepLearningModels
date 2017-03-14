@@ -25,7 +25,7 @@ def getCandEntsByWiki(searchent):
     pass
   
   '''
-  @top 1
+  @top 3
   '''
   try:
     candentSet1 = urllibutil.getDirectFromWikiPage(searchent)
@@ -33,18 +33,18 @@ def getCandEntsByWiki(searchent):
     pass
     
   '''
-  @we need to add all the disambiugation pages
+  @we need to add all the disambiugation pages(10)
   '''
   try:
-    candentSet1 += urllibutil.getDirectFromWikiDisambiugationPage(searchent)
+    candentSet1 += urllibutil.opensearchApi(searchent)
   except:
     pass
   '''
   @top three!
   '''
   try:
-    #if len(candentSet1)==0:
-    candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
+    if len(candentSet1)==0:
+      candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
   except:
     pass
   for ent in candentSet1:
@@ -112,13 +112,14 @@ def funcs(ids,id2entstr,lent):
   print 'ids:',ids,' totalids:',lent,' original:',searchent,' entstr:',entstr,'\t',len(candidate_ent)
   return [ids,candidate_ent]
 
-#candidate_ent,co_occurence_ent = getCanEnts("china")
+#candidate_ent = getCandEntsByWiki("Chicago")
+#print candidate_ent
 #print candidate_ent
 #candidate_ent,co_occurence_ent = getCanEnts("Chicago")
 #print candidate_ent
 #candidate_ent = getCandEntsByWiki("Schindler 'S List")
 #print 'candidate_ent:',candidate_ent
- 
+
 if __name__=='__main__':
   if len(sys.argv) !=4:
     print 'usage: python pyfile dir_path inputfile outputfile'
@@ -172,4 +173,3 @@ if __name__=='__main__':
   
   para_dict={'entstr2id':entstr2id,'candiate_ent':candiate_ent}
   cPickle.dump(para_dict,open(f_output,'wb'))
-  

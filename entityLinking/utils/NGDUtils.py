@@ -16,7 +16,10 @@ class NGDUtils(object):
       coents.add(linkId)
     #print coents
     return coents
-      
+  
+  def get_page_links_2(self,list1,list2):
+    sr_scores = self.semantic_relatedness(list1, list2)
+    return sr_scores
   def get_page_links(self,entity_str1, entity_str2):
     list1 = self.getLinkedEnts(entity_str1)
     list2 = self.getLinkedEnts(entity_str2)
@@ -37,7 +40,7 @@ class NGDUtils(object):
 
 if __name__ == '__main__':
   ngd = NGDUtils()
-  sr = ngd.get_page_links('England','England')
+  sr = ngd.get_page_links('France','France in the Middle Ages')
   print sr
   sr = ngd.get_page_links('England','England national football team')
   

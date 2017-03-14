@@ -8,6 +8,7 @@
 import os
 import sys
 import math
+import time
 sys.path.append('utils')
 sys.path.append('main1')
 sys.path.append('main2')
@@ -19,8 +20,35 @@ import gensim
 import string
 from tqdm import tqdm
 import collections
-
+from NGDUtils import NGDUtils
 import numpy as np
+
+def getfname2pageid():
+  title2pageId = {}
+  with open('data/name2pageId.txt','r') as file:
+    for line in tqdm(file):
+      line = line.strip().split('\t')
+      pageId = line[0]; title = line[1]
+      title2pageId[title] = pageId       
+  return title2pageId
+
+def getmid2Name():
+  #mid2name = collections.defaultdict(list) 
+  mid2name = {}
+  with open('data/mid2name.tsv','r') as file:
+    for line in tqdm(file):
+      line =line.strip()
+      #print line.split(u'\t')
+      items= line.split('\t')
+      
+      if len(items)>=2:
+        mid = items[0]; name = ' '.join(items[1:])
+        mid2name[mid] = name
+      else:
+        print line
+      
+  print len(mid2name)
+  return mid2name
 
 def is_contain_ents(enti,entj):
   enti = enti.lower()
@@ -30,7 +58,7 @@ def is_contain_ents(enti,entj):
   else:
     return False
 
-def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum):
+def get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti,context_ent_pageId,wikititle2fb,wikititle_reverse_index,freebaseNum):
 
   #print 'go into entNGD...'
   distRet = {};
@@ -42,21 +70,36 @@ def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_re
   '''
   @exits a very 
   '''
+  #print context_ent_pageId
   if enti_title in wikititle_reverse_index:
     totaldict = wikititle_reverse_index[enti_title]
   else:
     if enti_f in wikititle_reverse_index:
       totaldict = wikititle_reverse_index[enti_f]
-    
+#  enti_list = ngd.getLinkedEnts(enti)
+  ids_key=0
   for key in totaldict:
     if is_contain_ents(enti_title,key):
       addScore = 0
-#      if enti_title == key:  #completely match, score is too low!
-#        addScore += 0.3 
-      if key in entstr2id: 
-        addScore += 0.3
+      if enti_title == key:  #completely match, score is too low!
+        addScore += 1
+#      if key in entstr2id: 
+#        addScore += 1
       for wmid in wikititle2fb[key]:
-        distRet[wmid+u'\t'+key]=Levenshtein.ratio(enti_title,key) + addScore
+#        #need to re-rank using NGD ...
+        
+        wmid_set = ngd.getLinkedEnts(mid2name[wmid])
+        #print wmid_set
+        
+        if len(context_ent_pageId&wmid_set) !=0:
+          addScore = len(context_ent_pageId&wmid_set)
+          #print 'addScore:',addScore
+        #print ids_key,len(totaldict),addScore
+        ids_key += 1
+        '''
+        exits the bottle_neck, however I have no idea to deal with it!
+        '''
+        distRet[wmid+u'\t'+key]= addScore
   distRet= sorted(distRet.iteritems(), key=lambda d:d[1], reverse = True)
   
   #cantent_mid={}
@@ -80,7 +123,9 @@ def get_freebase_ent_cands(cantent_mid2,enti,entstr2id,wikititle2fb,wikititle_re
 
 def get_cantent_mid(listentcs,w2fb,wikititle2fb):
   cantent_mid={}
+  mid_index = 0.0
   for cent in listentcs:
+    mid_index +=1.0
     if isinstance(cent,dict):
       ids = cent[u'ids']
       titles = cent[u'title'].lower()
@@ -89,11 +134,11 @@ def get_cantent_mid(listentcs,w2fb,wikititle2fb):
       titles = cent.lower()
     if ids in w2fb:
       #cantent_mid[w2fb[ids]] = titles
-      cantent_mid[w2fb[ids]] = list([1,0,0])
+      cantent_mid[w2fb[ids]] = list([1/mid_index,0,0])
     elif titles in wikititle2fb:
       for wmid in wikititle2fb[titles]:
         #cantent_mid[wmid] =titles
-        cantent_mid[wmid] =list([1,0,0])
+        cantent_mid[wmid] =list([1/mid_index,0,0])
   return cantent_mid
 
 def get_ent_word2vec_cands(enti,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1):
@@ -132,7 +177,7 @@ def get_ent_word2vec_cands(enti,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_en
       
   return cantent_mid1
 
-def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index,docId_entstr2id,entMent2repMent,id2aNosNo):
+def get_final_ent_cands():
   all_candidate_mids = []
   allentmention_numbers = 0
   '''
@@ -164,6 +209,12 @@ def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w
     docId = aNosNo.split('_')[0]
     ents = ent_Mentions[i]
     context_ents = docId_entstr2id[docId]
+    context_ent_pageId = set()
+    for key in context_ents:
+      #print 'context ents:',context_ents
+      if key in title2pageId:
+        context_ent_pageId.add(title2pageId[key])
+        
     for j in range(len(ents)):
       isRepflag =False 
       
@@ -203,7 +254,10 @@ def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w
       
       listentcs = []
       for entid in entids:
-        listentcs += (candiate_ent[entid])
+        for entid_mid in candiate_ent[entid]:
+          if entid_mid not in listentcs:
+            listentcs.append(entid_mid)
+            
       cantent_mid1 = get_cantent_mid(listentcs,w2fb,wikititle2fb)   #get wikidata&dbpedia search candidates
       
       if enti_name in wikititle2fb:
@@ -213,15 +267,15 @@ def get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,candiate_ent,w
           #cantent_mid1[wmid] = enti_name
           cantent_mid1[wmid] = [1/wmid_i,0,0]
   
-      #cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1) #get word2vec coherent candidates
-      cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,cantent_mid1) #get word2vec coherent candidates
+      cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1) #get word2vec coherent candidates
+      #cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,cantent_mid1) #get word2vec coherent candidates
       
       freebaseNum = max(0,30 - len(cantent_mid2))
-      
+      final_mid = get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti.content,context_ent_pageId,wikititle2fb,wikititle_reverse_index,freebaseNum)
       #cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti.content,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching
-      cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti.content,context_ents,wikititle2fb,wikititle_reverse_index,freebaseNum)
       
-      final_mid = cantent_mid3
+      
+      #final_mid = list(cantent_mid2)
       totalCand = len(final_mid)
       #if tag in cantent_mid1 or tag in cantent_mid2 or tag in cantent_mid3:
       if tag in final_mid:
@@ -265,6 +319,8 @@ if __name__=='__main__':
   for key,value in entstr2id_org.items():
     entstr2id[key.lower()].add(value)
   print 'entstr2id',len(entstr2id)
+  mid2name = getmid2Name()
+  ngd = NGDUtils()
   w2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wid2fbid.p','rb'))
   wikititle2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
   ids = entstr2id['wall street']
@@ -343,22 +399,26 @@ if __name__=='__main__':
       value = entstr2id_org.get(enti_name)
       if enti_name.lower() not in docId_entstr2id[docId]:
         
-        docId_entstr2id[docId][enti_name.lower()]= {value}
+        docId_entstr2id[docId][enti_name]= {value}
       else:
-        docId_entstr2id[docId][enti_name.lower()].add(value)
+        docId_entstr2id[docId][enti_name].add(value)
   #print docId_entstr2id
   print 'start to load wikititle...'
-  
-  
-  wikititle2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
+  s_time = time.time()
+  #w2vModel=[]
+  #wikititle_reverse_index=[]
   w2vModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin',binary=True)
+  print 'w2vModel:',time.time()-s_time
   wikititle_reverse_index  = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitleReverseIndex.p','rb'))
+  print 'wikititle_reverse_index:',time.time()-s_time
   #w2vModel=[]
   #wikititle2fb=[]
   #wikititle_reverse_index=[]
+  
   print 'start to solve problems...'
   #
-  all_candidate_mids = get_final_ent_cands(data_flag,w2vModel,entstr2id,ent_Mentions,new_candiate_ent,w2fb,wikititle2fb,wikititle_reverse_index,docId_entstr2id,entMent2repMent,id2aNosNo)
+  title2pageId = getfname2pageid()
+  all_candidate_mids = get_final_ent_cands()
   cPickle.dump(all_candidate_mids,open(f_output,'wb'))
   
   
