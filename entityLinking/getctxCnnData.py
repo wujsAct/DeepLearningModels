@@ -58,7 +58,7 @@ def is_contain_ents(enti,entj):
   else:
     return False
 
-def get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti,context_ent_pageId,wikititle2fb,wikititle_reverse_index,freebaseNum):
+def get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti,context_ent_pageId,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum):
 
   #print 'go into entNGD...'
   distRet = {};
@@ -81,25 +81,32 @@ def get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti,context_ent_pageId,wik
   for key in totaldict:
     if is_contain_ents(enti_title,key):
       addScore = 0
-      if enti_title == key:  #completely match, score is too low!
-        addScore += 1
-#      if key in entstr2id: 
-#        addScore += 1
-      for wmid in wikititle2fb[key]:
-#        #need to re-rank using NGD ...
-        
-        wmid_set = ngd.getLinkedEnts(mid2name[wmid])
-        #print wmid_set
-        
-        if len(context_ent_pageId&wmid_set) !=0:
-          addScore = len(context_ent_pageId&wmid_set)
-          #print 'addScore:',addScore
-        #print ids_key,len(totaldict),addScore
-        ids_key += 1
-        '''
-        exits the bottle_neck, however I have no idea to deal with it!
-        '''
-        distRet[wmid+u'\t'+key]= addScore
+      if enti_title == key or key in entstr2id:  #completely match, score is too low!
+        for wmid in wikititle2fb[key]:
+          if wmid not in cantent_mid2:
+            freebaseNum-=1
+            cantent_mid2[wmid] = list([0,0,len(context_ent_pageId)])
+            freebaseNum -=1
+          else:
+            temp = list(cantent_mid2[wmid])
+            temp[2]= len(context_ent_pageId)
+            cantent_mid2[wmid]= list(temp)
+      else:
+        for wmid in wikititle2fb[key]:
+          #need to re-rank using NGD ...
+          wmid_set = ngd.getLinkedEnts(mid2name[wmid])
+          
+          
+          if len(context_ent_pageId&wmid_set) !=0:
+            addScore += len(context_ent_pageId&wmid_set)
+            #print 'addScore:',addScore
+          if ids_key%1000==0:
+            print ids_key,len(totaldict),addScore
+          ids_key += 1
+          '''
+          exits the bottle_neck, however I have no idea to deal with it!
+          '''
+          distRet[wmid+u'\t'+key]= addScore
   distRet= sorted(distRet.iteritems(), key=lambda d:d[1], reverse = True)
   
   #cantent_mid={}
@@ -267,11 +274,11 @@ def get_final_ent_cands():
           #cantent_mid1[wmid] = enti_name
           cantent_mid1[wmid] = [1/wmid_i,0,0]
   
-      cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1) #get word2vec coherent candidates
+      cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,cantent_mid1) #get word2vec coherent candidates
       #cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,cantent_mid1) #get word2vec coherent candidates
       
       freebaseNum = max(0,30 - len(cantent_mid2))
-      final_mid = get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti.content,context_ent_pageId,wikititle2fb,wikititle_reverse_index,freebaseNum)
+      final_mid = get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti.content,context_ent_pageId,context_ents,wikititle2fb,wikititle_reverse_index,freebaseNum)
       #cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti.content,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching
       
       
