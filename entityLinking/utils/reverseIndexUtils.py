@@ -16,25 +16,29 @@ from tqdm import tqdm
 import string
 from string import maketrans
 
-intab = unicode(string.punctuation)
-trantab={}
+intab = string.punctuation
+outtab=''
 for key in intab:
-  trantab[ord(key)]=u' '  #attention to unicode µƒŒ Ã‚¿≤!
+  outtab+=' '
+trantab = maketrans(intab, outtab)
 
 wikititle2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
 docs = wikititle2fb.keys()
+print len(docs),type(docs)
 indices = defaultdict(dict)
+print 'start to process datas'
 for doc in tqdm(docs):
-  doc_new = unicode(doc).translate(trantab)   #translate do not support unicode!
-  words_org = set(doc.split(u' '))
-  words_new = set(doc_new.split(u' '))
+  doc_new = str(doc).translate(trantab)   #translate do not support unicode!
+  words_org = set(doc.split(' '))
+  words_new = set(doc_new.split(' '))
   words = words_org|words_new
-  if u' ' in words:
-    words.remove(u' ')
-  if u'' in words:
-    words.remove(u'')
+  if ' ' in words:
+    words.remove(' ')
+  if '' in words:
+    words.remove('')
   for word in words:
     indices[word][doc] = 1
+  indices[doc][doc] = 1
   #print indices
 
 cPickle.dump(indices,open('/home/wjs/demo/entityType/informationExtract/data/wtitleReverseIndex.p','wb'))
