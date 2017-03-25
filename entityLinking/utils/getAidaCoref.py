@@ -282,5 +282,4 @@ for key in entMentsTags:
       entMent2repMent[keyii] = aNoEntstr2repMent[keyrep]
 print len(entMent2repMent)
 
-  
 cPickle.dump(entMent2repMent,open(dir_path+'process/'+data_tag+'_entMent2repMent.p','wb'))  

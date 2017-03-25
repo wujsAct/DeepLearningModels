@@ -61,6 +61,7 @@ aNosNoid2sentid ={}
 for key,value in sentid2aNosNoid.items():
   aNosNoid2sentid[value]=key
 
+
 '''load the standard entity recognition result'''
 AFP_dict = {}
 
@@ -107,8 +108,7 @@ print AFP_dict
 
 '''
 generate entity mention using ace_NERresult.p
-one-hot 特征啦
-PER [1,0,0,0,0]; LOC [0, 1, 0, 0, 0] ; ORG [0, 0, 1, 0, 0]; MISC [0, 0, 0, 1, 0];
+one-hot ç¹å¾å?PER [1,0,0,0,0]; LOC [0, 1, 0, 0, 0] ; ORG [0, 0, 1, 0, 0]; MISC [0, 0, 0, 1, 0];
 '''
 tag_dict = {'10000':'I-PER','01000':'I-LOC','00100':'I-ORG','00010':'I-MISC','00001':'O'}
 NERresult = cPickle.load(open(dir_path+'features/'+data_tag+'_NERresult.p'))
@@ -140,7 +140,7 @@ for key in standard_entment:
   temp = 0
   tempj=[]
   for j in xrange(j1,j2):  
-    tt = standard_entment_name[key].replace("'"," ").replace("."," ")
+    tt = standard_entment_name[key]#.replace("'"," ")
     #print tt.split(" ")
    
     #if getNERTag(ace_NERresult[i][j])!='00001' or 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j]:
@@ -160,34 +160,14 @@ for key in standard_entment:
       if 'VP' in sents[i][1][j] or 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j] or 'O' in sents[i][1][j]:
         tempj.append([j,getNERTag(NERresult[i][j])])
         temp+=1
-#        if sents[i][0][j] == 'Ford':
-#          print getNERTag(NERresult[i][j])
-      
-    '''
-    else:
-      tempj.append([j,getNERTag(ace_NERresult[i][j])])
-      if 'NP' in sents[i][1][j] or 'PP' in sents[i][1][j] or 'O' in sents[i][1][j]:
-        if j-j1>=1:
-          twogram = sents[i][0][j-1].lower()+' '+sents[i][0][j].lower() #:
-          flaggram = False
-          for keyi in wtitle2ments[sents[i][0][j-1].lower()]:
-            if twogram in keyi:
-              flaggram = True
-            
-          twogram1 = sents[i][0][j-1].lower()+sents[i][0][j].lower()
-          for keyi in wtitle2ments[sents[i][0][j-1].lower()]:
-            if twogram1 in keyi:
-              flaggram = True
-          if flaggram:
-            temp+=1
-        else:
-          if sents[i][0][j].lower() in wtitle2ments:
-            temp += 1
-    '''
-      
   if temp >= j2-j1:
     right += 1
-    sentid_entmention[i].append([j1,j2,' '.join(sents[i][0][j1:j2])])  #stands for all mentions!
+    strtemp = ' '.join(sents[i][0][j1:j2]).replace(' .','.')
+    strtemp = strtemp.replace(' \'','\'')
+    sentid_entmention[i].append([j1,j2,strtemp])  #stands for all mentions!
+   
+    if strtemp!= tt:
+      print key,strtemp, tt,standard_entment_name[key]
   else:
     print 'ents:',key,standard_entment_name[key],'\t',temp,j1,'\t',j2,sents[i][0][j1:j2],sents[i][1][j1:j2]
     print tempj
@@ -195,15 +175,19 @@ for key in standard_entment:
 print 'all mentions:',allents
 print 'right mentions:',right
 print 'all sents:',len(sentid_entmention)
+print 'aNosNoid2sentid:',len(aNosNoid2sentid)
 
+allEnts = 0
 ent_mention_index = [] 
 for i in xrange(sentlent):
   ent_index = []
   if i in sentid_entmention:
-    ent_index = sentid_entmention[i]
+    ent_index = list(sentid_entmention[i])
+  allEnts += len(ent_index)
   ent_mention_index.append(ent_index)
-  
-#print sentlent
+
+print 'allEnts',allEnts
+print sentlent
 print len(ent_mention_index)
 #print ent_mention_index
 

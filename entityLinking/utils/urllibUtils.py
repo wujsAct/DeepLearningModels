@@ -35,9 +35,21 @@ class urllibUtils():
           co_occurence_ent.add(ai['href']+'\t'+ai.text)
     return co_occurence_ent
   
-
+  def opensearchApi(self,searchent):
+    #print 'step into the parseEntCandFromWikiSearch'
+    data = {'search':searchent,'action':'opensearch','limit':'10','format':'json'}
+    data = urlencode(data)
+    #search all related wiki entity
+    url = 'https://en.wikipedia.org/w/api.php?'+ data
+    req = self.getRequest(url)
+    res = json.loads(urllib2.urlopen(req,timeout=200).read())
+    candidate_ent=[]
+    if len(res) >= 2:
+      candidate_ent=res[1]
+    return candidate_ent
+  
   def get_candidateWID_entities(self,searchent,num):
-    data = {'action': 'wbsearchentities', 'search':searchent, 'language':'en','limit':num,'format': 'json'}
+    data = {'action': 'wbsearchentities', 'search':searchent, 'language':'en','limit':1,'format': 'json'}
     data = urlencode(data)
     #search all related wiki entity
     url = 'https://www.wikidata.org/w/api.php?'+ data
@@ -55,7 +67,7 @@ class urllibUtils():
               candidate_ent.append(ids)
     return candidate_ent
             
-    
+   
   def get_candidate_entities(self,searchent,num):
     data = {'action': 'wbsearchentities', 'search':searchent, 'language':'en','limit':num,'format': 'json'}
     data = urlencode(data)
@@ -154,7 +166,7 @@ class urllibUtils():
             break;
    
     return cadents
-  
+    
   def getDirectFromWikiPage(self,searchent):
     url = 'https://en.wikipedia.org/wiki/'+searchent
     #print url
@@ -180,9 +192,9 @@ class urllibUtils():
               #print ai['href']+'\t'+ai.text
               if ai.text not in cadents:
                 cadents.append(ai.text)
-              if len(cadents) >=1:
+              if len(cadents) >=3:
                 break;
-          if len(cadents)>=1:
+          if len(cadents)>=3:
             break;
     #print searchent,':getDirectFromWikiPage'
     return cadents

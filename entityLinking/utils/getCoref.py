@@ -4,35 +4,54 @@
 @time: 2017/2/14
 function: get coreference for entity mentions
 '''
+
 import codecs
 import cPickle
 import collections
 from tqdm import tqdm
 from collections import Counter
+from mongoUtils import mongoUtils
+import argparse
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--data_tag', type=str, help='which data file(ace or msnbc)', required=True)
+parser.add_argument('--dir_path', type=str, help='data directory path(data/ace or data/msnbc) ', required=True)
+  
+data_args = parser.parse_args()
+
+data_tag = data_args.data_tag
+dir_path = data_args.dir_path
+
+mongo = mongoUtils()
+#title = 'Lake Burton (Georgia)'
+#title1 = title.replace(' ','_')
+#title1 = title1.replace('(',ord(u'('))
+#print mongo.get_tail_from_enwikiTitle()
+#exit(0)
 '''read mid2name'''
 
 fname = 'data/mid2name.tsv'
 wikititle2fb = collections.defaultdict(list)
 fb2wikititle={}
-with codecs.open(fname,'r','utf-8') as file:
+with open(fname,'r') as file:
   for line in tqdm(file):
     line = line.strip()
     items = line.split('\t')
     if len(items)==2:
       fbId = items[0]; title = items[1]  
-      fb2wikititle[fbId] = title
-      wikititle2fb[title].append(fbId)
+      fb2wikititle[fbId] = title.lower()
+      wikititle2fb[title.lower()].append(fbId)
 fb2wikititle['NIL'] = 'NIL'
 
-dir_path = 'data/msnbc/'
+
 '''read entmention 2 aNosNoid'''
 entsFile = dir_path+'entMen2aNosNoid.txt'
 hasMid = 0
 entMentsTags={}
 entMents2surfaceName={}
 entMent2line = {}
-with codecs.open(entsFile,'r','utf-8') as file:
+notInFreebase = 0
+with open(entsFile) as file:
   for line in file:
     line = line.strip()
     items = line.split('\t')
@@ -46,23 +65,37 @@ with codecs.open(entsFile,'r','utf-8') as file:
     
     #print line
     if linkingEnt == 'NIL':
-      hasMid += 1
       entMentsTags[key]='NIL'
-      entMent2line[key] = line
-
-    if linkingEnt in wikititle2fb:
-      #print wikititle2fb[linkingEnt]
-      hasMid +=1 
-      entMentsTags[key] =wikititle2fb[linkingEnt]
       entMent2line[key] = line
       entMents2surfaceName[key] = entMent
     else:
-      entMentsTags[key] ='NIL'
-      entMent2line[key] = line
-      entMents2surfaceName[key] = entMent
+
+      if linkingEnt.lower() in wikititle2fb:
+#        #print wikititle2fb[linkingEnt]
+        hasMid +=1 
+
+        entMentsTags[key] =wikititle2fb[linkingEnt.lower()]
+        entMent2line[key] = line
+        entMents2surfaceName[key] = entMent
+      else:
+        new_linkingEnt = linkingEnt.replace(' ','_')
+        mids = mongo.get_tail_from_enwikiTitle(new_linkingEnt)
+        print mids
+        if len(mids)>=1:
+          entMentsTags[key] = mids.pop()
+          entMent2line[key] = line
+          entMents2surfaceName[key] = entMent
+        else:
+          print 'not in freebase:',aNosNo,linkingEnt
+          entMentsTags[key] ='NIL'
+          entMent2line[key] = line
+          entMents2surfaceName[key] = entMent
+          notInFreebase += 1
 print 'entMentsTags nums:',len(entMentsTags)
+print 'not in freebase:',notInFreebase
 print 'has mid:',hasMid
 
+cPickle.dump(entMentsTags,open(dir_path+'entMentsTags.p','w'))
 '''
 with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
   for line in file:
@@ -85,17 +118,17 @@ print "coreference length:",len(entMent2repMent)
 entMent2repMent = {}
 Line2WordDict = {}
 Line2entRep={}  #a little complex
-with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
+with open(dir_path+"corefRet.txt") as file:
   for line in file:
     line =line.strip()
-    items = line.split(u"\t\t")
+    items = line.split("\t\t")
     entInDict={}
     wordList = []
     for enti in items:
-      aNosNo, start, end, mention = enti.split(u'\t')
+      aNosNo, start, end, mention = enti.split('\t')
       key = aNosNo +'\t'+start+'\t'+end 
       if key in entMentsTags:
-        for word in mention.split(u' '):
+        for word in mention.split(' '):
           wordList.append(word)
     wordDict = Counter(wordList)
     wordDict= sorted(wordDict.iteritems(), key=lambda d:d[1], reverse = True)
@@ -115,7 +148,7 @@ with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
           entInDict[enti] = len(mention.split(" "))
       else:
         for keyi in entMentsTags:  #relative cluase deleted!
-          aNosNok, startk, endk = keyi.split(u'\t')
+          aNosNok, startk, endk = keyi.split('\t')
           mentionk = entMents2surfaceName[keyi]
           if aNosNok == aNosNo and int(start) >= int(startk) and int(end) <= int(endk):
             entInDict[keyi+'\t'+mentionk]=len(mentionk.split(' '))
@@ -133,17 +166,17 @@ with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
 
 needMerge=[]
 lineDelete=set()
-with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
+with open(dir_path+"corefRet.txt") as file:
   for line in file:
     line =line.strip()
-    items = line.split(u"\t\t")
+    items = line.split("\t\t")
     if line in Line2entRep:
       entRep = Line2entRep[line]
       repaNosNo, repstart, repend, repmention = entRep.split('\t')
       
       for enti in items:
         if enti != entRep:
-          aNosNo, start, end, mention = enti.split(u'\t')
+          aNosNo, start, end, mention = enti.split('\t')
           aNo = aNosNo.split('_')[0]
           key = aNosNo +'\t'+start+'\t'+end 
           if key not in entMentsTags:
@@ -253,7 +286,7 @@ for key in entMentsTags:
       
 print len(entMent2repMent)
 
-entMent2repMent = cPickle.dump(entMent2repMent,open(dir_path+'entMent2repMent.p','wb'))
+cPickle.dump(entMent2repMent,open(dir_path+'entMent2repMent.p','wb'))
 
 #for key in entMent2repMent:
 #  print key,entMent2repMent[key]
@@ -262,11 +295,12 @@ entMent2repMent = cPickle.dump(entMent2repMent,open(dir_path+'entMent2repMent.p'
 '''
 @there are also some entity has no reference, such as Diaze,Saban ...
 '''
-entMent2repMent = cPickle.load(open(dir_path+'entMent2repMent.p','rb'))
 
+entMent2repMent = cPickle.load(open(dir_path+'entMent2repMent.p','rb'))
+print 'entMent2repMent lent:',len(entMent2repMent)
 #for key in entMent2repMent:
 #  print key,entMent2repMent[key]                     
-newEntsFile = codecs.open(dir_path+'new_entMen2aNosNoid.txt','w','utf-8')
+newEntsFile = open(dir_path+'new_entMen2aNosNoid.txt','w')
 for key in entMentsTags:
   line = entMent2line[key]
   aNo = key.split('\t')[0].split('_')[0]

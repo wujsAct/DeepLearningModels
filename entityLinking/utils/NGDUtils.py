@@ -5,7 +5,7 @@ import math
 
 class NGDUtils(object):
   def __init__(self):
-    client = MongoClient('mongodb://192.168.3.196:27017')
+    client = MongoClient('mongodb://192.168.3.196:27017',connect=False)
     self.db = client.wiki #database name
     self.collect = self.db['pagelinks']  #collections
     
@@ -40,15 +40,17 @@ class NGDUtils(object):
 
 if __name__ == '__main__':
   ngd = NGDUtils()
-  sr = ngd.get_page_links('France','France in the Middle Ages')
-  print sr
-  sr = ngd.get_page_links('England','England national football team')
-  
-  
-  print 'England','England national football team',sr
-  
-  sr = ngd.get_page_links('England','England cricket team')
-  print sr
-  
-  sr = ngd.get_page_links('England','England national rugby union team')
-  print sr
+  sr = ngd.getLinkedEnts("Surrey Lions")
+  print len(sr)
+#  sr = ngd.get_page_links('France','France in the Middle Ages')
+#  print sr
+#  sr = ngd.get_page_links('England','England national football team')
+#  
+#  
+#  print 'England','England national football team',sr
+#  
+#  sr = ngd.get_page_links('England','England cricket team')
+#  print sr
+#  
+#  sr = ngd.get_page_links('England','England national rugby union team')
+#  print sr

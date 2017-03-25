@@ -22,7 +22,7 @@ flags.DEFINE_integer("sentence_length",124,"max sentence length")
 flags.DEFINE_integer("class_size",5,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
 flags.DEFINE_integer("word_dim",114,"hidden dimension of rnn")
-flags.DEFINE_integer("candidate_ent_num",30,"hidden dimension of rnn")
+flags.DEFINE_integer("candidate_ent_num",40,"hidden dimension of rnn")
 flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
 flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
 flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
@@ -83,6 +83,7 @@ def getCRFRet(tf_unary_scores,tf_transition_params,y,sequence_lengths):
 
 def main(_):
   pp.pprint(flags.FLAGS.__flags)
+  
 class nameEntityRecognition():
   def __init__(self,sess,dir_path,data_tag):
     self.sess = sess

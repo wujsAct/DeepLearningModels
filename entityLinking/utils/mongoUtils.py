@@ -25,6 +25,24 @@ class mongoUtils(object):
         rel = u'<http://rdf.freebase.com/ns/'+line+u'>'
         self.mediator[rel] = meids
         meids += 1
+  def get_tail_from_enwikiTitle(self,title):
+    title1 = '\"'+title+'\"'
+    #print title1
+    mids = set()
+    wikiRel = '<http://rdf.freebase.com/key/wikipedia.en>'
+    for item in self.freebase.find({'rel':wikiRel,'tail':title1}):
+      mid = item['head'].replace('<http://rdf.freebase.com/ns/m.','/m/')[0:-1]
+      mids.add(mid)
+    if len(mids)==0:
+      rel2 = "<http://rdf.freebase.com/ns/type.object.key>"
+      title2 = '\"/wikipedia/en/'+title+'\"'
+      #print title2
+      for item in self.freebase.find({'rel':rel2,'tail':title2}):
+        mid = item['head'].replace('<http://rdf.freebase.com/ns/m.','/m/')[0:-1]
+        mids.add(mid)
+    return mids
+      
+      
   def get_coOccurent_ents(self,ent):
     coents=set()
     enttag=u'<http://rdf.freebase.com/ns/m.'

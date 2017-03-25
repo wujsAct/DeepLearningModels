@@ -3,10 +3,12 @@
 @time: 2016/12/5
 @editor: wujs
 @function: to generate the final candidate
+@revise: 2017/3/20 revise all the score! it may help us to score the results!
 '''
-
-import os
 import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
+import os
 import math
 import time
 sys.path.append('utils')
@@ -23,6 +25,7 @@ import collections
 from NGDUtils import NGDUtils
 import numpy as np
 
+
 def getfname2pageid():
   title2pageId = {}
   with open('data/name2pageId.txt','r') as file:
@@ -33,8 +36,11 @@ def getfname2pageid():
   return title2pageId
 
 def getmid2Name():
-  #mid2name = collections.defaultdict(list) 
-  mid2name = {}
+  mid2name = collections.defaultdict(list) 
+  #mid2name = {}
+  '''
+  @we ignore that a mid may have several names!
+  '''
   with open('data/mid2name.tsv','r') as file:
     for line in tqdm(file):
       line =line.strip()
@@ -43,9 +49,15 @@ def getmid2Name():
       
       if len(items)>=2:
         mid = items[0]; name = ' '.join(items[1:])
-        mid2name[mid] = name
+        mid2name[mid].append(name)
       else:
-        print line
+        items = line.split(' ')
+        if len(items)>=2:
+          mid = items[0]; name = ' '.join(items[1:])
+          mid2name[mid].append(name)
+        else:
+          print line
+        
       
   print len(mid2name)
   return mid2name
@@ -58,45 +70,71 @@ def is_contain_ents(enti,entj):
   else:
     return False
 
-def get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti,context_ent_pageId,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum):
+def getLinkedEntsFmid(ngd,mid2name,fmid):
+  wmid_set = set()
+  if fmid in mid2name:
+    for title in mid2name[fmid]:
+      wmid_set = wmid_set | ngd.getLinkedEnts(title)
+  return wmid_set
+  
 
+def get_freebase_ent_cands(mid2incomingLinks,ngd,mid2name,cantent_mid2,enti,context_ent_pageId,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum,word2vecEnts):
   #print 'go into entNGD...'
-  distRet = {};
+  distRet = {}
   #first find all the ents we need to process
   enti_title = enti.lower()
-  enti_item = enti_title.split(u' ')
+  enti_item = enti_title.split(' ')
   enti_f = enti_item[0]
   totaldict=dict()
   '''
-  @exits a very 
+  @need to revise the scores
   '''
   #print context_ent_pageId
   if enti_title in wikititle_reverse_index:
     totaldict = wikititle_reverse_index[enti_title]
-  else:
-    if enti_f in wikititle_reverse_index:
-      totaldict = wikititle_reverse_index[enti_f]
+  elif enti_title.replace(' ','') in wikititle_reverse_index:
+    totaldict = wikititle_reverse_index[enti_title.replace(' ','')]
+#  else:
+#    if enti_f in wikititle_reverse_index:
+#      totaldict = wikititle_reverse_index[enti_f]
 #  enti_list = ngd.getLinkedEnts(enti)
+  freebase_cants = collections.defaultdict(int)
   ids_key=0
   for key in totaldict:
-    if is_contain_ents(enti_title,key):
+    if is_contain_ents(enti_title,key) or is_contain_ents(enti_title.replace(' ',''),key):
       addScore = 0
-      if enti_title == key or key in entstr2id:  #completely match, score is too low!
+      if enti_title == key or enti_title.replace(' ','')== key or key in entstr2id:  #completely match, score is too low!
         for wmid in wikititle2fb[key]:
+          freebase_cants[wmid] = 1
           if wmid not in cantent_mid2:
-            freebaseNum-=1
-            cantent_mid2[wmid] = list([0,0,len(context_ent_pageId)])
-            freebaseNum -=1
+            tempScore = 0
+            if wmid in mid2name:
+              if wmid in mid2incomingLinks:
+                tempScore = len(mid2incomingLinks[wmid])
+              else:
+                wmid_set = getLinkedEntsFmid(ngd,mid2name,wmid)
+                mid2incomingLinks[wmid] = wmid_set
+                tempScore = len(wmid_set)
+            item2=0
+            if key.lower() in word2vecEnts:
+              item2 = word2vecEnts[key.lower()]
+            cantent_mid2[wmid] = list([tempScore,item2,len(context_ent_pageId)])
           else:
             temp = list(cantent_mid2[wmid])
             temp[2]= len(context_ent_pageId)
             cantent_mid2[wmid]= list(temp)
       else:
         for wmid in wikititle2fb[key]:
+          freebase_cants[wmid] = 1
           #need to re-rank using NGD ...
-          wmid_set = ngd.getLinkedEnts(mid2name[wmid])
-          
-          
+          wmid_set=set()
+          if wmid in mid2name:
+            if wmid in mid2incomingLinks:
+              wmid_set = mid2incomingLinks[wmid]
+            else:
+              wmid_set = getLinkedEntsFmid(ngd,mid2name,wmid)
+              mid2incomingLinks[wmid] = wmid_set
+            
           if len(context_ent_pageId&wmid_set) !=0:
             addScore += len(context_ent_pageId&wmid_set)
             #print 'addScore:',addScore
@@ -106,86 +144,144 @@ def get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti,context_ent_pageId,ent
           '''
           exits the bottle_neck, however I have no idea to deal with it!
           '''
-          distRet[wmid+u'\t'+key]= addScore
+          if addScore >= 0:
+            distRet[wmid+'\t'+key]= addScore
   distRet= sorted(distRet.iteritems(), key=lambda d:d[1], reverse = True)
   
-  #cantent_mid={}
-  #freebaseNum=50
+  
   for item in distRet:
-    if freebaseNum==0:
-      break
-    item_it = item[0].split(u'\t')
+    #if freebaseNum==0:
+    #  break
+    item_it = item[0].split('\t')
     wmid = item_it[0]
     if wmid not in cantent_mid2:
+      tempScore=0
+      if wmid in mid2name:
+        if wmid in mid2incomingLinks:
+          wmid_set = mid2incomingLinks[wmid]
+        else:
+          wmid_set = getLinkedEntsFmid(ngd,mid2name,wmid)
+          mid2incomingLinks[wmid] = wmid_set
+        tempScore=len(wmid_set)
+      item2=0
+      if key.lower() in word2vecEnts:
+        item2 = word2vecEnts[key.lower()]
       #cantent_mid2[item_it[0]] = item_it[1]
       #cantent_mid2[wmid] = [0,0,item[1]]
-      cantent_mid2[wmid] = list([0,0,item[1]])
-      freebaseNum -=1
+      cantent_mid2[wmid] = list([tempScore,item2,item[1]])
+      #freebaseNum -=1
     else:
       temp = list(cantent_mid2[wmid])
       temp[2]=temp[2]+item[1]
       cantent_mid2[wmid]= list(temp)
   #print cantent_mid2
-  return cantent_mid2
+  return cantent_mid2,freebase_cants
 
-def get_cantent_mid(listentcs,w2fb,wikititle2fb):
+'''
+@we should score as the number of inconming links!!! ==>reasonable
+'''
+def get_cantent_mid(mid2incomingLinks,ngd,listentcs,w2fb,wikititle2fb,mid2name):
   cantent_mid={}
   mid_index = 0.0
   for cent in listentcs:
     mid_index +=1.0
     if isinstance(cent,dict):
-      ids = cent[u'ids']
-      titles = cent[u'title'].lower()
+      ids = cent['ids']
+      titles = cent['title'].lower()
     else:
       ids = cent
       titles = cent.lower()
     if ids in w2fb:
+      tempScore=0
+      wmid = w2fb[ids]
+      if w2fb[ids] in mid2name:
+        if wmid in mid2incomingLinks:
+          wmid_set = mid2incomingLinks[wmid]
+        else:
+          wmid_set = getLinkedEntsFmid(ngd,mid2name,wmid)
+          mid2incomingLinks[wmid] = wmid_set
+        tempScore = len(wmid_set)
       #cantent_mid[w2fb[ids]] = titles
-      cantent_mid[w2fb[ids]] = list([1/mid_index,0,0])
+      cantent_mid[w2fb[ids]] = list([tempScore,0,0])
     elif titles in wikititle2fb:
       for wmid in wikititle2fb[titles]:
+        tempScore = 0
+        if wmid in mid2name:
+          if wmid in mid2incomingLinks:
+            wmid_set = mid2incomingLinks[wmid]
+          else:
+            wmid_set = getLinkedEntsFmid(ngd,mid2name,wmid)
+            mid2incomingLinks[wmid] = wmid_set
+          tempScore = len(wmid_set)
         #cantent_mid[wmid] =titles
-        cantent_mid[wmid] =list([1/mid_index,0,0])
+        cantent_mid[wmid] =list([tempScore,0,0])
   return cantent_mid
 
-def get_ent_word2vec_cands(enti,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1):
-  entiw = enti.replace(u' ',u'_')
+def get_ent_word2vec_cands(mid2incomingLinks,ngd,mid2name,enti,w2fb,wikititle2fb,w2vModel,entstr2id,candiate_ent,cantent_mid1):
+  entiw = enti.replace(' ','_')
+  word2vecEnts = {}
   if entiw in w2vModel:
-    coherent_ents = w2vModel.most_similar(entiw,topn=10) #convert to gensim style
+    coherent_ents = w2vModel.most_similar(entiw,topn=20) #convert to gensim style
     k=1
     for citems in coherent_ents:
-      cents = citems[0].replace(u'_',u' ')  #convert to freebase style
-      if cents.lower() in entstr2id:
-        entids = entstr2id[cents.lower()]
-        listentcs =[]
-        for entid in entids:
-          listentcs += candiate_ent[entid][0:1]  #very important things!
-        if len(listentcs)>=1:
-          #cantent_mid =dict(cantent_mid,**get_cantent_mid(listentcs,w2fb,wikititle2fb))
-          for wmid in get_cantent_mid(listentcs,w2fb,wikititle2fb):
-            if wmid not in cantent_mid1:
-              #cantent_mid1[wmid] = [0,1/k,0]
-              cantent_mid1[wmid] = list([0,citems[1],0])
-            else:
-              temp = list(cantent_mid1[wmid])
-              #temp[1]=temp[1]+1/k
-              temp[1]=citems[1]
-              cantent_mid1[wmid]= list(temp)
-      if cents.lower() in wikititle2fb:
-        for wmid in wikititle2fb[cents.lower()]:
-          #cantent_mid[wmid] = cents.lower()
-          if wmid not in cantent_mid1:
-            cantent_mid1[wmid] = list([0,citems[1],0])
-          else:
-            temp = list(cantent_mid1[wmid])
-            temp[1]= temp[1]+citems[1]
-            cantent_mid1[wmid]= list(temp)
-      k += 1
+      if citems[1] >=0.5:
+        cents = citems[0].replace('_',' ')  #convert to freebase style
+        if cents.lower() in entstr2id:
+          entids = entstr2id[cents.lower()]
+          listentcs =[]
+          for entid in entids:
+            listentcs += candiate_ent[entid][0:1]  #very important things!
+          if len(listentcs)>=1:
+            #cantent_mid =dict(cantent_mid,**get_cantent_mid(listentcs,w2fb,wikititle2fb))
+            cantent_mid = get_cantent_mid(mid2incomingLinks,ngd,listentcs,w2fb,wikititle2fb,mid2name)
+            for wmid in cantent_mid:
+              if wmid not in cantent_mid1:
+                '''
+                @time: 2017/3/20
+                we need to add the numbers of incoming links!
+                '''
+                temps = list(cantent_mid[wmid])
+                temps[1] = citems[1]
+                cantent_mid1[wmid] = list(temps)
+              else:
+                temp = list(cantent_mid1[wmid])
+                #temp[1]=temp[1]+1/k
+                temp[1]=citems[1]
+                cantent_mid1[wmid]= list(temp)
+        '''
+        @revise: time:2017/3/23 这个地方会出现很大的漏洞，我感觉呢！
+        '''
+#        if cents.lower() in wikititle2fb:
+#          for wmid in wikititle2fb[cents.lower()]:
+#            #cantent_mid[wmid] = cents.lower()
+#            if wmid not in cantent_mid1:
+#              wmid_set = ngd.getLinkedEnts(wmid)
+#              cantent_mid1[wmid] = list([len(wmid_set),citems[1],0])
+#            else:
+#              temp = list(cantent_mid1[wmid])
+#              temp[1]= citems[1]
+#              cantent_mid1[wmid]= list(temp)
+        if cents.lower() not in entstr2id:
+          word2vecEnts[cents.lower()] = citems[1]
+        k += 1
       
-  return cantent_mid1
+  return cantent_mid1,word2vecEnts
 
+
+def getTop1Wikipages(enti_name):
+  entids = entstr2id[enti_name]
+
+  listentcs = []
+  for entid in entids:
+    for entid_mid in candiate_ent[entid]:
+      if entid_mid not in listentcs:
+        listentcs.append(entid_mid)
+        
 def get_final_ent_cands():
   all_candidate_mids = []
+  wiki_candidate_mids=[]
+  freebase_candidate_mids=[]
+  
   allentmention_numbers = 0
   '''
   fileName = '/home/wjs/demo/entityType/informationExtract/data/aida/AIDA-YAGO2-dataset.tsv'
@@ -218,6 +314,9 @@ def get_final_ent_cands():
     context_ents = docId_entstr2id[docId]
     context_ent_pageId = set()
     for key in context_ents:
+      '''
+      @利用top1的page吧！
+      '''
       #print 'context ents:',context_ents
       if key in title2pageId:
         context_ent_pageId.add(title2pageId[key])
@@ -265,20 +364,19 @@ def get_final_ent_cands():
           if entid_mid not in listentcs:
             listentcs.append(entid_mid)
             
-      cantent_mid1 = get_cantent_mid(listentcs,w2fb,wikititle2fb)   #get wikidata&dbpedia search candidates
+      cantent_mid1 = get_cantent_mid(mid2incomingLinks,ngd,listentcs,w2fb,wikititle2fb,mid2name)   #get wikidata&dbpedia search candidates
       
-      if enti_name in wikititle2fb:
-        wmid_i = 0
-        for wmid in wikititle2fb[enti_name]:
-          wmid_i +=1
-          #cantent_mid1[wmid] = enti_name
-          cantent_mid1[wmid] = [1/wmid_i,0,0]
+#      if enti_name in wikititle2fb:
+#        wmid_i = 0
+#        for wmid in wikititle2fb[enti_name]:
+#          wmid_i +=1
+#          #cantent_mid1[wmid] = enti_name
+#          cantent_mid1[wmid] = [1/wmid_i,0,0]
   
-      cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,cantent_mid1) #get word2vec coherent candidates
+      cantent_mid2,word2vecEnts =  get_ent_word2vec_cands(mid2incomingLinks,ngd,mid2name,enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,dict(cantent_mid1)) #get word2vec coherent candidates
       #cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,cantent_mid1) #get word2vec coherent candidates
-      
       freebaseNum = max(0,30 - len(cantent_mid2))
-      final_mid = get_freebase_ent_cands(ngd,mid2name,cantent_mid2,enti.content,context_ent_pageId,context_ents,wikititle2fb,wikititle_reverse_index,freebaseNum)
+      final_mid,freebase_cants = get_freebase_ent_cands(mid2incomingLinks,ngd,mid2name,dict(cantent_mid2),enti.content,context_ent_pageId,context_ents,wikititle2fb,wikititle_reverse_index,freebaseNum,word2vecEnts)
       #cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti.content,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching
       
       
@@ -295,14 +393,17 @@ def get_final_ent_cands():
         #print cantent_mid1,cantent_mid2,cantent_mid3
         #exit()
         
-      all_candidate_mids.append(final_mid)
-  
+      all_candidate_mids.append(dict(final_mid))
+      wiki_candidate_mids.append(dict(cantent_mid1).keys())
+      freebase_candidate_mids.append(dict(freebase_cants).keys())
+  print '--------------'
+  print 'data tag:',data_flag
   print 'wrong_nums:',wrong_nums
   print 'right_nums:',right_nums
   print 'pass_nums:',pass_nums
   print len(all_candidate_mids), allentmention_numbers
   print 'totalRep right:',totalRepCand
-  return all_candidate_mids    
+  return all_candidate_mids,wiki_candidate_mids,freebase_candidate_mids
 
 
 
@@ -425,7 +526,13 @@ if __name__=='__main__':
   print 'start to solve problems...'
   #
   title2pageId = getfname2pageid()
-  all_candidate_mids = get_final_ent_cands()
-  cPickle.dump(all_candidate_mids,open(f_output,'wb'))
+  mid2incomingLinks={}
+  if os.path.isfile(dir_path+'mid2incomingLinks.p'):
+    print 'start to load mid2incomingLinks ... '
+    mid2incomingLinks=cPickle.load(open(dir_path+'mid2incomingLinks.p','rb'))
+  all_candidate_mids,wiki_candidate_mids,freebase_candidate_mids = get_final_ent_cands()
+  data_param={'all_candidate_mids':all_candidate_mids,'wiki_candidate_mids':wiki_candidate_mids,'freebase_candidate_mids':freebase_candidate_mids}
+  cPickle.dump(data_param,open(f_output,'wb'))
+  #cPickle.dump(mid2incomingLinks,open(dir_path+'mid2incomingLinks.p','wb'))
   
   

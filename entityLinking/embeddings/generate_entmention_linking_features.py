@@ -25,10 +25,12 @@ import codecs
 from tqdm import tqdm
 import collections
 from spacy.en import English
-
+from NGDUtils import NGDUtils
+ngd = NGDUtils()
 nlp = English()
 mongoutils= mongoUtils()
 stopwords={}
+
 with codecs.open('data/stopwords.txt','r','utf-8') as file:
   for line in file:
     line = line.strip()
@@ -66,7 +68,7 @@ def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fo
   k=-1
   for i in tqdm(range(len(ent_Mentions))):
   #for i in tqdm(xrange(145,200)):
-    ents = ent_Mentions[i]  #ents ÖÐµÄentities±íÊ¾ÔÚÍ¬Ò»¸ödocÖÐµÄÊµÌå£¡
+    ents = ent_Mentions[i]  #ents
     tag = False
     doc_ents_cand_mid_dict=[]
     for j in range(len(ents)):
@@ -96,7 +98,9 @@ def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fo
           allcandents[new_mid] = mongoutils.get_coOccurent_ents(new_mid)
   cPickle.dump(allcandents,open(fout,'wb'))
 
+
 def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,allcandents_coents):
+  candidate_nums = 40
   '''
   @2016/12/26
   '''
@@ -142,36 +146,57 @@ def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,al
         midt = mid.replace(u'/',u'.')[1:]
         new_mid = u'<http://rdf.freebase.com/ns/'+midt+u'>'
         
-        cand_mid_coocurmid.append(allcandents_coents[new_mid])
+        #cand_mid_coocurmid.append([new_mid,allcandents_coents[new_mid]])
+        cand_mid_coocurmid.append([new_mid,0])
       doc_ents_cand_mid_dict.append(cand_mid_coocurmid)
     
     doc_temprelCoherent=[]
     for icand in range(len(doc_ents_cand_mid_dict)):
-      temprelCoherent = np.zeros((30,))
-      i_coocurmid=doc_ents_cand_mid_dict[icand]
-      for ci in range(len(i_coocurmid)):
-        midi=i_coocurmid[ci]
+      temprelCoherent = np.zeros((candidate_nums,))
+      cand_mid_coocurmid_i = doc_ents_cand_mid_dict[icand]
+      for ci in range(len(cand_mid_coocurmid_i)):
+        mid,i_coocurmid = cand_mid_coocurmid_i[ci]
+#        print mid
+#        print "''''''''''''''''''''''''''''"
+#        print i_coocurmid
+#        exit(0)
+        nameI = None
+        if mid in mid2Name:
+          nameI = mid2Name.get(mid)
+          
         hasRel = 0
+        hasNGD = 0
+        
+        nums = 0
         for jcand in range(len(doc_ents_cand_mid_dict)):
-          j_coocurmid=doc_ents_cand_mid_dict[jcand]
-          if icand!=jcand:
-            for midj in j_coocurmid:
-              print 'midi:',midi
-              print 'midj:',midj
-              if len(midi&midj)!=0:
-                hasRel +=1
-        temprelCoherent[ci] = hasRel
-      #print temprelCoherent
-    
+          if icand !=jcand:
+            cand_mid_coocurmid_j = doc_ents_cand_mid_dict[icand]
+            for cj in range(len(cand_mid_coocurmid_j)):
+              midj,j_coocurmid = cand_mid_coocurmid_j[cj]
+#              print 'tyep cooccurmid:',type(i_coocurmid),type(j_coocurmid)
+#              exit(0)
+              
+              #if mid in j_coocurmid or midj in i_coocurmid:
+              #  hasRel +=1
+#              if midj in mid2Name:
+#                nameJ = mid2Name.get(midj)
+#                if nameI is not None and nameJ is not None:
+#                  hasNGD += ngd.get_page_links(nameI,nameJ)
+#                  nums += 1
+#        if hasRel !=0:
+#          print hasRel*1.0/len(i_coocurmid)
+#          temprelCoherent[ci] = hasRel*1.0/len(i_coocurmid)
+        if hasNGD!=0:
+          temprelCoherent[ci] += hasNGD/nums
       doc_temprelCoherent.append(temprelCoherent)
     ent_mention_relCoherent_feature.append(doc_temprelCoherent)
-  print len(ent_mention_relCoherent_feature),len(ent_mention_relCoherent_feature[3]),len(ent_mention_relCoherent_feature[3][0])
   cPickle.dump(ent_mention_relCoherent_feature,open(fout,'wb'))
      
 def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2description,descript_Words,mid2figer,fid2vec,f_output,f_output1,f_output2,f_output4):
   '''
   @2016/12/15
   '''
+  candidate_nums = 40
   ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p_new','rb'))
   if data_flag=='train':
     ent_id = 0
@@ -287,20 +312,10 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
         @add candidate entity type features!
         '''
         #revise 2017/2/2
-        '''
-        temp_cand_prob_mid = []
-        for i_temp_cand_mid in range(len(cand_mid_dict[mid])):
-          if cand_mid_dict[mid][i_temp_cand_mid] >0:
-            temp_cand_prob_mid.append(1)
-          else:
-            temp_cand_prob_mid.append(0)
-        '''    
         if len(tcandprob)==0:
           tcandprob = np.asarray(cand_mid_dict[mid])
-          #tcandprob = np.asarray(temp_cand_prob_mid)
         else:
           tcandprob = np.concatenate((tcandprob,np.asarray(cand_mid_dict[mid])))
-          #tcandprob = np.concatenate((tcandprob,np.asarray(temp_cand_prob_mid)))        
         if len(tcanditetype)==0:
           tcanditetype = ttypev
         else:
@@ -346,7 +361,77 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
   cPickle.dump(ent_mention_type_feature,open(f_output1,'wb'))
   cPickle.dump(ent_mention_cand_prob_feature,open(f_output2,'wb'))
   
-  
+def getmid2Name():
+  #mid2name = collections.defaultdict(list) 
+  mid2name = {}
+  with open('data/mid2name.tsv','r') as file:
+    for line in tqdm(file):
+      line =line.strip()
+      #print line.split(u'\t')
+      items= line.split('\t')
+      
+      if len(items)>=2:
+        mid = items[0]; name = ' '.join(items[1:])
+        mid2name[mid] = name
+      else:
+        print line
+      
+  print len(mid2name)
+  return mid2name  
+
+def recalls():
+  ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p_new','rb'))
+  if data_flag=='train':
+    ent_id = 0
+  if data_flag=='testa':
+    ent_id = 23396
+  if data_flag=='testb':
+    ent_id = 29313
+  print 'finish load all datas'
+  pass_num = 0
+  right_num = 0
+  wrong_num = 0
+  k = -1
+  for i in tqdm(range(len(ent_Mentions))):
+    ents = ent_Mentions[i] 
+    for j in range(len(ents)):
+      enti = ents[j]
+      
+      enti_name = enti.content.lower()
+      '''
+      if enti_name not in entstr_lower2mid:
+        continue   
+      else:
+        k += 1
+        tag = entstr_lower2mid[enti_name]
+      '''
+      enti_linktag_item = ent_ment_link_tags[ent_id]
+      tag = enti_linktag_item[1]
+       
+      if tag == 'NIL':
+        ent_id += 1
+        pass_num += 1
+        continue
+      ent_id += 1
+      k += 1  
+      #print 'k:',k
+      cand_mid_dict = all_candidate_mids[k]
+      rightCand_flag = False
+      for mid in cand_mid_dict:  
+        if mid == tag:
+          rightCand_flag = True
+      if rightCand_flag:
+        right_num += 1
+      else:
+        wrong_num += 1
+  print 'pass_num:',pass_num
+  print 'right num:',right_num
+  print 'wrong num:',wrong_num
+  print 'total num:',right_num+wrong_num
+      
+          
+          
+          
 if __name__=='__main__':
   if len(sys.argv) != 11:
     print 'usage: python embeddings/generate_entmention_linking_features.py ${dir_path} testa_entms.p100 test_a_embed.p100 testa_ent_cand_mid.p testa_ent_linking.p testa_ent_linking_type.p testa_ent_linking_candprob.p testa_ent_relcoherent.p data_flag'
@@ -371,80 +456,84 @@ if __name__=='__main__':
   #param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs} ==>
   dataEnts = cPickle.load(open(f_input_ent_ments,'rb'));ent_Mentions = dataEnts['ent_Mentions']
   all_candidate_mids = cPickle.load(open(f_input_ent_cand_mid,'rb'))
+  print len(all_candidate_mids)
+  
+  #exit(0)
   print 'load dataEnts candidates cost time:',time.time()-stime
+  print 'start to comput recall....'
+  recalls()
+  #get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,f_outputtemp)   
+  #allcandents_coents = cPickle.load(open(f_outputtemp,'rb'))
+  allcandents_coents={}
+  mid2Name = getmid2Name()
+  get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,f_output3,allcandents_coents)
   
   
-  get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,f_outputtemp)   
-  #allcandents_coents = cPickle.load(open(f_outputtemp,'rb'))   
-  #get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,f_output3,allcandents_coents)
+  '''
+  #sent_embed = cPickle.load(open(f_input_ent_embed,'rb'))
+  #assert len(ent_Mentions) == len(sent_embed)
+  '''
+  '''
+  @time: 2017/2/8
+  @function: load re-rank feature£ºentity type
+  '''
+  fid2title = collections.defaultdict(list)
+  fid2vec = {}
+  wtitle2fid = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
+  for key in wtitle2fid:
+    for item in wtitle2fid[key]:
+      fid2title[item].append(key)
+  '''
+  @time: 2016/12/23
+  @function: load re-rank feature£ºentity type
+  '''  
+  stime = time.time()
+  descript_Words = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p', 'rb'))
+  print 'load wordvec_model_100 cost time: ', time.time()-stime
   
+  wordsVectors = descript_Words.wvec_model
+      
+  for key in fid2title:
+    num = 0
+    fwordv = np.zeros((100,))
+    for item in fid2title[key]:    
+      num += 1
+      twordv = np.zeros((100,))
+      for word in item.split(u' '):
+        if word in wordsVectors:
+          twordv += wordsVectors[word]
+      fwordv += twordv
+    fwordv /=num
+    fid2vec[key] = fwordv  
   
-  
-#  '''
-#  #sent_embed = cPickle.load(open(f_input_ent_embed,'rb'))
-#  #assert len(ent_Mentions) == len(sent_embed)
-#  '''
-#  '''
-#  @time: 2017/2/8
-#  @function: load re-rank feature£ºentity type
-#  '''
-#  fid2title = collections.defaultdict(list)
-#  fid2vec = {}
-#  wtitle2fid = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
-#  for key in wtitle2fid:
-#    for item in wtitle2fid[key]:
-#      fid2title[item].append(key)
-#  '''
-#  @time: 2016/12/23
-#  @function: load re-rank feature£ºentity type
-#  '''  
-#  stime = time.time()
-#  descript_Words = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p', 'rb'))
-#  print 'load wordvec_model_100 cost time: ', time.time()-stime
-#  
-#  wordsVectors = descript_Words.wvec_model
-#      
-#  for key in fid2title:
-#    num = 0
-#    fwordv = np.zeros((100,))
-#    for item in fid2title[key]:    
-#      num += 1
-#      twordv = np.zeros((100,))
-#      for word in item.split(u' '):
-#        if word in wordsVectors:
-#          twordv += wordsVectors[word]
-#      fwordv += twordv
-#    fwordv /=num
-#    fid2vec[key] = fwordv  
-#  
-#  stime = time.time()
-#  mid2figer = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/mid2figer.p','rb'))
-#  print 'load mid2figer cost time:',time.time()-stime
-#                                             
+  stime = time.time()
+  mid2figer = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/mid2figer.p','rb'))
+  print 'load mid2figer cost time:',time.time()-stime
+                                             
+
+  stime = time.time()
+  mid2description={}  #nearly 2.3G
+  with codecs.open('/home/wjs/demo/entityType/informationExtract/data/mid2description.txt','r','utf-8') as file:
+    for line in file:
+      items = line.strip().split('\t')
+      if len(items) >=2:
+        mid2description[items[0]] =items[1]
+  print 'load mid2descriptioon cost time: ', time.time()-stime
 #
-##  stime = time.time()
-##  mid2description={}  #nearly 2.3G
-##  with codecs.open('/home/wjs/demo/entityType/informationExtract/data/mid2description.txt','r','utf-8') as file:
-##    for line in file:
-##      items = line.strip().split('\t')
-##      if len(items) >=2:
-##        mid2description[items[0]] =items[1]
-##  print 'load mid2descriptioon cost time: ', time.time()-stime
-##
-##  get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2description,descript_Words.wvec_model,mid2figer,fid2vec,f_output,f_output1,f_output2,f_output4)
-#  
-#  '''
-#  param_dict = cPickle.load(open(f_output,'rb'))
-#  ent_mention_link_feature = param_dict['ent_mention_link_feature']
-#  assert len(ent_mention_link_feature) == len(ent_Mentions)
-#  if len(ent_mention_link_feature) == len(ent_Mentions):
-#    print 'right'
-#  else:
-#    print 'wrong'
-#  '''
-#  
+  get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2description,descript_Words.wvec_model,mid2figer,fid2vec,f_output,f_output1,f_output2,f_output4)
+  
+  '''
+  param_dict = cPickle.load(open(f_output,'rb'))
+  ent_mention_link_feature = param_dict['ent_mention_link_feature']
+  assert len(ent_mention_link_feature) == len(ent_Mentions)
+  if len(ent_mention_link_feature) == len(ent_Mentions):
+    print 'right'
+  else:
+    print 'wrong'
+  '''
   
   
+
   
   
   

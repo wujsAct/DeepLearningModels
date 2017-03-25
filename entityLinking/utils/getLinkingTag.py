@@ -45,11 +45,15 @@ fb2wikititle={}
 with codecs.open(fname,'r','utf-8') as file:
   for line in tqdm(file):
     line = line.strip()
-    items = line.split('\t')
-    if len(items)==2:
-      fbId = items[0]; title = items[1]  
-      fb2wikititle[fbId] = title.lower()
-      wikititle2fb[title.lower()].append(fbId)
+    items = list(line.split('\t'))
+    if len(items)<2:
+      items = list(line.split(' '))
+    if len(items)>=2:
+      fbId = items[0]; title = ' '.join(items[1:])  
+      fb2wikititle[fbId] = title
+      wikititle2fb[title].append(fbId)
+    else:
+      print line
 fb2wikititle['NIL'] = 'NIL'        
     
 '''read entmention 2 aNosNoid'''
@@ -64,17 +68,19 @@ entMents2surfaceName={}
 with codecs.open(entsFile,'r','utf-8') as file:
   for line in file:
     line = line.strip()
-    items = line.split('\t')
-    entMent = items[0]; linkingEnt = items[1].lower(); aNosNo = items[2]; start = items[3]; end = items[4]; repEntStr=items[5]
+    items = list(line.split('\t'))
+    entMent = items[0]; linkingEnt = items[1]; aNosNo = items[2]; start = items[3]; end = items[4]; #repEntStr=items[5]
     
     key = aNosNo + '\t' + start+'\t'+end
     if linkingEnt == 'NIL':
       hasMid += 1
       entMentsTags[key]='NIL'
     
-
     if linkingEnt in wikititle2fb:
-      #print wikititle2fb[linkingEnt]
+      if u'/m/01dtg_' in wikititle2fb[linkingEnt]:
+        print linkingEnt,line
+        print wikititle2fb[linkingEnt]
+        print '--------------'
       hasMid +=1 
       entMentsTags[key] =wikititle2fb[linkingEnt]
       entMents2surfaceName[key] = entMent

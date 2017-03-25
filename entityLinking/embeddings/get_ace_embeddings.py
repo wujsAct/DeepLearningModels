@@ -139,6 +139,7 @@ def get_input(model,wtitleIndex, word_dim, input_file,output_embed,sentence_leng
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--dir_path', type=str, help='data file', required=True)
+  parser.add_argument('--data_tag', type=str, help='data tag', required=True)
   parser.add_argument('--train', type=str, help='train file location', required=True)
   parser.add_argument('--sentence_length', type=int, default=-1, help='max sentence length')
   parser.add_argument('--use_model', type=str, help='model location', required=True)
@@ -159,5 +160,5 @@ if __name__ == '__main__':
   print 'load data cost time:',time.time()-start_time
   #print trained_model.wvec_model.vocab
   get_input(trained_model,wtitleIndex, args.model_dim, args.train, 
-            args.dir_path+'/features/msnbc_embed.p'+str(args.model_dim),
+            args.dir_path+'/features/'+args.data_tag+'_embed.p'+str(args.model_dim),
             sentence_length=args.sentence_length)
