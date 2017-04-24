@@ -11,7 +11,9 @@ import sys
 import numpy as np
 import cPickle
 import gzip
+import tensorflow as tf
 from tqdm import tqdm
+import collections
 import time
 from description_embed_model import WordVec,MyCorpus
 from evalChunk import openSentid2aNosNoid,getaNosNo2entMen
@@ -133,40 +135,45 @@ tag: sentence_length*[typeId],
 def getFigerEntTags(otherType,entList,sentence_length,sid):
   indices = []
   val=[]
-  hasTypeSq=[]
+  hasTypeSq=collections.defaultdict(list)
   for i in range(len(entList)):
     ent = entList[i]
     ents= int(ent[0])
     ente = int(ent[1])
-    typeList = ent[2]
+    typeList = sorted(list(set(ent[2])))  #ascending sort and duplicate type remove!
     '''
     sparse pattern
     '''
     for j in range(ents,ente):
-      hasTypeSq.append(j)
-      for t in range(len(typeList)):
-        ind =[sid,j,t]  # batch_id,sequence_length_id,class_id
-        indices.append(ind)
-        val.append(1)
+      hasTypeSq[j]=typeList
+      #for t in range(len(typeList)): 
+        #ind =[sid,j,t]  # batch_id,sequence_length_id,class_id
+        #indices.append(ind)
+        #val.append(1)
   for i in range(sentence_length):  #add those nontype tags!
-    if i not in hasTypeSq:
-      ind=[sid,i,otherType]
-      indices.append(ind)
+    if i in hasTypeSq:
+      for t in hasTypeSq[i]:
+        ind=list([sid,i,t])
+        indices.append(list(ind))
+        val.append(1)
+    else:
+      ind=list([sid,i,otherType])
+      indices.append(list(ind))
       val.append(1)
   return indices,val
 
 def get_input_figer_chunk(dir_path,set_tag,model,word_dim,sentence_length=-1):
   batch_size = 256
-  epochs = 1
+  epochs = 2
   figerTypes = 114
   input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
   
   entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
   figer2id = cPickle.load(open(dir_path+"figer2id.p",'rb'))
   otherType=len(figer2id)
-  print 'figer types:',len(figer2id)
+  #print 'figer types:',len(figer2id)
   
-  allid=-1
+  allid=0
   word = []
   #tag = []
   tag_indices=[]
@@ -179,10 +186,10 @@ def get_input_figer_chunk(dir_path,set_tag,model,word_dim,sentence_length=-1):
   else:
     max_sentence_length = sentence_length
   sentence_length = 0
-  print("max sentence length is %d" % max_sentence_length)
+  #print("max sentence length is %d" % max_sentence_length)
  
   for epoch in range(epochs):
-    for line in tqdm(input_file_obj):
+    for line in input_file_obj:
       
       if line in ['\n', '\r\n']:
         for _ in range(max_sentence_length - sentence_length):
@@ -192,11 +199,17 @@ def get_input_figer_chunk(dir_path,set_tag,model,word_dim,sentence_length=-1):
           word.append(temp)
           
         entList = entMents[allid]
-        temp_tag_indices,temp_tag_val = getFigerEntTags(otherType,entList,sentence_length,allid)
+        temp_tag_indices,temp_tag_val = getFigerEntTags(otherType,entList,sentence_length,allid%batch_size)
         sentence.append(word)
         tag_indices += temp_tag_indices
         tag_val += temp_tag_val
-        allid += 1
+        if (allid+1)%batch_size==0 and allid!=0:
+          if len(sentence) == batch_size:
+            yield sentence,[np.asarray(tag_indices, dtype=np.int64),np.asarray(tag_val, dtype=np.float32),tag_shape]
+            sentence=[]
+            tag_indices=[];tag_val=[];
+        allid += 1   
+        sentence_length = 0
         
         sentence_length = 0
         word = []
@@ -210,7 +223,7 @@ def get_input_figer_chunk(dir_path,set_tag,model,word_dim,sentence_length=-1):
         temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
         assert len(temp) == word_dim+6+5
         word.append(temp)
-  return sentence,[np.asarray(tag_indices, dtype=np.int64),np.asarray(tag_val, dtype=np.float32),tag_shape]
+  #return sentence,[np.asarray(tag_indices, dtype=np.int64),np.asarray(tag_val, dtype=np.float32),tag_shape]
 
 def get_input_figer_chunk_train(dir_path,set_tag,model,word_dim,sentence_length=-1):
   batch_size = 256
@@ -374,11 +387,20 @@ if __name__ == '__main__':
 
   word2vecModel = cPickle.load(open('data/wordvec_model_100.p', 'rb'))
   #word2vecModel = None
+  output_data = tf.sparse_placeholder(tf.float32, name='outputdata')
+  sess = tf.InteractiveSession()
+  '''
+  @sparse_tensor need to be in order and non duplicate elements!
+  '''
   stime = time.time()
-  for train_input,train_out in get_input_figer_chunk_train('data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=80):
-    print np.shape(train_input)
-    
-  print 'cost time:',time.time()-stime
+  for train_input,train_out in get_input_figer_chunk('data/figer/',"testa",model=word2vecModel,word_dim=100,sentence_length=80):
+#    print np.shape(train_input)
+#    print len(train_out[0])
+#    print len(train_out[1])
+#    print train_out[2]
+    tt = sess.run(tf.sparse_tensor_to_dense(output_data), feed_dict={output_data:tf.SparseTensorValue(train_out[0],train_out[1],train_out[2])})
+    print tt[0]
+  #print 'cost time:',time.time()-stime
   '''
   parser = argparse.ArgumentParser()
   parser.add_argument('--dir_path', type=str, help='data file', required=True)
