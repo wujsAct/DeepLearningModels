@@ -141,12 +141,14 @@ def getFigerEntTags(entList,sid,ent_no):
     ent_start= int(ent[0])
     ent_end = int(ent[1])
     typeList = sorted(list(set(ent[2])))  #ascending sort and duplicate type remove!
+    #print len(typeList)
+    
     '''
     sparse pattern
     '''
     ent_mention_mask.append([sid,ent_start,ent_end])
     for t in range(len(typeList)): 
-      ind =[ent_no,t]  # batch_id,sequence_length_id,class_id
+      ind =[ent_no,typeList[t]]  #batch_id,sequence_length_id,class_id
       type_indices.append(ind)
       type_val.append(1)
 
@@ -202,6 +204,7 @@ def get_input_figer_chunk(batch_size,dir_path,set_tag,model,word_dim,sentence_le
         type_val += temp_type_val
         if (allid+1)%batch_size==0 and allid!=0:
           if len(sentence) == batch_size:
+            #yield ent_mention_mask,sentence,[np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)]
             sentence_final.append(sentence)
             ent_mention_mask_final.append(ent_mention_mask)
             type_final.append([np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)])
@@ -216,6 +219,7 @@ def get_input_figer_chunk(batch_size,dir_path,set_tag,model,word_dim,sentence_le
         assert (len(line.split()) == 3)  #only has Word,pos_tag
         sentence_length += 1
         temp = model[line.split()[0]]
+        #temp = temp = np.zeros((100,))
         temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
         temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
         temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
@@ -269,7 +273,7 @@ def get_input_figer_chunk_train(batch_size,dir_path,set_tag,model,word_dim,sente
         type_val += temp_type_val
         if (allid+1)%batch_size==0 and allid!=0:
           if len(sentence) == batch_size:
-            yield ent_mention_mask,sentence,[np.asarray(temp_type_indices, dtype=np.int64),np.asarray(temp_type_val, dtype=np.float32)]
+            yield ent_mention_mask,sentence,[np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)]
             #sentence_final;ent_mention_mask_final=[];type_final=[]
             sentence=[];type_indices=[];type_val=[];ent_mention_mask=[];ent_no=0
         allid += 1   
@@ -279,8 +283,8 @@ def get_input_figer_chunk_train(batch_size,dir_path,set_tag,model,word_dim,sente
       else:
         assert (len(line.split()) == 3)  #only has Word,pos_tag
         sentence_length += 1
-        #temp = model[line.split()[0]]
-        temp = np.zeros((100,))
+        temp = model[line.split()[0]]
+        #temp = np.zeros((100,))
         temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
         temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
         temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
@@ -402,13 +406,20 @@ def padZeros(sentence_final,max_sentence_length=80,dims=111):
     
   return np.asarray(sentence_final)
 if __name__ == '__main__':
+  output_data = tf.sparse_placeholder(tf.float32, name='outputdata')
+  dense=tf.sparse_tensor_to_dense(output_data)
+  config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
+  config.gpu_options.allow_growth=True
+  sess = tf.InteractiveSession(config=config)
   
-  i = 0
-  for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train(256,'data/figer/',"train",model=None,word_dim=100,sentence_length=80):
+  for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk(10,'data/figer/',"testa",model=None,word_dim=100,sentence_length=80):
     indexs = genEntMentMask(train_entment_mask)
-    print np.shape(padZeros(train_sentence_final))
-    print len(indexs)
-  
+    num_examples = len(indexs)
+    print train_tag_final
+    type_shape=  np.array([num_examples,114], dtype=np.int64)
+    tt = sess.run(dense,{output_data:tf.SparseTensorValue(train_tag_final[0],train_tag_final[1],type_shape)})
+    print np.argmax(tt,1)
+    print '------------------'
   #word2vecModel = cPickle.load(open('data/wordvec_model_100.p', 'rb'))
   #word2vecModel = None
   #output_data = tf.sparse_placeholder(tf.float32, name='outputdata')

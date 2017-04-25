@@ -24,7 +24,7 @@ pp = pprint.PrettyPrinter()
 
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
-flags.DEFINE_integer("batch_size",256,"batch size of training")
+flags.DEFINE_integer("batch_size",10,"batch size of training")
 flags.DEFINE_string("datasets","figer","dataset name")
 flags.DEFINE_integer("sentence_length",80,"max sentence length")
 flags.DEFINE_integer("class_size",114,"number of classes")
@@ -145,7 +145,7 @@ def main(_):
     print 'epoch:',epoch
     print '---------------------------------'
     for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train(args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=80):
-      if id_epoch % 2000 ==0 and id_epoch!=0:
+      if id_epoch % 60000 ==0 and id_epoch!=0:
         accuracy_list=[]
         for i in range(len(testa_sentence_final)):
           testa_input = padZeros(testa_sentence_final[i])
