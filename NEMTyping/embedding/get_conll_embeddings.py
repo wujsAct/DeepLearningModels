@@ -132,40 +132,34 @@ def get_figerChunk(dir_path):
 '''
 tag: sentence_length*[typeId], 
 '''
-def getFigerEntTags(otherType,entList,sentence_length,sid):
-  indices = []
-  val=[]
-  hasTypeSq=collections.defaultdict(list)
+def getFigerEntTags(entList,sid,ent_no):
+  ent_mention_mask=[]
+  type_indices=[]
+  type_val=[]
   for i in range(len(entList)):
     ent = entList[i]
-    ents= int(ent[0])
-    ente = int(ent[1])
+    ent_start= int(ent[0])
+    ent_end = int(ent[1])
     typeList = sorted(list(set(ent[2])))  #ascending sort and duplicate type remove!
     '''
     sparse pattern
     '''
-    for j in range(ents,ente):
-      hasTypeSq[j]=typeList
-      #for t in range(len(typeList)): 
-        #ind =[sid,j,t]  # batch_id,sequence_length_id,class_id
-        #indices.append(ind)
-        #val.append(1)
-  for i in range(sentence_length):  #add those nontype tags!
-    if i in hasTypeSq:
-      for t in hasTypeSq[i]:
-        ind=list([sid,i,t])
-        indices.append(list(ind))
-        val.append(1)
-    else:
-      ind=list([sid,i,otherType])
-      indices.append(list(ind))
-      val.append(1)
-  return indices,val
+    ent_mention_mask.append([sid,ent_start,ent_end])
+    for t in range(len(typeList)): 
+      ind =[ent_no,t]  # batch_id,sequence_length_id,class_id
+      type_indices.append(ind)
+      type_val.append(1)
 
-def get_input_figer_chunk(dir_path,set_tag,model,word_dim,sentence_length=-1):
-  batch_size = 256
-  epochs = 2
-  figerTypes = 114
+    ent_no += 1
+  
+  return ent_no,ent_mention_mask,type_indices,type_val
+
+
+
+
+def get_input_figer_chunk(batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
+  epochs = 1
+  figerTypes = 113
   input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
   
   entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
@@ -176,44 +170,48 @@ def get_input_figer_chunk(dir_path,set_tag,model,word_dim,sentence_length=-1):
   allid=0
   word = []
   #tag = []
-  tag_indices=[]
-  tag_val=[]
+  type_indices=[]
+  type_val=[]
   sentence = []
-  tag_shape = np.array([batch_size, sentence_length,figerTypes], dtype=np.int64)
+  ent_mention_mask=[]
   #sentence_tag = []
   if sentence_length == -1:
     max_sentence_length = find_max_length(input_file_obj)
   else:
     max_sentence_length = sentence_length
+  ent_no=0
   sentence_length = 0
   #print("max sentence length is %d" % max_sentence_length)
- 
+  sentence_final=[]
+  type_final = []
+  ent_mention_mask_final=[]
   for epoch in range(epochs):
+    sid = 0
     for line in input_file_obj:
-      
       if line in ['\n', '\r\n']:
-        for _ in range(max_sentence_length - sentence_length):
-          #tag.append(np.array([0] * 5))
-          temp = np.array([0 for _ in range(word_dim + 6+5)])
-        
-          word.append(temp)
-          
-        entList = entMents[allid]
-        temp_tag_indices,temp_tag_val = getFigerEntTags(otherType,entList,sentence_length,allid%batch_size)
+#        for _ in range(max_sentence_length - sentence_length):
+#          #tag.append(np.array([0] * 5))
+#          temp = np.array([0 for _ in range(word_dim + 6+5)])
+#          
+#          word.append(temp)
+        entList = entMents[sid]
+        ent_no,temp_ent_mention_mask,temp_type_indices,temp_type_val = getFigerEntTags(entList,allid%batch_size,ent_no)
         sentence.append(word)
-        tag_indices += temp_tag_indices
-        tag_val += temp_tag_val
+        ent_mention_mask += temp_ent_mention_mask
+        type_indices += temp_type_indices
+        type_val += temp_type_val
         if (allid+1)%batch_size==0 and allid!=0:
           if len(sentence) == batch_size:
-            yield sentence,[np.asarray(tag_indices, dtype=np.int64),np.asarray(tag_val, dtype=np.float32),tag_shape]
-            sentence=[]
-            tag_indices=[];tag_val=[];
+            sentence_final.append(sentence)
+            ent_mention_mask_final.append(ent_mention_mask)
+            type_final.append([np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)])
+            
+            #sentence_final;ent_mention_mask_final=[];type_final=[]
+            sentence=[];type_indices=[];type_val=[];ent_mention_mask=[];ent_no=0
         allid += 1   
-        sentence_length = 0
-        
+        sid += 1
         sentence_length = 0
         word = []
-        #tag = []
       else:
         assert (len(line.split()) == 3)  #only has Word,pos_tag
         sentence_length += 1
@@ -223,66 +221,72 @@ def get_input_figer_chunk(dir_path,set_tag,model,word_dim,sentence_length=-1):
         temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
         assert len(temp) == word_dim+6+5
         word.append(temp)
-  #return sentence,[np.asarray(tag_indices, dtype=np.int64),np.asarray(tag_val, dtype=np.float32),tag_shape]
+  return ent_mention_mask_final,sentence_final,type_final
 
-def get_input_figer_chunk_train(dir_path,set_tag,model,word_dim,sentence_length=-1):
-  batch_size = 256
-  epochs = 30
-  figerTypes = 114
+def get_input_figer_chunk_train(batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
+  
+  epochs = 2
+  figerTypes = 113
   input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
   
   entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
   figer2id = cPickle.load(open(dir_path+"figer2id.p",'rb'))
   otherType=len(figer2id)
-  print 'figer types:',len(figer2id)
+  #print 'figer types:',len(figer2id)
   
   allid=0
   word = []
   #tag = []
-  tag_indices=[]
-  tag_val=[]
+  type_indices=[]
+  type_val=[]
   sentence = []
-  tag_shape = np.array([batch_size, sentence_length,figerTypes], dtype=np.int64)
+  ent_mention_mask=[]
   #sentence_tag = []
   if sentence_length == -1:
     max_sentence_length = find_max_length(input_file_obj)
   else:
     max_sentence_length = sentence_length
+  ent_no=0
   sentence_length = 0
-  print("max sentence length is %d" % max_sentence_length)
- 
+  #print("max sentence length is %d" % max_sentence_length)
+  sentence_final=[]
+  type_final = []
+  ent_mention_mask_final=[]
   for epoch in range(epochs):
-    for line in tqdm(input_file_obj):
+    sid = 0
+    for line in input_file_obj:
       if line in ['\n', '\r\n']:
-        for _ in range(max_sentence_length - sentence_length):
-          #tag.append(np.array([0] * 5))
-          temp = np.array([0 for _ in range(word_dim + 6+5)])
-        
-          word.append(temp)
-          
-        entList = entMents[allid]
-        temp_tag_indices,temp_tag_val = getFigerEntTags(otherType,entList,sentence_length,allid%batch_size)
+#        for _ in range(max_sentence_length - sentence_length):
+#          #tag.append(np.array([0] * 5))
+#          temp = np.array([0 for _ in range(word_dim + 6+5)])
+#          
+#          word.append(temp)
+        entList = entMents[sid]
+        ent_no,temp_ent_mention_mask,temp_type_indices,temp_type_val = getFigerEntTags(entList,allid%batch_size,ent_no)
         sentence.append(word)
-        tag_indices += temp_tag_indices
-        tag_val += temp_tag_val
+        ent_mention_mask += temp_ent_mention_mask
+        type_indices += temp_type_indices
+        type_val += temp_type_val
         if (allid+1)%batch_size==0 and allid!=0:
           if len(sentence) == batch_size:
-            yield sentence,[np.asarray(tag_indices, dtype=np.int64),np.asarray(tag_val, dtype=np.float32),tag_shape]
-            sentence=[]
-            tag_indices=[];tag_val=[];
+            yield ent_mention_mask,sentence,[np.asarray(temp_type_indices, dtype=np.int64),np.asarray(temp_type_val, dtype=np.float32)]
+            #sentence_final;ent_mention_mask_final=[];type_final=[]
+            sentence=[];type_indices=[];type_val=[];ent_mention_mask=[];ent_no=0
         allid += 1   
+        sid += 1
         sentence_length = 0
         word = []
-        #tag = []
       else:
         assert (len(line.split()) == 3)  #only has Word,pos_tag
         sentence_length += 1
-        temp = model[line.split()[0]]
+        #temp = model[line.split()[0]]
+        temp = np.zeros((100,))
         temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
         temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
         temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
         assert len(temp) == word_dim+6+5
         word.append(temp)
+        
 def get_input(model, word_dim, input_file_obj, output_embed, output_tag, sentence_length=-1):
   word = []
   tag = []
@@ -381,25 +385,45 @@ def get_input_conll2003(model, word_dim, input_file_obj, output_embed, output_ta
   print 'start to save datasets....'
   cPickle.dump(sentence, open(output_embed, 'wb'))
   cPickle.dump(sentence_tag, open(output_tag, 'wb'))
-
-
+def genEntMentMask(entment_mask_final):
+  entNums = len(entment_mask_final)
+  entment_masks = np.zeros((entNums,256,80,256))
+  for i in range(entNums):
+    items = entment_mask_final[i]
+    
+    ids = items[0];start=items[1];end=items[2]
+    for ient in range(start,end):
+        entment_masks[i,ids,ient] = np.asarray([1]*256)
+  return entment_masks
+def padZeros(sentence_final,max_sentence_length=80,dims=111):
+  for i in range(len(sentence_final)):
+    offset = max_sentence_length-len(sentence_final[i])
+    sentence_final[i] += [[0]*dims]*offset
+    
+  return np.asarray(sentence_final)
 if __name__ == '__main__':
-
-  word2vecModel = cPickle.load(open('data/wordvec_model_100.p', 'rb'))
+  
+  i = 0
+  for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train(256,'data/figer/',"train",model=None,word_dim=100,sentence_length=80):
+    indexs = genEntMentMask(train_entment_mask)
+    print np.shape(padZeros(train_sentence_final))
+    print len(indexs)
+  
+  #word2vecModel = cPickle.load(open('data/wordvec_model_100.p', 'rb'))
   #word2vecModel = None
-  output_data = tf.sparse_placeholder(tf.float32, name='outputdata')
-  sess = tf.InteractiveSession()
+  #output_data = tf.sparse_placeholder(tf.float32, name='outputdata')
+  #sess = tf.InteractiveSession()
   '''
   @sparse_tensor need to be in order and non duplicate elements!
   '''
-  stime = time.time()
-  for train_input,train_out in get_input_figer_chunk('data/figer/',"testa",model=word2vecModel,word_dim=100,sentence_length=80):
+#  stime = time.time()
+#  for train_input,train_out in get_input_figer_chunk('data/figer/',"testa",model=word2vecModel,word_dim=100,sentence_length=80):
 #    print np.shape(train_input)
 #    print len(train_out[0])
 #    print len(train_out[1])
 #    print train_out[2]
-    tt = sess.run(tf.sparse_tensor_to_dense(output_data), feed_dict={output_data:tf.SparseTensorValue(train_out[0],train_out[1],train_out[2])})
-    print tt[0]
+#    tt = sess.run(tf.sparse_tensor_to_dense(output_data), feed_dict={output_data:tf.SparseTensorValue(train_out[0],train_out[1],train_out[2])})
+#    print tt[0]
   #print 'cost time:',time.time()-stime
   '''
   parser = argparse.ArgumentParser()
