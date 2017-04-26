@@ -36,7 +36,7 @@ flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
 flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
 flags.DEFINE_string("restore","checkpoint","path of saved model")
 flags.DEFINE_boolean("dropout",True,"apply dropout during training")
-flags.DEFINE_float("learning_rate",0.001,"apply dropout during training")
+flags.DEFINE_float("learning_rate",0.0001,"apply dropout during training")
 args = flags.FLAGS
 
 def f1(args, prediction, target, length):
@@ -86,10 +86,10 @@ def genEntMentMask(entment_mask_final):
     ids = items[0];start=items[1];end=items[2]
     temp_entment_masks=[]
     for ient in range(start,end):
-        temp_entment_masks.append(ids*args.batch_size+ient)
-    if len(end-start) <10:
-      temp_entment_masks+=[args.batch_size*args.sentence_length] * (10-(end-start))
-    if len(end-start) > 10:
+        temp_entment_masks.append(ids*args.sentence_length+ient)
+    if end-start <10:
+      temp_entment_masks+= [args.batch_size*args.sentence_length] * (10-(end-start))
+    if end-start > 10:
       temp_entment_masks = temp_entment_masks[0:10]
     entment_masks.append(list(temp_entment_masks))
   return np.asarray(entment_masks)
@@ -129,8 +129,8 @@ def main(_):
   
   tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,scope='seqLSTM_variables')
   print 'tvars:',tvars
-  #lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.0001  #parameter has a very important effect on training!
-  totalLoss = model.loss#  + lossL2                
+  lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.005  #parameter has a very important effect on training!
+  totalLoss = model.loss  + lossL2                
   start_time = time.time()
   grads, _ = tf.clip_by_global_norm(tf.gradients(totalLoss, tvars), 10)
   train_op = optimizer.apply_gradients(zip(grads, tvars))
