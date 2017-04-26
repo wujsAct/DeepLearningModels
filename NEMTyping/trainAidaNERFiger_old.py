@@ -24,7 +24,7 @@ pp = pprint.PrettyPrinter()
 
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
-flags.DEFINE_integer("batch_size",1000,"batch size of training")
+flags.DEFINE_integer("batch_size",10,"batch size of training")
 flags.DEFINE_string("datasets","figer","dataset name")
 flags.DEFINE_integer("sentence_length",80,"max sentence length")
 flags.DEFINE_integer("class_size",114,"number of classes")
@@ -36,7 +36,7 @@ flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
 flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
 flags.DEFINE_string("restore","checkpoint","path of saved model")
 flags.DEFINE_boolean("dropout",True,"apply dropout during training")
-flags.DEFINE_float("learning_rate",0.001,"apply dropout during training")
+flags.DEFINE_float("learning_rate",0.0001,"apply dropout during training")
 args = flags.FLAGS
 
 def f1(args, prediction, target, length):
@@ -79,20 +79,14 @@ def padZeros(sentence_final,max_sentence_length=80,dims=111):
 
 def genEntMentMask(entment_mask_final):
   entNums = len(entment_mask_final)
-  entment_masks = []
-  #need to limit the length of the entity mentions
+  entment_masks = np.zeros((entNums,args.batch_size,args.sentence_length,args.rnn_size*2))
   for i in range(entNums):
     items = entment_mask_final[i]
+    
     ids = items[0];start=items[1];end=items[2]
-    temp_entment_masks=[]
     for ient in range(start,end):
-        temp_entment_masks.append(ids*args.batch_size+ient)
-    if len(end-start) <10:
-      temp_entment_masks+=[args.batch_size*args.sentence_length] * (10-(end-start))
-    if len(end-start) > 10:
-      temp_entment_masks = temp_entment_masks[0:10]
-    entment_masks.append(list(temp_entment_masks))
-  return np.asarray(entment_masks)
+        entment_masks[i,ids,ient] = np.asarray([1]*args.rnn_size*2)
+  return entment_masks
     
 def main(_):
   pp.pprint(flags.FLAGS.__flags)
@@ -119,7 +113,7 @@ def main(_):
                                               
   print 'start to build seqLSTM'
   start_time = time.time()
-  config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=8,inter_op_parallelism_threads=4)
+  config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
   config.gpu_options.allow_growth=True
   sess = tf.InteractiveSession(config=config)
   
@@ -129,8 +123,8 @@ def main(_):
   
   tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,scope='seqLSTM_variables')
   print 'tvars:',tvars
-  #lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.0001  #parameter has a very important effect on training!
-  totalLoss = model.loss#  + lossL2                
+  lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.01
+  totalLoss = model.loss  + lossL2                
   start_time = time.time()
   grads, _ = tf.clip_by_global_norm(tf.gradients(totalLoss, tvars), 10)
   train_op = optimizer.apply_gradients(zip(grads, tvars))
@@ -143,16 +137,15 @@ def main(_):
     print "[*] There is no checkpoint for aida"
 
   id_epoch = 0
-  maximum=0
   '''
   @train named entity recognition models
   '''
+  maximum=0
   for epoch in range(50):
     print 'epoch:',epoch
     print '---------------------------------'
     for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train(args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=80):
-      
-      if id_epoch % 50 ==0 and id_epoch!=0:
+      if id_epoch % 60000 ==0 and id_epoch!=0:
         accuracy_list=[]
         for i in range(len(testa_sentence_final)):
           testa_input = padZeros(testa_sentence_final[i])
@@ -170,7 +163,7 @@ def main(_):
         
         if np.average(accuracy_list) > maximum:
           maximum = np.average(accuracy_list)
-          if maximum > 0.63:
+          if maximum > 0.5:
             model.save(sess,args.restore,"figer") #optimize in the dev file!
           print "------------------"
           print("testa: loss:%.4f total loss:%.4f average accuracy:%.6f" %(loss1,tloss,maximum))
@@ -190,7 +183,7 @@ def main(_):
             accuracy_list.append(accuracy)
           print("testb: loss:%.4f total loss:%.4f average accuracy:%.6f" %(loss1,tloss,np.average(accuracy_list)))
           print "------------------"
-       
+          
       train_input = padZeros(train_sentence_final)
       train_entMentIndex = genEntMentMask(train_entment_mask)
       train_out = train_tag_final #we need to generate entity mention masks!
@@ -202,9 +195,8 @@ def main(_):
                          model.num_examples: args.batch_size,
                          model.entMentIndex:train_entMentIndex,
                          model.keep_prob:0.5})
-      
       id_epoch += 1
-      if id_epoch % 10==0:
+      if id_epoch % 100==0:
         print("ids: %d,train: loss:%.4f total loss:%.4f accuracy:%.6f" %(id_epoch,loss1,tloss,accuracy))
 if __name__=='__main__':
   tf.app.run()

@@ -6,6 +6,7 @@
 import tensorflow as tf
 from base_model import Model
 import time
+import numpy as np
 
 class seqLSTM(Model):
   '''
@@ -31,8 +32,8 @@ class seqLSTM(Model):
       self.output_data = tf.sparse_placeholder(tf.float32, name='outputdata')  #[None, 114]
       self.keep_prob = tf.placeholder(tf.float32,name='keep_prob_NER')
       self.num_examples = tf.placeholder(tf.int32,name='num_examples')
-      self.entMentIndex = tf.placeholder(tf.float32,[None,self.args.batch_size,self.args.sentence_length,2*self.args.rnn_size],name='ent_mention_index')
-      
+
+      self.entMentIndex = tf.placeholder(tf.int32,[None,None],name='ent_mention_index')
       
     with tf.variable_scope("seqLSTM_variables") as scope:
       with tf.device('/gpu:0'):
@@ -57,23 +58,30 @@ class seqLSTM(Model):
                                             tf.unpack(tf.transpose(self.input_data,perm=[1,0,2])),
                                             dtype=tf.float32,sequence_length=self.length
                                             )
-      with tf.device('/gpu:1'):
+      with tf.device('/cpu:0'):  #fix run on cpus
         if self.args.dropout:
           output =  tf.nn.dropout(output,self.keep_prob)
         
   
-        self.output = tf.transpose(tf.pack(output),perm=[1,0,2],name='LSTM_output')
+        output = tf.transpose(tf.pack(output),perm=[1,0,2],name='LSTM_output')
+        
+        self.output = tf.concat(0,[tf.reshape(output,[-1,2*args.rnn_size]),tf.constant([[0.0]*256])])
+        print 'outputs:',self.output
+#        '''
+#        #we need to extract entity mention index; this method may cost a lot of memory!
+#        '''
+#        #we utilize mask to get entity mentions features
+#        features = tf.scan(
+#            lambda a,outputx:self.output*outputx,self.entMentIndex,initializer=tf.Variable(tf.random_normal((args.batch_size,self.args.sentence_length,2*self.args.rnn_size))))
+#        
+#        output_f = tf.reduce_mean(tf.reduce_sum(features,1),1)   #get all the entity mentions features!
+#        
+#        output_f = tf.nn.l2_normalize(output_f,1)
         '''
-        #we need to extract entity mention index
+        @time: 2017/4/26 very efficient methods to get entity mentions embeddings!
         '''
-        #we utilize mask to get entity mentions features
-        features = tf.scan(
-            lambda a,outputx:self.output*outputx,self.entMentIndex,initializer=tf.Variable(tf.random_normal((args.batch_size,self.args.sentence_length,2*self.args.rnn_size))))
-        
-        output_f = tf.reduce_mean(tf.reduce_sum(features,1),1)   #get all the entity mentions features!
-        
-        
-        
+        output_f = tf.reduce_sum(tf.nn.embedding_lookup(self.output,self.entMentIndex),1)
+        print 'output_f:',output_f
         W = tf.get_variable(
                   "W1",
                   shape=[2*self.args.rnn_size, self.args.rnn_size],
@@ -86,14 +94,16 @@ class seqLSTM(Model):
                   initializer=tf.contrib.layers.xavier_initializer())
         b1 = tf.Variable(tf.constant(0.1,shape=[self.args.class_size]),name="bias_2")
         
-        prediction = tf.nn.sigmoid(tf.nn.xw_plus_b(prediction_l1,W1,b1,name="scores2"))
-        self.prediction = tf.reshape(prediction,[-1,self.args.sentence_length,self.args.class_size])
-          
+        self.prediction = tf.nn.softmax(tf.nn.xw_plus_b(prediction_l1,W1,b1,name="scores2"))
+        
+        print self.prediction
+        
+        
         cross_entropy = tf.sparse_tensor_to_dense(self.output_data) * tf.log(self.prediction)
         cross_entropy = -tf.reduce_sum(cross_entropy, reduction_indices=[1])
         self.loss = tf.reduce_mean(cross_entropy)
-        
-        correct_prediction = tf.equal(tf.round(self.prediction), tf.round(tf.sparse_tensor_to_dense(self.output_data)))
+        #tf.argmax(self.prediction,1)
+        correct_prediction = tf.equal(tf.argmax(self.prediction,1), tf.argmax(tf.sparse_tensor_to_dense(self.output_data),1))
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
       
       
