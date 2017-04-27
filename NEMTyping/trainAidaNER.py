@@ -20,18 +20,18 @@ pp = pprint.PrettyPrinter()
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
 flags.DEFINE_integer("batch_size",256,"batch size of training")
-flags.DEFINE_string("datasets","conll2000","dataset name")
-flags.DEFINE_integer("sentence_length",80,"max sentence length")
-flags.DEFINE_integer("class_size",5,"number of classes")
+flags.DEFINE_string("datasets","conll2003","dataset name")
+flags.DEFINE_integer("sentence_length",124,"max sentence length")
+flags.DEFINE_integer("class_size",3,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
-flags.DEFINE_integer("word_dim",106,"hidden dimension of rnn")
+flags.DEFINE_integer("word_dim",111,"hidden dimension of rnn")
 flags.DEFINE_integer("candidate_ent_num",30,"hidden dimension of rnn")
 flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
 flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
 flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
 flags.DEFINE_string("restore","checkpoint","path of saved model")
 flags.DEFINE_boolean("dropout",True,"apply dropout during training")
-flags.DEFINE_float("learning_rate",0.005,"apply dropout during training")
+flags.DEFINE_float("learning_rate",0.01,"apply dropout during training")
 args = flags.FLAGS
 
 def f1(args, prediction, target, length):
@@ -73,18 +73,29 @@ def main(_):
   model = seqLSTM(args)
   print 'start to load data!'
   start_time = time.time()
-#  trainUtils = inputUtils(args.rawword_dim,"train")
-#  train_TFfileName = trainUtils.TFfileName; train_nerShapeFile = trainUtils.nerShapeFile;
-#  train_batch_size = args.batch_size;
-  
-
-  testaUtils = inputUtils(args.rawword_dim,"test")
-  testa_input = testaUtils.emb;testa_out =  testaUtils.tag
+  dir_path ='data/conll2003/features/'
+  testaUtils = inputUtils(args.rawword_dim,dir_path,"testa")
+  testa_input = np.asarray(testaUtils.emb);testa_out =  np.argmax(np.asarray(testaUtils.tag),2)
   testa_num_example = np.shape(testa_input)[0]
   
+#  print np.shape(testa_input),np.shape(testa_out)
+#  testb_input = testa_input;testb_out=testa_out;testb_num_example=testa_num_example
+#  
+#  train_input = testa_input;train_out=testa_out;
   
-  trainUtils = inputUtils(args.rawword_dim,"train")
-  train_input = trainUtils.emb;train_out = trainUtils.tag
+  testbUtils = inputUtils(args.rawword_dim,dir_path,"testb")
+  testb_input = np.asarray(testbUtils.emb);testb_out =  np.argmax(np.asarray(testbUtils.tag),2)
+  testb_num_example = np.shape(testb_input)[0]
+  print np.shape(testb_input),np.shape(testb_out)
+  
+  figerUtils = inputUtils(args.rawword_dim,'data/figer_test/features/',"figer")
+  figer_input = np.asarray(figerUtils.emb);figer_out =  np.argmax(np.asarray(figerUtils.tag),2)
+  figer_num_example = np.shape(figer_input)[0]
+  print np.shape(figer_input),np.shape(figer_out)
+  
+  trainUtils = inputUtils(args.rawword_dim,dir_path,"train")
+  train_input = np.asarray(trainUtils.emb);train_out = np.argmax(np.asarray(trainUtils.tag),2)
+  print np.shape(train_input),np.shape(train_out)
  
   print 'start to build seqLSTM'
   start_time = time.time()
@@ -130,7 +141,7 @@ def main(_):
                         model.num_examples:testa_num_example,
                         model.keep_prob:1})
      
-      fscore = f1(args, pred, testa_out, length)
+      fscore = f1_chunk('nonCRF',args, pred, testa_out, length)
       
       m = fscore[args.class_size]
     
@@ -138,7 +149,27 @@ def main(_):
         model.save(sess,args.restore,"conll2000") #optimize in the dev file!
         maximum = m
         print "------------------"
-        print("test: loss:%.4f named :%.2f,B-NP:%.2f I-NP:%.2f B-VP:%.2f I-VP:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
+        print("testa: loss:%.4f total loss:%.4f accuracy:%.4f NER:%.2f" %(loss1,100*m))
+        
+        loss1,length,pred = sess.run([model.loss,model.length,model.prediction],
+                       {model.input_data:testb_input,
+                        model.output_data:testb_out,
+                        model.num_examples:testb_num_example,
+                        model.keep_prob:1})
+                        
+        fscore = f1_chunk('nonCRF',args, pred, testb_out, length)
+        print("testb: loss:%.4f total loss:%.4f accuracy:%f NER:%.2f" %(loss1,100*fscore))                
+        
+        
+        loss1,length,pred = sess.run([model.loss,model.length,model.prediction],
+                       {model.input_data:figer_input,
+                        model.output_data:figer_out,
+                        model.num_examples:figer_num_example,
+                        model.keep_prob:1})
+                        
+        fscore = f1_chunk('nonCRF',args, pred, figer_out, length)
+        print("figer: loss:%.4f total loss:%.4f accuracy:%f NER:%.2f" %(loss1,100*fscore))                
+        
         print "------------------"
       
       k += 1
@@ -157,9 +188,8 @@ def main(_):
                                model.keep_prob:1})
       id_epoch += 1
 
-      fscore = f1(args, pred,train_out[ptr:min(ptr+args.batch_size,len(train_input))],length)
-      if id_epoch %10==0:
-        print("train: loss:%.4f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
+      fscore = f1_chunk('nonCRF',args, pred,train_out[ptr:min(ptr+args.batch_size,len(train_input))],length)
+      print("train: loss:%.4f total loss:%.4f accuracy:%f NER:%.2f" %(loss1,,accuracy,100*fscore))
 #  except:
 #    print 'finished train'
 if __name__=='__main__':

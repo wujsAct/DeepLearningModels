@@ -152,7 +152,7 @@ def get_input_conll2003(model, word_dim, input_file_obj, output_embed, output_ta
       
       for _ in range(max_sentence_length - sentence_length):
         tag.append('4')
-        temp = np.array([0 for _ in range(word_dim + 6)])
+        temp = np.array([0 for _ in range(word_dim + 11)])
         word.append(temp)
       sentence.append(word)
       sentence_tag.append(np.array(getConll2003EntTags(tag)))
@@ -187,32 +187,61 @@ def get_input_conll2003(model, word_dim, input_file_obj, output_embed, output_ta
                     
   assert (len(sentence) == len(sentence_tag))
   print 'start to save datasets....'
-  cPickle.dump(sentence, open(output_embed, 'wb'))
-  cPickle.dump(sentence_tag, open(output_tag, 'wb'))
+  cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
+  cPickle.dump(np.asarray(sentence_tag), open(output_tag, 'wb'))
+
+def getFigerTestTag(max_sentence_length):
+  input_file_obj = openFile('data/figer_test/gold.segment')
+  sentence_length=0
+  finalTag =[]
+  tag=[]
+  for line in input_file_obj:
+    if line in ['\n','\r\n']:
+      for _ in range(max_sentence_length - sentence_length):
+        tag.append([0,0,1])
+      sentence_length = 0
+      finalTag.append(tag)
+      tag=[]
+    else:
+      sentence_length += 1
+      line = line.strip()
+      items = line.split('\t')
+      assert len(items)==2
+                
+      if 'O' in items[1]:
+        tag.append([0,0,1])
+      elif 'B' in items[1]:
+        tag.append([1,0,0])
+      elif 'I' in items[1]:
+        tag.append([0,1,0])
+      else:
+        print 'tag is wrong...'
+        exit(0)
+  return finalTag
 
 def get_input_figer(model,word_dim,input_file_obj,output_embed, output_tag, sentence_length=-1):
   word = []
-  tag = []
-  sentence = []
-  sentence_tag = []
+
   if sentence_length == -1:
     max_sentence_length = find_max_length(input_file_obj)
   else:
     max_sentence_length = sentence_length
+  sentence = []
+  sentence_tag = getFigerTestTag(max_sentence_length)
+  
   sentence_length = 0
+  ids = 0
   print("max sentence length is %d" % max_sentence_length)
   for line in input_file_obj:
     if line in ['\n', '\r\n']:
       for _ in range(max_sentence_length - sentence_length):
-        tag.append(np.array([0] * 3))
-        temp = np.array([0 for _ in range(word_dim + 6)])
+        temp = np.array([0 for _ in range(word_dim + 11)])
         word.append(temp)
-      assert len(tag) == len(word)
+      assert len(sentence_tag[ids]) == len(word)
       sentence.append(word)
-      sentence_tag.append(np.asarray(tag))
       sentence_length = 0
       word = []
-      tag = []
+      ids += 1
     else:
       assert (len(line.split()) == 3)  #only has Word,pos_tag
       sentence_length += 1
@@ -222,12 +251,81 @@ def get_input_figer(model,word_dim,input_file_obj,output_embed, output_tag, sent
       temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
       assert len(temp) == word_dim+11
       word.append(temp)
-      tag.append(np.array([0, 0, 0])) #we need to predict the chunk tag!
       
   assert (len(sentence) == len(sentence_tag))
   print 'start to save datasets....'
-  cPickle.dump(sentence, open(output_embed, 'wb'))
-  cPickle.dump(sentence_tag, open(output_tag, 'wb'))
+  cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
+  cPickle.dump(np.asarray(sentence_tag), open(output_tag, 'wb'))
+  
+def getFigerTag(entList,max_sentence_length):
+  nerTags = [[0,0,1]]*max_sentence_length
+  for i in range(len(entList)):
+    ent = entList[i]
+    start= int(ent[0])
+    end = int(ent[1])
+    nerTags[start]=[1,0,0]
+    if start+1 <= end-1:
+        for j in range(start+1,end):
+          nerTags[j] = list([0,1,0])
+  return np.asarray(nerTags)
+    
+    
+  
+
+def get_input_figer_chunk_train_ner(batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
+  
+  epochs = 2
+  input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
+  
+  entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
+  #print 'figer types:',len(figer2id)
+  
+  allid=0
+  word = []
+  tag = []
+  sentence = []
+  #sentence_tag = []
+  if sentence_length == -1:
+    max_sentence_length = find_max_length(input_file_obj)
+  else:
+    max_sentence_length = sentence_length
+  sentence_length = 0
+  #print("max sentence length is %d" % max_sentence_length)
+  for epoch in range(epochs):
+    sid = 0
+    for line in input_file_obj:
+      if line in ['\n', '\r\n']:
+        for _ in range(max_sentence_length - sentence_length):
+          #tag.append(np.array([0] * 5))
+          temp = np.array([0 for _ in range(word_dim + 6+5)])
+          word.append(temp)
+        
+        entList = entMents[sid]
+        nerTags=getFigerTag(entList,max_sentence_length) 
+        sentence.append(word)
+        tag.append(nerTags)
+        
+        if (allid+1)%batch_size==0 and allid!=0:
+          if len(sentence) == batch_size:
+            yield np.asarray(sentence),np.asarray(tag)
+            sentence=[];tag=[]
+        allid += 1   
+        sid += 1
+        sentence_length = 0
+        word = []
+      else:
+        assert (len(line.split()) == 3)  #only has Word,pos_tag
+        sentence_length += 1
+        temp = model[line.split()[0]]
+        #temp = np.zeros((100,))
+        temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
+        temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
+        temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
+        assert len(temp) == word_dim+6+5
+        word.append(temp)
+        
+        
+  
 
 if __name__ == '__main__':
   
