@@ -12,6 +12,6 @@ class nerInputUtils(object):
     self.dims = dims
     self.flag = flag
     self.dir_path=dir_path
-    print 'load ner'+self.tag
+    print 'load ner '+self.flag
     self.emb = np.asarray(pkl.load(open(self.dir_path+self.flag+'_embed.p'+self.dims,'rb')))
     self.tag = np.asarray(pkl.load(open(self.dir_path+self.flag+'_tag.p'+self.dims,'rb')))

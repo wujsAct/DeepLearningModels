@@ -120,12 +120,13 @@ def getConll2003EntTags(tags):
   strs = ''.join(tags)
   types = ['0','1','2','3']
   for ti in types:
-    classType = r''+ti+r'+'
+    classType = r''+ti+r'+'   #greedy matching
     pattern = re.compile(classType)
-
-    match = pattern.search(strs)
-    if match:
+    
+    matchList = re.finditer(pattern,strs)  #find all the entity type tags
+    for match in matchList:
       start = match.start(); end = match.end()
+      print 'conll2003:',start,end,match.group()
       nerTags[start]=list([1,0,0])
       if start+1 <= end-1:
         for i in range(start+1,end):
@@ -182,9 +183,7 @@ def get_input_conll2003(model, word_dim, input_file_obj, output_embed, output_ta
       else:
         print 'tag is wrong...'
         exit(0)
-        
-                    
-                    
+  
   assert (len(sentence) == len(sentence_tag))
   print 'start to save datasets....'
   cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
@@ -269,12 +268,64 @@ def getFigerTag(entList,max_sentence_length):
           nerTags[j] = list([0,1,0])
   return np.asarray(nerTags)
     
-    
+
+def get_input_figer_chunk_test_ner(batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
   
+  epochs=1
+  input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
+  
+  entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
+  #print 'figer types:',len(figer2id)
+  
+  allid=0
+  word = []
+  final_tag=[];final_sentence=[]
+  tag = []
+  sentence = []
+  #sentence_tag = []
+  if sentence_length == -1:
+    max_sentence_length = find_max_length(input_file_obj)
+  else:
+    max_sentence_length = sentence_length
+  sentence_length = 0
+  #print("max sentence length is %d" % max_sentence_length)
+  for epoch in range(epochs):
+    sid = 0
+    allLines = input_file_obj.readlines()
+    for line in allLines:
+      if line in ['\n', '\r\n']:
+        for _ in range(max_sentence_length - sentence_length):
+          #tag.append(np.array([0] * 5))
+          temp = np.array([0 for _ in range(word_dim + 6+5)])
+          word.append(temp)
+        
+        entList = entMents[sid]
+        nerTags=getFigerTag(entList,max_sentence_length) 
+        sentence.append(word)
+        tag.append(nerTags)
+        
+        if ((allid+1)%batch_size==0 and allid!=0) or allid == len(allLines)-1:
+          if len(sentence)!=0:
+            final_sentence.append(np.asarray(sentence));final_tag.append(tag)
+            sentence=[];tag=[]
+        allid += 1   
+        sid += 1
+        sentence_length = 0
+        word = []
+      else:
+        assert (len(line.split()) == 3)  #only has Word,pos_tag
+        sentence_length += 1
+        temp = model[line.split()[0]]
+        #temp = np.zeros((100,))
+        temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
+        temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
+        temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
+        assert len(temp) == word_dim+6+5
+        word.append(temp)
+  return final_sentence,final_tag
 
 def get_input_figer_chunk_train_ner(batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
-  
-  epochs = 2
+  epochs=1
   input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
   
   entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
@@ -305,8 +356,9 @@ def get_input_figer_chunk_train_ner(batch_size,dir_path,set_tag,model,word_dim,s
         sentence.append(word)
         tag.append(nerTags)
         
-        if (allid+1)%batch_size==0 and allid!=0:
-          if len(sentence) == batch_size:
+        if ((allid+1)%batch_size==0 and allid!=0) or allid == 200000-1:
+          #if len(sentence) == batch_size:
+          if len(sentence)!=0:
             yield np.asarray(sentence),np.asarray(tag)
             sentence=[];tag=[]
         allid += 1   
@@ -323,9 +375,6 @@ def get_input_figer_chunk_train_ner(batch_size,dir_path,set_tag,model,word_dim,s
         temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
         assert len(temp) == word_dim+6+5
         word.append(temp)
-        
-        
-  
 
 if __name__ == '__main__':
   
@@ -353,13 +402,13 @@ if __name__ == '__main__':
   
   if args.dir_path == 'data/figer_test/':
     get_input_figer(trained_model, args.model_dim, input_file_obj,
-            args.dir_path+'features/'+args.data_tag+'_embed.p'+str(args.model_dim),
-            args.dir_path+'features/'+args.data_tag+'_tag.p'+str(args.model_dim),
+            args.dir_path+'nerFeatures/'+args.data_tag+'_embed.p'+str(args.model_dim),
+            args.dir_path+'nerfeatures/'+args.data_tag+'_tag.p'+str(args.model_dim),
             sentence_length=args.sentence_length)
   else:
     get_input_conll2003(trained_model, args.model_dim, input_file_obj,
-            args.dir_path+'features/'+args.data_tag+'_embed.p'+str(args.model_dim),
-            args.dir_path+'features/'+args.data_tag+'_tag.p'+str(args.model_dim),
+            args.dir_path+'nerFeatures/'+args.data_tag+'_embed.p'+str(args.model_dim),
+            args.dir_path+'nerFeatures/'+args.data_tag+'_tag.p'+str(args.model_dim),
             sentence_length=args.sentence_length)
   
   

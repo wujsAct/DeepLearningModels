@@ -52,13 +52,14 @@ def getaNosNo2entMen(dir_path):
       if fbType in fb2figer:
         typeList.append(fb2figer[fbType])
         flag = True
-        
-    if flag==False:
-      typeList.append(len(figer2id)) 
-    else:
-      figerTypeEnts += 1
+    if flag:
+      aNosNo2entMen[aNosNo].append([ents,ente,typeList,items[0]])   #we delete the non-entityt types
+#    if flag==False:
+#      typeList.append(len(figer2id)) 
+#    else:
+#      figerTypeEnts += 1
     #aNosNo2entMen[aNosNo].add(ents+'_'+ente)
-    aNosNo2entMen[aNosNo].append([ents,ente,typeList,items[0]])
+    
   print totalEnts,figerTypeEnts
   return aNosNo2entMen
 

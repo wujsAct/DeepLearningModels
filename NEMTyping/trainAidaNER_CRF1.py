@@ -13,7 +13,7 @@ import numpy as np
 import tensorflow as tf
 from model import seqLSTM_CRF
 from utils import nerInputUtils as inputUtils
-from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk_train_ner
+from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk_train_ner,get_input_figer_chunk_test_ner
 from evals import f1_chunk
 import pprint
 import time
@@ -22,8 +22,8 @@ pp = pprint.PrettyPrinter()
 
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
-flags.DEFINE_integer("batch_size",256,"batch size of training")
-flags.DEFINE_string("datasets","conll2003","dataset name")
+flags.DEFINE_integer("batch_size",1000,"batch size of training")
+flags.DEFINE_string("datasets","figer","dataset name")
 flags.DEFINE_integer("sentence_length",124,"max sentence length")
 flags.DEFINE_integer("class_size",3,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
@@ -74,32 +74,33 @@ def main(_):
 #  train_TFfileName = trainUtils.TFfileName; train_nerShapeFile = trainUtils.nerShapeFile;
 #  train_batch_size = args.batch_size;
   
-  #word2vecModel = cPickle.load(open('data/wordvec_model_100.p'))
+  word2vecModel = cPickle.load(open('data/wordvec_model_100.p'))
   
   
-  dir_path ='data/conll2003/nerFeatures/'
-  testaUtils = inputUtils(args.rawword_dim,dir_path,"testa")
-  testa_input = np.asarray(testaUtils.emb);testa_out =  np.argmax(np.asarray(testaUtils.tag),2)
-  testa_num_example = np.shape(testa_input)[0]
+#  dir_path ='data/conll2003/nerFeatures/'
+#  testaUtils = inputUtils(args.rawword_dim,dir_path,"testa")
+#  testa_input = np.asarray(testaUtils.emb);testa_out =  np.argmax(np.asarray(testaUtils.tag),2)
+#  testa_num_example = np.shape(testa_input)[0]
+  final_testa_input,final_testa_out = get_input_figer_chunk_test_ner(args.batch_size,'data/figer/',"testa",model=word2vecModel,word_dim=100,sentence_length=124)
   
 #  print np.shape(testa_input),np.shape(testa_out)
 #  testb_input = testa_input;testb_out=testa_out;testb_num_example=testa_num_example
 #  
 #  train_input = testa_input;train_out=testa_out;
   
-  testbUtils = inputUtils(args.rawword_dim,dir_path,"testb")
-  testb_input = np.asarray(testbUtils.emb);testb_out =  np.argmax(np.asarray(testbUtils.tag),2)
-  testb_num_example = np.shape(testb_input)[0]
-  print np.shape(testb_input),np.shape(testb_out)
+#  testbUtils = inputUtils(args.rawword_dim,dir_path,"testb")
+#  testb_input = np.asarray(testbUtils.emb);testb_out =  np.argmax(np.asarray(testbUtils.tag),2)
+  
+  final_testb_input,final_testb_out = get_input_figer_chunk_test_ner(args.batch_size,'data/figer/',"testb",model=word2vecModel,word_dim=100,sentence_length=124)
   
   figerUtils = inputUtils(args.rawword_dim,'data/figer_test/nerFeatures/',"figer")
   figer_input = np.asarray(figerUtils.emb);figer_out =  np.argmax(np.asarray(figerUtils.tag),2)
   figer_num_example = np.shape(figer_input)[0]
   print np.shape(figer_input),np.shape(figer_out)
   
-  trainUtils = inputUtils(args.rawword_dim,dir_path,"train")
-  train_input = np.asarray(trainUtils.emb);train_out = np.argmax(np.asarray(trainUtils.tag),2)
-  print np.shape(train_input),np.shape(train_out)
+#  trainUtils = inputUtils(args.rawword_dim,dir_path,"train")
+#  train_input = np.asarray(trainUtils.emb);train_out = np.argmax(np.asarray(trainUtils.tag),2)
+#  print np.shape(train_input),np.shape(train_out)
   
   print 'start to build seqLSTM'
   start_time = time.time()
@@ -123,10 +124,10 @@ def main(_):
   sess.run(tf.global_variables_initializer())
   print 'build optimizer for seqLSTM cost time:', time.time()-start_time
 
-  if model.load(sess,args.restore,"conll2003"):
+  if model.load(sess,args.restore,"figer"):
     print "[*] seqLSTM is loaded..."
   else:
-    print "[*] There is no checkpoint for conll2003"
+    print "[*] There is no checkpoint for figer ner"
 
   id_epoch = 0
   '''
@@ -138,33 +139,48 @@ def main(_):
   for e in range(args.epoch):
     id_epoch = 0
     print 'Epoch: %d------------' %(e)
-    for ptr in xrange(0,len(train_input),args.batch_size):
-    #for train_input,train_out in get_input_figer_chunk_train_ner(args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=124):
+    #for ptr in xrange(0,len(train_input),args.batch_size):
+    for train_input,train_out in get_input_figer_chunk_train_ner(args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=124):
       
-      loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
+      average_accuracy = []
+      for i in range(len(final_testa_input)):
+        testa_input = final_testa_input[i]
+        testa_out = final_testa_out[i]
+        testa_out = np.argmax(testa_out,2)
+        testa_num_example = np.shape(testa_input)[0]
+        loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
                        {model.input_data:testa_input,
                         model.output_data:testa_out,
                         model.num_examples:testa_num_example,
                         model.keep_prob:1})
-      pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testa_out,length)
+        pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testa_out,length)
         
-      fscore = f1_chunk('CRF',args, pred, testa_out, length)
-
-      m = fscore
+        fscore = f1_chunk('CRF',args, pred, testa_out, length)
+        average_accuracy.append(fscore)
+        
+      m = np.average(average_accuracy)
       if m > maximum:
         maximum = m
-        if maximum > 0.80:
-          model.save(sess,args.restore,"conll2003") #optimize in the dev file!
+        if maximum > 0.40:
+          model.save(sess,args.restore,"figer") #optimize in the dev file!
         print "----------------------------------"
         print("testa: loss:%.4f total loss:%.4f accuracy:%.4f NER:%.2f" %(loss1,tloss,accuracy,100*m))
         
-        loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
+        average_accuracy = []
+        for i in range(len(final_testa_input)):
+          testb_input = final_testb_input[i]
+          testb_out = final_testb_out[i]
+          testb_out = np.argmax(testb_out,2)
+          testb_num_example = np.shape(testb_input)[0]
+          loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
                        {model.input_data:testb_input,
                         model.output_data:testb_out,
                         model.num_examples:testb_num_example,
                         model.keep_prob:1})
-        pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testb_out,length)
-        fscore = f1_chunk('CRF',args, pred, testb_out, length)
+          pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testb_out,length)
+          fscore = f1_chunk('CRF',args, pred, testb_out, length)
+          average_accuracy.append(fscore)
+        fscore = np.average(average_accuracy)
         print("testb: loss:%.4f total loss:%.4f accuracy:%f NER:%.2f" %(loss1,tloss,accuracy,100*fscore))
       
       
@@ -175,31 +191,30 @@ def main(_):
                           model.keep_prob:1})
         pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,figer_out,length)
         fscore = f1_chunk('CRF',args, pred, figer_out, length)
-        params = {'length':length,'pred':pred,'target':figer_out}
-        cPickle.dump(params,open('data/figer_test/nerFeatures/figer_NERret.p','wb'))
-        exit(0)
         #if fscore> maximum_figer:
         #  maximum_figer = fscore
         print("figer: loss:%.4f accuracy:%f NER:%.2f" %(loss1,accuracy,100*fscore))
         print "--------------------------------------------"
-      num_example = min(ptr+args.batch_size,len(train_input)) - ptr  
-      batch_train_input = train_input[ptr:min(ptr+args.batch_size,len(train_input))]
-      batch_train_out = train_out[ptr:min(ptr+args.batch_size,len(train_input))]
-      _,loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([train_op,model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
-                        {model.input_data:batch_train_input,
-                         model.output_data:batch_train_out,
-                         model.num_examples: num_example,
-                         model.keep_prob:0.5})
-#      train_out = np.argmax(train_out,2)
+#      num_example = min(ptr+args.batch_size,len(train_input)) - ptr  
+#      batch_train_input = train_input[ptr:min(ptr+args.batch_size,len(train_input))]
+#      batch_train_out = train_out[ptr:min(ptr+args.batch_size,len(train_input))]
 #      _,loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([train_op,model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
-#                        {model.input_data:train_input,
-#                         model.output_data:train_out,
-#                         model.num_examples: args.batch_size,
+#                        {model.input_data:batch_train_input,
+#                         model.output_data:batch_train_out,
+#                         model.num_examples: num_example,
 #                         model.keep_prob:0.5})
+      train_out = np.argmax(train_out,2)
+      train_num_example = np.shape(train_out)[0]
+      _,loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([train_op,model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
+                        {model.input_data:train_input,
+                         model.output_data:train_out,
+                         model.num_examples: train_num_example,
+                         model.keep_prob:0.5})
+      batch_train_out = train_out
       id_epoch += 1
       pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,batch_train_out,length)
       fscore = f1_chunk('CRF',args, pred,batch_train_out,length)
-      if id_epoch %10==0:
+      if id_epoch % 5==0:
         print("train: loss:%.4f total loss:%.4f accuracy:%f NER:%.2f" %(loss1,tloss,accuracy,100*fscore))
 #  except:
 #    print 'finished train'

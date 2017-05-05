@@ -78,8 +78,9 @@ def splitData():
   '''
   random extract doc as train, validation, test
   '''
-  nums = int(0.1 *len(docSet))
+  nums = int(0 *len(docSet))
   print nums
+  
   validation = random.sample(list(docSet), nums)  #从list中随机获取5个元素，作为一个片断返回  
   #print validation
   
@@ -150,9 +151,8 @@ def getSplitData(dir_path='data/figer/'):
 
 if __name__ == "__main__":
   #split
-  #validation,test = splitData()
-  #cPickle.dump(validation,open('data/figer/figer.testa','wb'))
-  #cPickle.dump(test,open('data/figer/figer.testb','wb'))
-  #typeFiger()
-  getSplitData()
-  
+#  validation,test = splitData()
+#  cPickle.dump(validation,open('data/figer/figer.testa','wb'))
+#  cPickle.dump(test,open('data/figer/figer.testb','wb'))
+  typeFiger()
+  #getSplitData()

@@ -39,8 +39,8 @@ def getfiger(dir_path,data_tag):
   dims = 100
   print 'load figer train..'
   stime = time.time()
-  #model = cPickle.load(open("/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p", 'rb'))
-  model = cPickle.load(open("data/wordvec_model_100.p", 'rb'))
+  model = cPickle.load(open("/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p", 'rb'))
+  #model = cPickle.load(open("data/wordvec_model_100.p", 'rb'))
   etime = time.time()
   print 'load times:',etime-stime
   input_file_obj = open(dir_path+data_tag+"Data.txt")
@@ -159,17 +159,31 @@ if __name__=='__main__':
   config.gpu_options.allow_growth=True
   sess = tf.InteractiveSession(config=config);
   nerClass = nameEntityRecognition(sess,dir_path,data_tag);
-  testi =0
-  for test_input,test_out in getfiger(dir_path,data_tag):
-    print 'batch no:',testi
-    testi += 1
-    preds = nerClass.getEntityRecognition(test_input,test_out)
-    predT = ""
-    for i in range(5000):
-      pred = preds[i]
-      predT += "\n".join(map(str,pred))
-      predT += "\n\n"
+#  testi =0
+#  for test_input,test_out in getfiger(dir_path,data_tag):
+#    print 'batch no:',testi
+#    testi += 1
+#    preds = nerClass.getEntityRecognition(test_input,test_out)
+#    predT = ""
+#    for i in range(5000):
+#      pred = preds[i]
+#      predT += "\n".join(map(str,pred))
+#      predT += "\n\n"
+#    fout_chunk.write(predT)
+#    fout_chunk.flush()
+#  fout_chunk.close()
+  testUtils = inputUtils(100,'data/figer_test/',flag='figer')
+  test_input =  testUtils.emb;test_out = testUtils.tag
+  preds = nerClass.getEntityRecognition(test_input,test_out)
+  predT=""
+  for i in range(len(preds)):
+    pred = preds[i]
+    predT += "\n".join(map(str,pred))
+    predT += "\n\n"
     fout_chunk.write(predT)
     fout_chunk.flush()
+    predT=""
   fout_chunk.close()
+  
+  
       

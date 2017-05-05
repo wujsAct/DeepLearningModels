@@ -14,7 +14,7 @@ sys.path.append("/home/wjs/demo/entityType/NEMType/embedding/")
 import random_vec
 import numpy as np
 import tensorflow as tf
-from model import seqMLP
+from model import seqLSTM
 from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk,get_input_figer_chunk_train,get_input_figerTest_chunk
 import cPickle
 from utils import nerInputUtils as inputUtils
@@ -26,18 +26,18 @@ pp = pprint.PrettyPrinter()
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
 flags.DEFINE_integer("batch_size",1000,"batch size of training")
-flags.DEFINE_string("datasets","figer_MLP_test","dataset name")
+flags.DEFINE_string("datasets","figer","dataset name")
 flags.DEFINE_integer("sentence_length",80,"max sentence length")
 flags.DEFINE_integer("class_size",113,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
-flags.DEFINE_integer("word_dim",300,"hidden dimension of rnn")
+flags.DEFINE_integer("word_dim",311,"hidden dimension of rnn")
 flags.DEFINE_integer("candidate_ent_num",30,"hidden dimension of rnn")
 flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
 flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
 flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
 flags.DEFINE_string("restore","checkpoint","path of saved model")
 flags.DEFINE_boolean("dropout",True,"apply dropout during training")
-flags.DEFINE_float("learning_rate",0.005,"apply dropout during training")
+flags.DEFINE_float("learning_rate",0.001,"apply dropout during training")
 args = flags.FLAGS
 
 def getAccuracy(predArray,targetArray):
@@ -70,6 +70,33 @@ def getAccuracy(predArray,targetArray):
     
   return 1.0 * right/alls * 100,precision,recall
     
+def f1(args, prediction, target, length):
+  tp = np.array([0] * (args.class_size + 1))
+  fp = np.array([0] * (args.class_size + 1))
+  fn = np.array([0] * (args.class_size + 1))
+  target = np.argmax(target, 2)
+  prediction = np.argmax(prediction, 2) #crf prediction is this kind .
+  for i in range(len(target)):
+    for j in range(length[i]):
+      if target[i][j] == prediction[i][j]:
+        tp[target[i][j]] += 1
+      else:
+        fp[target[i][j]] += 1
+        fn[prediction[i][j]] += 1
+  unnamed_entity = args.class_size - 1
+  for i in range(args.class_size):
+    if i != unnamed_entity:
+      tp[args.class_size] += tp[i]
+      fp[args.class_size] += fp[i]
+      fn[args.class_size] += fn[i]
+  precision = []
+  recall = []
+  fscore = []
+  for i in range(args.class_size + 1):
+    precision.append(tp[i] * 1.0 / (tp[i] + fp[i]))
+    recall.append(tp[i] * 1.0 / (tp[i] + fn[i]))
+    fscore.append(2.0 * precision[i] * recall[i] / (precision[i] + recall[i]))
+  return fscore
 '''
 @sentence_final: shape:(batch_size,sequence_length,dims)
 '''
@@ -88,18 +115,18 @@ def genEntCtxMask(batch_size,entment_mask_final):
     items = entment_mask_final[i]
     ids = items[0];start=items[1];end=items[2]
     temp_entCtxLeft_mask=[];temp_entCtxRight_mask = []
-    left = max(0,start-10); 
-    right = min(args.sentence_length,end+10)
+    left = max(0,start-5); 
+    right = min(args.sentence_length,end+5)
     for ient in range(left,start):
         temp_entCtxLeft_mask.append(ids*args.sentence_length+ient)
     for ient in range(end,right):
         temp_entCtxRight_mask.append(ids*args.sentence_length+ient)
         
-    if start-left < 10:
-      temp_entCtxLeft_mask+= [batch_size*args.sentence_length] * (10-(start-left))
+    if start-left < 5:
+      temp_entCtxLeft_mask+= [batch_size*args.sentence_length] * (5-(start-left))
     
-    if right-end < 10:
-      temp_entCtxRight_mask+= [batch_size*args.sentence_length] * (10-(right-end))
+    if right-end < 5:
+      temp_entCtxRight_mask+= [batch_size*args.sentence_length] * (5-(right-end))
       
     entCtxLeft_masks.append(temp_entCtxLeft_mask)
     entCtxRight_masks.append(temp_entCtxRight_mask)
@@ -129,7 +156,7 @@ def main(_):
   @function: load the train and test datasets
   @entlinking context: 'ent_mention_index':ent_mention_index,'ent_mention_link_feature':ent_mention_link_feature,'ent_mention_tag':ent_mention_tag
   '''
-  model = seqMLP(args)
+  model = seqLSTM(args)
   print 'start to load data!'
   start_time = time.time()
   #word2vecModel = cPickle.load(open('data/wordvec_model_100.p'))
@@ -137,13 +164,13 @@ def main(_):
   word2vecModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin', binary=True)
   print 'load word2vec model cost time:',time.time()-start_time
   
-  test_entment_mask,test_sentence,test_tag = get_input_figerTest_chunk('MLP','data/figer_test/',model=word2vecModel,word_dim=100,sentence_length=80)
-  test_size = len(test_sentence)
-  test_sentence += [[[0]*args.word_dim]*args.sentence_length]*(args.batch_size-test_size)
-  print np.shape(test_sentence)
+  test_entment_mask,test_sentence,test_tag = get_input_figerTest_chunk('LSTM','data/figer_test/',model=word2vecModel,word_dim=100,sentence_length=80)
+                                                    
 #  start_time = time.time()                                           
 #  testa_entment_mask,testa_sentence_final,testa_tag_final = get_input_figer_chunk(args.batch_size,'data/figer/',"testa",model=word2vecModel,word_dim=100,sentence_length=80)
-#  print 'load testa data cost time:',time.time()-start_time                                            
+#  print 'load testa data cost time:',time.time()-start_time
+#  
+#                                              
 #  start_time = time.time()           
 #  testb_entment_mask,testb_sentence_final,testb_tag_final = get_input_figer_chunk(args.batch_size,'data/figer/',"testb",model=word2vecModel,word_dim=100,sentence_length=80)
 #  print 'load testb data cost time:',time.time()-start_time
@@ -163,17 +190,16 @@ def main(_):
   print 'tvars:',tvars
   lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.001  #parameter has a very important effect on training!
   totalLoss = model.loss  + lossL2                
-#  start_time = time.time()
-#  grads, _ = tf.clip_by_global_norm(tf.gradients(totalLoss, tvars), 10)
-#  train_op = optimizer.apply_gradients(zip(grads, tvars))
-  train_op = optimizer.minimize(totalLoss)
+  start_time = time.time()
+  grads, _ = tf.clip_by_global_norm(tf.gradients(totalLoss, tvars), 10)
+  train_op = optimizer.apply_gradients(zip(grads, tvars))
   sess.run(tf.global_variables_initializer())
   print 'build optimizer for seqLSTM cost time:', time.time()-start_time
 
-  if model.load(sess,args.restore,"figer_MLP_test"):
+  if model.load(sess,args.restore,"figer"):
     print "[*] seqLSTM is loaded..."
   else:
-    print "[*] There is no checkpoint for figer_MLP_test"
+    print "[*] There is no checkpoint for figer1"
 
   id_epoch = 0
   maximum=0
@@ -183,7 +209,7 @@ def main(_):
   for epoch in range(10):
     print 'epoch:',epoch
     print '---------------------------------'
-    for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train('MLP',args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=80):
+    for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train('LSTM',args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=80):
       
 #      if id_epoch % 50 ==0:
 #        accuracy_list=[]
@@ -246,8 +272,8 @@ def main(_):
         if f1 > maximum:
           maximum = f1
           if maximum > 63.0:
-            model.save(sess,args.restore,"figer_MLP_test") #optimize in the dev file!
-          cPickle.dump(pred,open('data/figer_test/fulltypeFeatures/figer_TypeRet_MLP_test.p','wb'))
+            model.save(sess,args.restore,"figer") #optimize in the dev file!
+          cPickle.dump(pred,open('data/figer_test/fulltypeFeatures/figer_TypeRet_LSTM.p','wb'))
           print("test: loss:%.4f total loss:%.4f average accuracy:%.4f F1:%.4f" %(loss1,tloss,accuracy,f1))
           print "------------------"
       
@@ -267,7 +293,7 @@ def main(_):
                          model.keep_prob:0.5})
       id_epoch += 1
       
-      if id_epoch % 100 == 0:
+      if id_epoch % 100==0:
         accuracy,precision,recall = getAccuracy(pred,target)
         if (np.average(precision)+np.average(recall))==0:
           f1 = 0

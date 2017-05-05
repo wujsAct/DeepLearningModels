@@ -1,3 +1,5 @@
 from description_embed_model import WordVec,MyCorpus
 from random_vec import RandomVec
-from get_conll_embeddings import get_input_figer,get_input_figer_chunk,get_input_figer_chunk_train
+from get_conll_embeddings import get_input_figer
+from get_ner_embeddings import get_input_figer_chunk_train_ner,get_input_figer_chunk_test_ner
+from get_type_embeddings import get_input_figer_chunk,get_input_figer_chunk_train,get_input_figerTest_chunk

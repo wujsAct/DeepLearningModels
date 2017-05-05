@@ -10,11 +10,11 @@ import collections
 #@function: evaluate the conll2003(B-E,I-E,O)
 def getChunkNER(strs):
   entMents = set()
-  classType = r'0?1*'
+  classType = r'01*'   #greed matching, find the longest substring.
   pattern = re.compile(classType)
 
-  match = pattern.search(strs)
-  if match:
+  matchList = re.finditer(pattern,strs)  #very efficient layers!
+  for match in matchList:
     entMents.add(str(match.start())+'_'+str(match.end()))
     
   return entMents
@@ -36,9 +36,15 @@ def f1_chunk(flag,args,prediction, target, length):
     totalTarget += len(targetNER); totalPred += len(predNER)
   
   #strict F1
-  precision = totalRight*1.0/totalPred
+  if totalPred ==0:
+    precision =0
+  else:
+    precision = totalRight*1.0/totalPred
+  
   recall = totalRight*1.0/totalTarget
-    
+  
+  if precision+recall ==0:
+    return 0
   return 2*precision*recall/(precision+recall)
 
 
@@ -77,8 +83,8 @@ def getChunkNER_type(args,strs):
     classType = r''+str(i)+r'+'
     pattern = re.compile(classType)
 
-    match = pattern.search(strs)
-    if match:
+    matchList = re.finditer(pattern,strs)  
+    for match in matchList:
       dicts[i].add(str(match.start())+'_'+str(match.end()))
   return dicts
 
