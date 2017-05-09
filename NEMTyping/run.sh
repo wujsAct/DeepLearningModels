@@ -9,13 +9,13 @@ chunk: conll2000
 :<<!
 NER: conll2003
 !
-#python embedding/get_ner_embeddings.py --dir_path "data/conll2003/" --data_tag "testa" --use_model data/wordvec_model_${dims}.p --sentence_length 124 --model_dim 100
-#python embedding/get_ner_embeddings.py --dir_path "data/conll2003/" --data_tag "testb" --use_model data/wordvec_model_${dims}.p --sentence_length 124 --model_dim 100
-#python embedding/get_ner_embeddings.py --dir_path "data/conll2003/" --data_tag "train" --use_model data/wordvec_model_${dims}.p --sentence_length 124 --model_dim 100
+#python embedding/get_ner_embeddings.py --dir_path "data/conll2003/" --data_tag "testa" --use_model data/wordvec_model_${dims}.p --sentence_length 124 --model_dim 300
+#python embedding/get_ner_embeddings.py --dir_path "data/conll2003/" --data_tag "testb" --use_model data/wordvec_model_${dims}.p --sentence_length 124 --model_dim 300
+#python embedding/get_ner_embeddings.py --dir_path "data/conll2003/" --data_tag "train" --use_model data/wordvec_model_${dims}.p --sentence_length 124 --model_dim 300
 ##python embedding/get_ner_embeddings.py --dir_path "data/figer/" --data_tag "figer" --use_model data/wordvec_model_${dims}.p --sentence_length 80 --model_dim 100
-#python embedding/get_ner_embeddings.py --dir_path "data/figer_test/" --data_tag "figer" --use_model data/wordvec_model_${dims}.p --sentence_length 124 --model_dim 100
+python embedding/get_ner_embeddings.py --dir_path "data/figer_test/" --data_tag "figer" --use_model data/wordvec_model_${dims}.p --sentence_length 124 --model_dim 300
 
-python trainAidaNER_CRF.py
+#python trainAidaNER_CRF.py
 
 #python entityRecog.py --dir_path "data/figer/" --data_tag "figer"
 #python entityRecog.py --dir_path "data/figer_test/" --data_tag "figer"
@@ -35,7 +35,7 @@ generate the figer ner_crf results
 we utilize utils/splitFiger.py to split the Figer train into train_set, validation_set and test_set
 we generate the data/figer/features/figerData_testa.txt and testa_entMents.p
 !
-python utils/splitFiger.py
-
-python trainAidaNERFiger.py
+#python utils/splitFiger.py
+#
+#python trainAidaNERFiger.py
 

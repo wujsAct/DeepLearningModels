@@ -7,13 +7,14 @@ first version: we sum description sentence for candidates entities!
 @revise: 2017/1/4
 '''
 import sys
+import gensim
 sys.path.append('utils')
 sys.path.append("/home/wjs/demo/entityType/NEMType/embedding/")
 import numpy as np
 import tensorflow as tf
 from model import seqLSTM_CRF
 from utils import nerInputUtils as inputUtils
-from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk_train_ner
+from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk_train_ner,get_input_conll2003
 from evals import f1_chunk
 import pprint
 import time
@@ -27,10 +28,10 @@ flags.DEFINE_string("datasets","conll2003","dataset name")
 flags.DEFINE_integer("sentence_length",124,"max sentence length")
 flags.DEFINE_integer("class_size",3,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
-flags.DEFINE_integer("word_dim",111,"hidden dimension of rnn")
+flags.DEFINE_integer("word_dim",310,"hidden dimension of rnn")
 flags.DEFINE_integer("candidate_ent_num",30,"hidden dimension of rnn")
 flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
-flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
+flags.DEFINE_string("rawword_dim","300","hidden dimension of rnn")
 flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
 flags.DEFINE_string("restore","checkpoint","path of saved model")
 flags.DEFINE_boolean("dropout",True,"apply dropout during training")
@@ -68,15 +69,16 @@ def main(_):
   @entlinking context: 'ent_mention_index':ent_mention_index,'ent_mention_link_feature':ent_mention_link_feature,'ent_mention_tag':ent_mention_tag
   '''
   model = seqLSTM_CRF(args)
-  print 'start to load data!'
+ 
   start_time = time.time()
-#  trainUtils = inputUtils(args.rawword_dim,"train")
-#  train_TFfileName = trainUtils.TFfileName; train_nerShapeFile = trainUtils.nerShapeFile;
-#  train_batch_size = args.batch_size;
-  
+
   #word2vecModel = cPickle.load(open('data/wordvec_model_100.p'))
+  print 'start to load word2vec models!'
+  #trained_model = cPickle.load(open(args.use_model, 'rb'))
+  word2vecModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin', binary=True)
+  print 'load word2vec model cost time:',time.time()-start_time
   
-  
+  print 'start to load data!'
   dir_path ='data/conll2003/nerFeatures/'
   testaUtils = inputUtils(args.rawword_dim,dir_path,"testa")
   testa_input = np.asarray(testaUtils.emb);testa_out =  np.argmax(np.asarray(testaUtils.tag),2)
@@ -97,9 +99,9 @@ def main(_):
   figer_num_example = np.shape(figer_input)[0]
   print np.shape(figer_input),np.shape(figer_out)
   
-  trainUtils = inputUtils(args.rawword_dim,dir_path,"train")
-  train_input = np.asarray(trainUtils.emb);train_out = np.argmax(np.asarray(trainUtils.tag),2)
-  print np.shape(train_input),np.shape(train_out)
+#  trainUtils = inputUtils(args.rawword_dim,dir_path,"train")
+#  train_input = np.asarray(trainUtils.emb);train_out = np.argmax(np.asarray(trainUtils.tag),2)
+#  print np.shape(train_input),np.shape(train_out)
   
   print 'start to build seqLSTM'
   start_time = time.time()
@@ -111,9 +113,8 @@ def main(_):
 
   optimizer = tf.train.RMSPropOptimizer(args.learning_rate)
   #optimizer = tf.train.AdamOptimizer(args.learning_rate)
-  tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,scope='seqLSTM_variables')
+  tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
   print 'tvars:',tvars
-  
   lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.01
   totalLoss = model.loss + lossL2     
 
@@ -138,9 +139,9 @@ def main(_):
   for e in range(args.epoch):
     id_epoch = 0
     print 'Epoch: %d------------' %(e)
-    for ptr in xrange(0,len(train_input),args.batch_size):
+    #for ptr in xrange(0,len(train_input),args.batch_size):
     #for train_input,train_out in get_input_figer_chunk_train_ner(args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=124):
-      
+    for train_input,train_out in get_input_conll2003(word2vecModel,args.batch_size,args.word_dim, open('data/conll2003/eng.train'), sentence_length=args.sentence_length): 
       loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
                        {model.input_data:testa_input,
                         model.output_data:testa_out,
@@ -182,23 +183,24 @@ def main(_):
         #  maximum_figer = fscore
         print("figer: loss:%.4f accuracy:%f NER:%.2f" %(loss1,accuracy,100*fscore))
         print "--------------------------------------------"
-      num_example = min(ptr+args.batch_size,len(train_input)) - ptr  
-      batch_train_input = train_input[ptr:min(ptr+args.batch_size,len(train_input))]
-      batch_train_out = train_out[ptr:min(ptr+args.batch_size,len(train_input))]
-      _,loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([train_op,model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
-                        {model.input_data:batch_train_input,
-                         model.output_data:batch_train_out,
-                         model.num_examples: num_example,
-                         model.keep_prob:0.5})
-#      train_out = np.argmax(train_out,2)
+#      num_example = min(ptr+args.batch_size,len(train_input)) - ptr  
+#      batch_train_input = train_input[ptr:min(ptr+args.batch_size,len(train_input))]
+#      batch_train_out = train_out[ptr:min(ptr+args.batch_size,len(train_input))]
 #      _,loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([train_op,model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
-#                        {model.input_data:train_input,
-#                         model.output_data:train_out,
-#                         model.num_examples: args.batch_size,
+#                        {model.input_data:batch_train_input,
+#                         model.output_data:batch_train_out,
+#                         model.num_examples: num_example,
 #                         model.keep_prob:0.5})
+      train_out = np.asarray(train_out,dtype=np.float32)
+      train_out = np.argmax(train_out,2)
+      _,loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([train_op,model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
+                        {model.input_data:train_input,
+                         model.output_data:train_out,
+                         model.num_examples: args.batch_size,
+                         model.keep_prob:0.5})
       id_epoch += 1
-      pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,batch_train_out,length)
-      fscore = f1_chunk('CRF',args, pred,batch_train_out,length)
+      pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,train_out,length)
+      fscore = f1_chunk('CRF',args, pred,train_out,length)
       if id_epoch %10==0:
         print("train: loss:%.4f total loss:%.4f accuracy:%f NER:%.2f" %(loss1,tloss,accuracy,100*fscore))
 #  except:

@@ -14,21 +14,24 @@ sys.path.append("/home/wjs/demo/entityType/NEMType/embedding/")
 import random_vec
 import numpy as np
 import tensorflow as tf
-from model import seqMLP
+from model import seqMLP,seqCtxLSTM,seqLSTM
 from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk,get_input_figer_chunk_train,get_input_figerTest_chunk
 import cPickle
 from utils import nerInputUtils as inputUtils
 import pprint
 import time
 from scipy.sparse import coo_matrix
+#dataset = "figer_MLP_test"
+dataset = "OntoNotes"
+
 pp = pprint.PrettyPrinter()
 
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
-flags.DEFINE_integer("batch_size",1000,"batch size of training")
-flags.DEFINE_string("datasets","figer_MLP_test","dataset name")
-flags.DEFINE_integer("sentence_length",80,"max sentence length")
-flags.DEFINE_integer("class_size",113,"number of classes")
+flags.DEFINE_integer("batch_size",1500,"batch size of training")
+flags.DEFINE_string("datasets",dataset,"dataset name")
+flags.DEFINE_integer("sentence_length",250,"max sentence length")
+flags.DEFINE_integer("class_size",89,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
 flags.DEFINE_integer("word_dim",300,"hidden dimension of rnn")
 flags.DEFINE_integer("candidate_ent_num",30,"hidden dimension of rnn")
@@ -129,7 +132,7 @@ def main(_):
   @function: load the train and test datasets
   @entlinking context: 'ent_mention_index':ent_mention_index,'ent_mention_link_feature':ent_mention_link_feature,'ent_mention_tag':ent_mention_tag
   '''
-  model = seqMLP(args)
+  model = seqCtxLSTM(args)
   print 'start to load data!'
   start_time = time.time()
   #word2vecModel = cPickle.load(open('data/wordvec_model_100.p'))
@@ -137,10 +140,11 @@ def main(_):
   word2vecModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin', binary=True)
   print 'load word2vec model cost time:',time.time()-start_time
   
-  test_entment_mask,test_sentence,test_tag = get_input_figerTest_chunk('MLP','data/figer_test/',model=word2vecModel,word_dim=100,sentence_length=80)
+  test_entment_mask,test_sentence,test_tag = get_input_figerTest_chunk('MLP',dataset,'data/'+dataset+'/',model=word2vecModel,word_dim=args.word_dim,sentence_length=250)
   test_size = len(test_sentence)
+  print 'test_size',test_size
   test_sentence += [[[0]*args.word_dim]*args.sentence_length]*(args.batch_size-test_size)
-  print np.shape(test_sentence)
+  print 'test_sentence shape:',np.shape(test_sentence)
 #  start_time = time.time()                                           
 #  testa_entment_mask,testa_sentence_final,testa_tag_final = get_input_figer_chunk(args.batch_size,'data/figer/',"testa",model=word2vecModel,word_dim=100,sentence_length=80)
 #  print 'load testa data cost time:',time.time()-start_time                                            
@@ -170,7 +174,7 @@ def main(_):
   sess.run(tf.global_variables_initializer())
   print 'build optimizer for seqLSTM cost time:', time.time()-start_time
 
-  if model.load(sess,args.restore,"figer_MLP_test"):
+  if model.load(sess,args.restore,dataset):
     print "[*] seqLSTM is loaded..."
   else:
     print "[*] There is no checkpoint for figer_MLP_test"
@@ -183,7 +187,7 @@ def main(_):
   for epoch in range(10):
     print 'epoch:',epoch
     print '---------------------------------'
-    for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train('MLP',args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=80):
+    for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train('MLP',dataset,args.batch_size,'data/'+dataset+'/',"train",model=word2vecModel,word_dim=args.word_dim,sentence_length=args.sentence_length):
       
 #      if id_epoch % 50 ==0:
 #        accuracy_list=[]
@@ -226,6 +230,7 @@ def main(_):
 #          print("testb: loss:%.4f total loss:%.4f average accuracy:%.6f" %(loss1,tloss,np.average(accuracy_list)))
       if id_epoch % 10==0:
         test_input = np.asarray(test_sentence,dtype=np.float32)
+        print np.shape(test_input)
         test_out = test_tag
         test_entMentIndex = genEntMentMask(np.shape(test_input)[0],test_entment_mask)
         test_entCtxLeft_Index,test_entCtxRight_Index = genEntCtxMask(np.shape(test_input)[0],test_entment_mask)
@@ -246,8 +251,8 @@ def main(_):
         if f1 > maximum:
           maximum = f1
           if maximum > 63.0:
-            model.save(sess,args.restore,"figer_MLP_test") #optimize in the dev file!
-          cPickle.dump(pred,open('data/figer_test/fulltypeFeatures/figer_TypeRet_MLP_test.p','wb'))
+            model.save(sess,args.restore,dataset) #optimize in the dev file!
+          cPickle.dump(pred,open('data/'+dataset+'/fulltypeFeatures/'+'testType.p','wb'))
           print("test: loss:%.4f total loss:%.4f average accuracy:%.4f F1:%.4f" %(loss1,tloss,accuracy,f1))
           print "------------------"
       
