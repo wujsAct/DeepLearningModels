@@ -36,32 +36,43 @@ class seqLSTM(Model):
     self.entCtxLeftIndex = tf.placeholder(tf.int32,[None,None],name='ent_ctxleft_index')
     self.entCtxRightIndex = tf.placeholder(tf.int32,[None,None],name='ent_ctxright_index')
      
-    self.figerHier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  #add the hierarchy features
+    #self.hier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  #add the hierarchy features
+    self.hier = np.asarray(cPickle.load(open('data/OntoNotes/OntoNoteshierarchical.p','rb')),np.float32)
+    
+    print np.shape(self.hier)[0]
     
     self.layers={}
     self.layers['BiLSTM'] = layers_lib.BiLSTM(self.args.rnn_size)
-    self.layers['fullyConnect_ment'] = layers_lib.FullyConnection(90) # 90 is the row of type hierical 
+    self.layers['fullyConnect_ment'] = layers_lib.FullyConnection(np.shape(self.hier)[0]) # 90 is the row of type hierical 
     self.layers['fullyConnect_ctx'] = layers_lib.FullyConnection(self.args.class_size) # 90 is the row of type hierical 
     
     self.dense_outputdata= tf.sparse_tensor_to_dense(self.output_data)
     
-    with tf.device('/gpu:1'):
-      self.prediction,self.loss_lm = self.cl_loss_from_embedding(self.input_data)
-      print 'self.loss_lm:',self.loss_lm
+   
+    self.prediction,self.loss_lm = self.cl_loss_from_embedding(self.input_data)
+    print 'self.loss_lm:',self.loss_lm
       
-    _,self.adv_loss = self.adversarial_loss()
-    print 'self.adv_loss:',self.adv_loss
-
-    self.loss = tf.add(self.loss_lm,self.adv_loss)
-      
+#    _,self.adv_loss = self.adversarial_loss()
+#    print 'self.adv_loss:',self.adv_loss
+#
+#    self.loss = tf.add(self.loss_lm,self.adv_loss)
+    self.loss = self.loss_lm 
     
   def cl_loss_from_embedding(self,embedded,return_intermediate=False):
-    output,_ = self.layers['BiLSTM'](embedded)
-    output = tf.concat([tf.reshape(output,[-1,2*self.args.rnn_size]),tf.constant(np.zeros((1,2*self.args.rnn_size),dtype=np.float32))],0)
+    with tf.device('/gpu:1'):
+      output,_,_ = self.layers['BiLSTM'](embedded)
+      output = tf.concat([tf.reshape(output,[-1,2*self.args.rnn_size]),tf.constant(np.zeros((1,2*self.args.rnn_size),dtype=np.float32))],0)
       
-    input_f1 =tf.reduce_sum(tf.nn.embedding_lookup(output,self.entMentIndex),1)
-    input_f2 = tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxLeftIndex),1)
-    input_f3 = tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxRightIndex),1)
+    input_f1 =tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entMentIndex),1),1)
+    input_f2 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxLeftIndex),1),1)
+    input_f3 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxRightIndex),1),1)
+    
+#    input_ctx = tf.concat([input_f1,input_f2,input_f3],1)
+#    
+#    if self.args.dropout:  #dropout position is here!
+#      input_ctx =  tf.nn.dropout(input_ctx,self.keep_prob)
+#    prediction = self.layers['fullyConnect_ctx'](input_ctx,activation_fn=tf.nn.tanh)
+    
     input_ctx = tf.concat([input_f2,input_f3],1)
     
     if self.args.dropout:  #dropout position is here!
@@ -69,11 +80,12 @@ class seqLSTM(Model):
       input_ctx =  tf.nn.dropout(input_ctx,self.keep_prob)
         
     prediction_l1_ment = self.layers['fullyConnect_ment'](input_f1,activation_fn=tf.nn.tanh)
-    prediction_metn = tf.matmul(prediction_l1_ment,self.figerHier)
+    prediction_metn = tf.matmul(prediction_l1_ment,self.hier)
     
     prediction_ctx = self.layers['fullyConnect_ctx'](input_ctx,activation_fn=tf.nn.tanh)
     
     prediction = prediction_metn + prediction_ctx
+    
     loss = tf.reduce_mean(layers_lib.classification_loss('figer',self.dense_outputdata,prediction))
     return prediction,loss
   

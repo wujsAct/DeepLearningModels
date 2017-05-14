@@ -13,11 +13,16 @@ import cPickle
 dir_path = 'data/figer/'
 
 #first chunk + Freebase alias
-def openSentid2aNosNoid(dir_path):
+def openSentid2aNosNoid(dir_path,tag):
   sNo = 0
   sid2aNosNo = {}
   aNosNo2sid = {}
-  fName = dir_path +'sentid2aNosNoid.txt'
+  if dir_path =='data/figer/':
+    fName = dir_path +'sentid2aNosNoid.txt'
+  else:
+    fName = dir_path +'features/'+tag+'_sentid2aNosNoid.txt'
+
+  
   for line in open(fName):
     line = line.strip()
     
@@ -27,11 +32,53 @@ def openSentid2aNosNoid(dir_path):
     sNo += 1
   return sid2aNosNo,aNosNo2sid
 
+def getaNosNo2entMenOntos(dir_path,tag):
+  type2id = cPickle.load(open(dir_path+'type2id.p','rb'))
+  totalEnts = 0
+  #lists: [[entSatrt,entEnd],...]
+  aNosNo2entMen = collections.defaultdict(list)
+  fName = dir_path +'features/'+tag+'_gold_entMen2aNosNoid.txt'
+  for line in open(fName):
+    line = line.strip()
+    items = line.split('\t')
+    
+    ents = items[1];ente = items[2]
+    aNosNo = items[3]
+    typeList=[]
+    flag = False
+    totalEnts += 1
+    for i in range(4,len(items)):
+      typei = items[i]
+      if typei in type2id:
+        typeList.append(type2id[typei])
+        flag = True
+    if flag:
+      aNosNo2entMen[aNosNo].append([ents,ente,typeList,items[0]])   #we delete the non-entityt types
+  return aNosNo2entMen
 
+
+def getaNosNo2entWebQuestion(dir_path,tag):
+  aNosNo2entMen = collections.defaultdict(list)
+  fName = dir_path +'features/'+tag+'_ment_entMent2aNosNoid.txt'
+  
+  for line in open(fName):
+    line = line.strip()
+    items = line.split('\t')
+    
+    ents = items[2]; ente = items[3]
+    aNosNo = items[1]
+    typeList=[]   #assume the typeList is NULL
+    
+    
+    aNosNo2entMen[aNosNo].append([ents,ente,typeList,items[0]])   #we delete the non-entityt types
+    
+  return aNosNo2entMen
+    
+    
+    
 
 def getaNosNo2entMen(dir_path):
   fb2figer = cPickle.load(open(dir_path+'fb2figer.p','rb'))
-  figer2id = cPickle.load(open(dir_path+'figer2id.p','rb'))
   totalEnts = 0
   figerTypeEnts = 0
   #lists: [[entSatrt,entEnd],...]

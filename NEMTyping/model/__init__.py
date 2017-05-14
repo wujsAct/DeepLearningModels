@@ -3,3 +3,4 @@ from seqLSTM import seqLSTM
 from seqLSTM_CRF import seqLSTM_CRF
 from seqMLP import seqMLP
 from seqCtxLSTM import seqCtxLSTM
+from seqCNN import seqCNN

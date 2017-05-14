@@ -55,12 +55,12 @@ class seqCtxLSTM(Model):
     input_f1 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(self.reshape_input,self.entMentIndex),1),1)
     print 'input_f1:',input_f1
   
-    input_f2,_ =self.layers['BiLSTM'](tf.nn.embedding_lookup(self.reshape_input,self.entMentIndex))
+    input_f2,_,_ =self.layers['BiLSTM'](tf.nn.embedding_lookup(self.reshape_input,self.entCtxLeftIndex))
     
     input_f2 = tf.nn.l2_normalize(tf.reduce_sum(input_f2,1),1)
     print 'input_f2:',input_f2
     
-    input_f3,_ = self.layers['BiLSTM'](tf.nn.embedding_lookup(self.reshape_input,self.entCtxRightIndex))
+    input_f3,_,_ = self.layers['BiLSTM'](tf.nn.embedding_lookup(self.reshape_input,self.entCtxRightIndex))
     input_f3 = tf.nn.l2_normalize(tf.reduce_sum(input_f3,1),1)
     print 'input_f2:',input_f3
     

@@ -44,8 +44,8 @@ def f1_chunk(flag,args,prediction, target, length):
   recall = totalRight*1.0/totalTarget
   
   if precision+recall ==0:
-    return 0
-  return 2*precision*recall/(precision+recall)
+    return 0,0,0
+  return precision,recall,2*precision*recall/(precision+recall)
 
 
 def f1(args, prediction, target, length):

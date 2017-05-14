@@ -14,7 +14,7 @@ sys.path.append("/home/wjs/demo/entityType/NEMType/embedding/")
 import random_vec
 import numpy as np
 import tensorflow as tf
-from model import seqMLP,seqCtxLSTM,seqLSTM
+from model import seqMLP,seqCtxLSTM,seqLSTM,seqCNN
 from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk,get_input_figer_chunk_train,get_input_figerTest_chunk
 import cPickle
 from utils import nerInputUtils as inputUtils
@@ -22,16 +22,16 @@ import pprint
 import time
 from scipy.sparse import coo_matrix
 #dataset = "figer_MLP_test"
-dataset = "OntoNotes"
+dataset = "figer"
 
 pp = pprint.PrettyPrinter()
 
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
-flags.DEFINE_integer("batch_size",1500,"batch size of training")
+flags.DEFINE_integer("batch_size",1000,"batch size of training")
 flags.DEFINE_string("datasets",dataset,"dataset name")
 flags.DEFINE_integer("sentence_length",250,"max sentence length")
-flags.DEFINE_integer("class_size",89,"number of classes")
+flags.DEFINE_integer("class_size",113,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
 flags.DEFINE_integer("word_dim",300,"hidden dimension of rnn")
 flags.DEFINE_integer("candidate_ent_num",30,"hidden dimension of rnn")
@@ -54,10 +54,20 @@ def getAccuracy(predArray,targetArray):
     pred = predArray[i]
     target = targetArray[i]
     
-    lents = len(np.nonzero(target)[0])*(-1)
+    target_lents = len(np.nonzero(target)[0])*(-1)
     
-    predRet = set(np.argsort(pred)[lents:])
-    targetRet = set(np.argsort(target)[lents:])
+    '''
+    @top one must add in
+    '''
+    predRet=set()
+    
+    predRet.add(np.argmax(pred))
+    
+    for j in range(len(pred)):
+      if pred[j] > 0.5:
+        predRet.add(j)
+    
+    targetRet = set(np.argsort(target)[target_lents:])
     
     rightset = predRet & targetRet
     if len(rightset)==0:
@@ -87,6 +97,7 @@ def genEntCtxMask(batch_size,entment_mask_final):
   entNums = len(entment_mask_final)
   entCtxLeft_masks=[]
   entCtxRight_masks=[]
+  
   for i in range(entNums):
     items = entment_mask_final[i]
     ids = items[0];start=items[1];end=items[2]
@@ -132,15 +143,23 @@ def main(_):
   @function: load the train and test datasets
   @entlinking context: 'ent_mention_index':ent_mention_index,'ent_mention_link_feature':ent_mention_link_feature,'ent_mention_tag':ent_mention_tag
   '''
-  model = seqCtxLSTM(args)
+  #model = seqCtxLSTM(args)
+  model = seqCNN(args)
   print 'start to load data!'
+  
   start_time = time.time()
   #word2vecModel = cPickle.load(open('data/wordvec_model_100.p'))
   #word2vecModel = None
   word2vecModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin', binary=True)
   print 'load word2vec model cost time:',time.time()-start_time
   
-  test_entment_mask,test_sentence,test_tag = get_input_figerTest_chunk('MLP',dataset,'data/'+dataset+'/',model=word2vecModel,word_dim=args.word_dim,sentence_length=250)
+  if dataset == 'figer':
+    testdataset = 'figer_test'
+  else:
+    testdataset  = dataset
+  
+  test_entment_mask,test_sentence,test_tag = get_input_figerTest_chunk('MLP',testdataset,'data/'+testdataset+'/',model=word2vecModel,word_dim=args.word_dim,sentence_length=250)
+  
   test_size = len(test_sentence)
   print 'test_size',test_size
   test_sentence += [[[0]*args.word_dim]*args.sentence_length]*(args.batch_size-test_size)
@@ -230,18 +249,26 @@ def main(_):
 #          print("testb: loss:%.4f total loss:%.4f average accuracy:%.6f" %(loss1,tloss,np.average(accuracy_list)))
       if id_epoch % 10==0:
         test_input = np.asarray(test_sentence,dtype=np.float32)
-        print np.shape(test_input)
+        print 'figer_test input:',np.shape(test_input)
         test_out = test_tag
         test_entMentIndex = genEntMentMask(np.shape(test_input)[0],test_entment_mask)
         test_entCtxLeft_Index,test_entCtxRight_Index = genEntCtxMask(np.shape(test_input)[0],test_entment_mask)
         num_examples = len(test_entMentIndex)
         type_shape=  np.array([num_examples,args.class_size], dtype=np.int64)
+      
+        pos1 = np.expand_dims(np.array(num_examples*[[0]*5],np.float32),-1)
+        pos2 = np.expand_dims(np.array(num_examples*[range(-10,0,1)],np.float32),-1)
+        pos3 = np.expand_dims(np.array(num_examples*[range(1,11)],np.float32),-1)
+        
         loss1,tloss,pred,target = sess.run([model.loss,totalLoss,model.prediction,model.dense_outputdata],
                        {model.input_data:test_input,
                         model.output_data:tf.SparseTensorValue(test_out[0],test_out[1],type_shape),
                         model.entMentIndex:test_entMentIndex,
                         model.entCtxLeftIndex:test_entCtxLeft_Index,
                         model.entCtxRightIndex:test_entCtxRight_Index,
+                        model.pos_f1:pos1,
+                        model.pos_f2:pos2,
+                        model.pos_f3:pos3,
                         model.keep_prob:1})
         accuracy,precision,recall = getAccuracy(pred,target)
         if (np.average(precision)+np.average(recall))==0:
@@ -262,6 +289,10 @@ def main(_):
       train_entCtxLeft_Index,train_entCtxRight_Index = genEntCtxMask(args.batch_size,train_entment_mask)
       train_out = train_tag_final #we need to generate entity mention masks!
       num_examples = len(train_entMentIndex)
+      pos1 = np.expand_dims(np.array(num_examples*[[0]*5],np.float32),-1)
+      pos2 = np.expand_dims(np.array(num_examples*[range(-10,0,1)],np.float32),-1)
+      pos3 = np.expand_dims(np.array(num_examples*[range(1,11)],np.float32),-1)
+        
       type_shape=  np.array([num_examples,args.class_size], dtype=np.int64)
       _,loss1,tloss,pred,target = sess.run([train_op,model.loss,totalLoss,model.prediction,model.dense_outputdata],
                         {model.input_data:train_input,
@@ -269,6 +300,9 @@ def main(_):
                          model.entMentIndex:train_entMentIndex,
                          model.entCtxLeftIndex:train_entCtxLeft_Index,
                          model.entCtxRightIndex:train_entCtxRight_Index,
+                         model.pos_f1:pos1,
+                         model.pos_f2:pos2,
+                         model.pos_f3:pos3,
                          model.keep_prob:0.5})
       id_epoch += 1
       

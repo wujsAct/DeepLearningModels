@@ -23,10 +23,12 @@ import time
 from scipy.sparse import coo_matrix
 pp = pprint.PrettyPrinter()
 
+dataset = 'OntoNotes'
+
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
-flags.DEFINE_integer("batch_size",1000,"batch size of training")
-flags.DEFINE_string("datasets","seqCtxLSTM","dataset name")
+flags.DEFINE_integer("batch_size",1500,"batch size of training")
+flags.DEFINE_string("datasets",dataset,"dataset name")
 flags.DEFINE_integer("sentence_length",80,"max sentence length")
 flags.DEFINE_integer("class_size",113,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
@@ -164,7 +166,7 @@ def main(_):
   word2vecModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin', binary=True)
   print 'load word2vec model cost time:',time.time()-start_time
   
-  test_entment_mask,test_sentence,test_tag = get_input_figerTest_chunk('LSTM','data/figer_test/',model=word2vecModel,word_dim=100,sentence_length=80)
+  test_entment_mask,test_sentence,test_tag = get_input_figerTest_chunk('LSTM',dataset,'data/'+dataset+'/',model=word2vecModel,word_dim=args.word_dim,sentence_length=250)
   test_size = len(test_sentence)
   test_sentence += [[[0]*args.word_dim]*args.sentence_length]*(args.batch_size-test_size)
   
@@ -199,7 +201,7 @@ def main(_):
   sess.run(tf.global_variables_initializer())
   print 'build optimizer for seqLSTM cost time:', time.time()-start_time
 
-  if model.load(sess,args.restore,"figer"):
+  if model.load(sess,args.restore,dataset):
     print "[*] seqLSTM is loaded..."
   else:
     print "[*] There is no checkpoint for figer_LSTM"
@@ -212,8 +214,8 @@ def main(_):
   for epoch in range(10):
     print 'epoch:',epoch
     print '---------------------------------'
-    for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train('LSTM',args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=80):
-      
+    #for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train('LSTM',args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=80):
+    for train_entment_mask,train_sentence_final,train_tag_final in get_input_figer_chunk_train('LSTM',dataset,args.batch_size,'data/'+dataset+'/',"train",model=word2vecModel,word_dim=args.word_dim,sentence_length=args.sentence_length): 
 #      if id_epoch % 50 ==0:
 #        accuracy_list=[]
 #        for i in range(len(testa_sentence_final)):
@@ -276,7 +278,7 @@ def main(_):
           maximum = f1
           if maximum > 63.0:
             model.save(sess,args.restore,"figer") #optimize in the dev file!
-          cPickle.dump(pred,open('data/figer_test/fulltypeFeatures/figer_TypeRet_seqCtxLSTM.p','wb'))
+          cPickle.dump(pred,open('data/'+dataset+'/fulltypeFeatures/'+'testType.p','wb'))
           print("test: loss:%.4f total loss:%.4f average accuracy:%.4f F1:%.4f" %(loss1,tloss,accuracy,f1))
           print "------------------"
       

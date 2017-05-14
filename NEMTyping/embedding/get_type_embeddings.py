@@ -107,8 +107,9 @@ def getFigerEntTags(entList,sid,ent_no):
     ent_start= int(ent[0])
     ent_end = int(ent[1])
     typeList = sorted(list(set(ent[2])))  #ascending sort and duplicate type remove!
-    #print len(typeList)
-    
+#    #print len(typeList)
+    if ent_start >  250:
+      print ent_no
     '''
     sparse pattern
     '''
@@ -122,16 +123,20 @@ def getFigerEntTags(entList,sid,ent_no):
   
   return ent_no,ent_mention_mask,type_indices,type_val
 
-def get_input_figerTest_chunk(flag,dir_path,model,word_dim,sentence_length=-1):
+def get_input_figerTest_chunk(flag,dataset,dir_path,model,word_dim,sentence_length=-1):
   vocab = model.vocab
   randomVector = cPickle.load(open('data/figer/randomVector.p','rb'))
   epochs = 1
-  vocab2id = cPickle.load(open('data/vocab2id.p'))
-  print len(vocab2id)
+#  vocab2id = cPickle.load(open('data/vocab2id.p'))
+#  print len(vocab2id)
   #figerTypes = 113
-  input_file_obj = open(dir_path+'features/figerData.txt')
   
-  entMents = cPickle.load(open(dir_path+'features/'+'figer_entMents.p','rb'))
+  if dir_path=='data/figer_test/':
+    input_file_obj = open(dir_path+'features/figerData.txt')
+    entMents = cPickle.load(open(dir_path+'features/figer_entMents.p','rb'))
+  else:
+    input_file_obj = open(dir_path+'features/'+dataset+'Data_test.txt')
+    entMents = cPickle.load(open(dir_path+'features/'+'test_entMents.p','rb'))
   
   allid=0
   word = []
@@ -159,6 +164,8 @@ def get_input_figerTest_chunk(flag,dir_path,model,word_dim,sentence_length=-1):
           #tag.append(np.array([0] * 5))
         #  temp = np.array([0 for _ in range(word_dim)])
         #  word.append(temp)
+        #if sentence_length > max_sentence_length:
+        #  print 'sentence_length is longer than max_sentence_length...', sentence_length
         if flag=='LSTM':
           word += [np.zeros((311,))]* (max_sentence_length - sentence_length)
         else:
@@ -268,15 +275,13 @@ def get_input_figer_chunk(batch_size,dir_path,set_tag,model,word_dim,sentence_le
         word.append(temp)
   return ent_mention_mask_final,sentence_final,type_final
 
-def get_input_figer_chunk_train(flag,batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
+def get_input_figer_chunk_train(flag,dataset,batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
   #vocab2id = cPickle.load(open('data/vocab2id.p'))
   randomVector = cPickle.load(open('data/figer/randomVector.p','rb'))
   vocab = model.vocab
   epochs = 2
   figerTypes = 113
   
-  
-  entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
   
   allid=0
   word = []
@@ -295,7 +300,9 @@ def get_input_figer_chunk_train(flag,batch_size,dir_path,set_tag,model,word_dim,
   #print("max sentence length is %d" % max_sentence_length)
   for epoch in range(epochs):
     sid = 0
-    input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
+    #input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
+    input_file_obj = open(dir_path+'features/'+dataset+'Data_'+set_tag+'.txt')
+    entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
     for line in input_file_obj:
       if line in ['\n', '\r\n']:
         if flag=='LSTM':
@@ -344,6 +351,7 @@ def get_input_figer_chunk_train(flag,batch_size,dir_path,set_tag,model,word_dim,
 if __name__ == '__main__':
   print 'genereate the figer typing embeddings ....'
   
-  cPickle.dump(np.random.rand(300),open('data/figer/randomVector.p','wb'))
-  
+  dataset = "OntoNotes"
+  #cPickle.dump(np.random.rand(300),open('data/figer/randomVector.p','wb'))
+  get_input_figerTest_chunk('MLP',dataset,'data/'+dataset+'/',model=None,word_dim=100,sentence_length=250)
   

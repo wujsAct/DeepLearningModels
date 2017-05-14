@@ -14,7 +14,7 @@ import numpy as np
 import tensorflow as tf
 from model import seqLSTM_CRF
 from utils import nerInputUtils as inputUtils
-from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk_train_ner,get_input_conll2003
+from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk_train_ner,get_input_conll2003,get_input_figer_chunk_test_ner_train
 from evals import f1_chunk
 import pprint
 import time
@@ -79,6 +79,12 @@ def main(_):
   print 'load word2vec model cost time:',time.time()-start_time
   
   print 'start to load data!'
+  WebQuestionUtils = inputUtils(args.rawword_dim,'data/WebQuestion/nerFeatures/',"test")
+  WebQuestion_input = np.asarray(WebQuestionUtils.emb);WebQuestion_out =  np.argmax(np.asarray(WebQuestionUtils.tag),2)
+  WebQuestion_num_example = np.shape(WebQuestion_input)[0]
+  print np.shape(WebQuestion_input),np.shape(WebQuestion_out)
+  
+  
   dir_path ='data/conll2003/nerFeatures/'
   testaUtils = inputUtils(args.rawword_dim,dir_path,"testa")
   testa_input = np.asarray(testaUtils.emb);testa_out =  np.argmax(np.asarray(testaUtils.tag),2)
@@ -93,6 +99,9 @@ def main(_):
   testb_input = np.asarray(testbUtils.emb);testb_out =  np.argmax(np.asarray(testbUtils.tag),2)
   testb_num_example = np.shape(testb_input)[0]
   print np.shape(testb_input),np.shape(testb_out)
+  
+  
+  
   
   figerUtils = inputUtils(args.rawword_dim,'data/figer_test/nerFeatures/',"figer")
   figer_input = np.asarray(figerUtils.emb);figer_out =  np.argmax(np.asarray(figerUtils.tag),2)
@@ -141,7 +150,7 @@ def main(_):
     print 'Epoch: %d------------' %(e)
     #for ptr in xrange(0,len(train_input),args.batch_size):
     #for train_input,train_out in get_input_figer_chunk_train_ner(args.batch_size,'data/figer/',"train",model=word2vecModel,word_dim=100,sentence_length=124):
-    for train_input,train_out in get_input_conll2003(word2vecModel,args.batch_size,args.word_dim, open('data/conll2003/eng.train'), sentence_length=args.sentence_length): 
+    for train_input,train_out in get_input_conll2003(word2vecModel,args.batch_size,300, open('data/conll2003/eng.train'), sentence_length=args.sentence_length):
       loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
                        {model.input_data:testa_input,
                         model.output_data:testa_out,
@@ -149,7 +158,7 @@ def main(_):
                         model.keep_prob:1})
       pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testa_out,length)
         
-      fscore = f1_chunk('CRF',args, pred, testa_out, length)
+      precision,recall,fscore = f1_chunk('CRF',args, pred, testa_out, length)
 
       m = fscore
       if m > maximum:
@@ -157,7 +166,7 @@ def main(_):
         if maximum > 0.80:
           model.save(sess,args.restore,"conll2003") #optimize in the dev file!
         print "----------------------------------"
-        print("testa: loss:%.4f total loss:%.4f accuracy:%.4f NER:%.2f" %(loss1,tloss,accuracy,100*m))
+        print("testa: loss:%.4f total loss:%.4f accuracy:%.4f precision:%.2f recall:%.2f NER:%.2f" %(loss1,tloss,accuracy,precision*100,recall*100,100*m))
         
         loss1,tloss,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,totalLoss,model.length,model.output,model.unary_scores,model.transition_params],
                        {model.input_data:testb_input,
@@ -165,8 +174,11 @@ def main(_):
                         model.num_examples:testb_num_example,
                         model.keep_prob:1})
         pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testb_out,length)
-        fscore = f1_chunk('CRF',args, pred, testb_out, length)
-        print("testb: loss:%.4f total loss:%.4f accuracy:%f NER:%.2f" %(loss1,tloss,accuracy,100*fscore))
+        precision,recall,fscore = f1_chunk('CRF',args, pred, testb_out, length)
+        params = {'length':length,'args:':args,'testb_out':testb_out}
+        
+        cPickle.dump(params,open('data/figer/nerFeatures/figer_testb_NERret.p','wb'))
+        print("testb: loss:%.4f total loss:%.4f accuracy:%f precision:%.2f recall:%.2f  NER:%.2f" %(loss1,tloss,accuracy,precision*100,recall*100,100*fscore))
       
       
         loss1,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,model.length,model.output,model.unary_scores,model.transition_params],
@@ -175,14 +187,29 @@ def main(_):
                           model.num_examples:figer_num_example,
                           model.keep_prob:1})
         pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,figer_out,length)
-        fscore = f1_chunk('CRF',args, pred, figer_out, length)
-        params = {'length':length,'pred':pred,'target':figer_out}
+        precision,recall,fscore = f1_chunk('CRF',args, pred, figer_out, length)
+        params = {'length':length,'pred':pred,'target':figer_out,'args':args}
         cPickle.dump(params,open('data/figer_test/nerFeatures/figer_NERret.p','wb'))
-        exit(0)
         #if fscore> maximum_figer:
         #  maximum_figer = fscore
-        print("figer: loss:%.4f accuracy:%f NER:%.2f" %(loss1,accuracy,100*fscore))
+        print("figer: loss:%.4f accuracy:%f precision:%.2f recall:%.2f NER:%.2f" %(loss1,accuracy,precision*100,recall*100,100*fscore))
         print "--------------------------------------------"
+        
+        
+        loss1,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,model.length,model.output,model.unary_scores,model.transition_params],
+                         {model.input_data:WebQuestion_input,
+                          model.output_data:WebQuestion_out,
+                          model.num_examples:WebQuestion_num_example,
+                          model.keep_prob:1})
+        pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,WebQuestion_out,length)
+        precision,recall,fscore = f1_chunk('CRF',args, pred, WebQuestion_out, length)
+        params = {'length':length,'pred':pred,'target':figer_out,'args':args}
+        cPickle.dump(params,open('data/WebQuestion/nerFeatures/WebQuestion_NERret.p','wb'))
+        #if fscore> maximum_figer:
+        #  maximum_figer = fscore
+        print("WebQuestion: loss:%.4f accuracy:%f precision:%.2f recall:%.2f NER:%.2f" %(loss1,accuracy,precision*100,recall*100,100*fscore))
+        print "--------------------------------------------"
+        
 #      num_example = min(ptr+args.batch_size,len(train_input)) - ptr  
 #      batch_train_input = train_input[ptr:min(ptr+args.batch_size,len(train_input))]
 #      batch_train_out = train_out[ptr:min(ptr+args.batch_size,len(train_input))]
@@ -200,9 +227,9 @@ def main(_):
                          model.keep_prob:0.5})
       id_epoch += 1
       pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,train_out,length)
-      fscore = f1_chunk('CRF',args, pred,train_out,length)
+      precision,recall,fscore = f1_chunk('CRF',args, pred,train_out,length)
       if id_epoch %10==0:
-        print("train: loss:%.4f total loss:%.4f accuracy:%f NER:%.2f" %(loss1,tloss,accuracy,100*fscore))
+        print("train: loss:%.4f total loss:%.4f accuracy:%f precision:%.2f recall:%.2f NER:%.2f" %(loss1,tloss,accuracy,precision*100,recall*100,100*fscore))
 #  except:
 #    print 'finished train'
 if __name__=='__main__':
