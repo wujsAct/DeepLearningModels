@@ -1,2 +1,3 @@
 from evalChunk import openSentid2aNosNoid,getaNosNo2entMen
 from evalNER import f1_chunk
+from evalType import getTypeEval

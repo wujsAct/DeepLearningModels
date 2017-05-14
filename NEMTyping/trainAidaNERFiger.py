@@ -17,10 +17,10 @@ import tensorflow as tf
 from model import seqMLP,seqCtxLSTM,seqLSTM,seqCNN
 from embedding import WordVec,MyCorpus,get_input_figer,RandomVec,get_input_figer_chunk,get_input_figer_chunk_train,get_input_figerTest_chunk
 import cPickle
-from utils import nerInputUtils as inputUtils
+from evals import getTypeEval
+from utils import genEntCtxMask,genEntMentMask
 import pprint
 import time
-from scipy.sparse import coo_matrix
 #dataset = "figer_MLP_test"
 dataset = "figer"
 
@@ -42,99 +42,6 @@ flags.DEFINE_string("restore","checkpoint","path of saved model")
 flags.DEFINE_boolean("dropout",True,"apply dropout during training")
 flags.DEFINE_float("learning_rate",0.005,"apply dropout during training")
 args = flags.FLAGS
-
-def getAccuracy(predArray,targetArray):
-  right = 0; alls = 0
-  '''
-  @revise the accuracy test method
-  '''
-  precision=[]
-  recall=[]
-  for i in range(len(predArray)):
-    pred = predArray[i]
-    target = targetArray[i]
-    
-    target_lents = len(np.nonzero(target)[0])*(-1)
-    
-    '''
-    @top one must add in
-    '''
-    predRet=set()
-    
-    predRet.add(np.argmax(pred))
-    
-    for j in range(len(pred)):
-      if pred[j] > 0.5:
-        predRet.add(j)
-    
-    targetRet = set(np.argsort(target)[target_lents:])
-    
-    rightset = predRet & targetRet
-    if len(rightset)==0:
-      precision.append(0.0)
-    else:
-      precision.append(len(rightset)*1.0/len(predRet))
-    
-    recall.append(len(rightset) *1.0/len(targetRet))
-  
-    if predRet == targetRet:
-      right += 1
-    alls += 1
-    
-  return 1.0 * right/alls * 100,precision,recall
-    
-'''
-@sentence_final: shape:(batch_size,sequence_length,dims)
-'''
-def padZeros(sentence_final,max_sentence_length=80,dims=111):
-  for i in range(len(sentence_final)):
-    offset = max_sentence_length-len(sentence_final[i])
-    sentence_final[i] += [[0]*dims]*offset
-    
-  return np.asarray(sentence_final)
-
-def genEntCtxMask(batch_size,entment_mask_final):
-  entNums = len(entment_mask_final)
-  entCtxLeft_masks=[]
-  entCtxRight_masks=[]
-  
-  for i in range(entNums):
-    items = entment_mask_final[i]
-    ids = items[0];start=items[1];end=items[2]
-    temp_entCtxLeft_mask=[];temp_entCtxRight_mask = []
-    left = max(0,start-10); 
-    right = min(args.sentence_length,end+10)
-    for ient in range(left,start):
-        temp_entCtxLeft_mask.append(ids*args.sentence_length+ient)
-    for ient in range(end,right):
-        temp_entCtxRight_mask.append(ids*args.sentence_length+ient)
-        
-    if start-left < 10:
-      temp_entCtxLeft_mask+= [batch_size*args.sentence_length] * (10-(start-left))
-    
-    if right-end < 10:
-      temp_entCtxRight_mask+= [batch_size*args.sentence_length] * (10-(right-end))
-      
-    entCtxLeft_masks.append(temp_entCtxLeft_mask)
-    entCtxRight_masks.append(temp_entCtxRight_mask)
-  return entCtxLeft_masks,entCtxRight_masks
-    
-def genEntMentMask(batch_size,entment_mask_final):
-  entNums = len(entment_mask_final)
-  entment_masks = []
-  #need to limit the length of the entity mentions
-  for i in range(entNums):
-    items = entment_mask_final[i]
-    ids = items[0];start=items[1];end=items[2]
-    temp_entment_masks=[]
-    for ient in range(start,end):
-        temp_entment_masks.append(ids*args.sentence_length+ient)
-    if end-start <5:
-      temp_entment_masks+= [batch_size*args.sentence_length] * (5-(end-start))
-    if end-start > 5:
-      temp_entment_masks = temp_entment_masks[0:5]
-    entment_masks.append(list(temp_entment_masks))
-  return np.asarray(entment_masks)
     
 def main(_):
   pp.pprint(flags.FLAGS.__flags)
@@ -184,12 +91,12 @@ def main(_):
   optimizer = tf.train.AdamOptimizer(args.learning_rate)
   tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
   print 'tvars:',tvars
-  lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.001  #parameter has a very important effect on training!
+  lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.02  #parameter has a very important effect on training!
   totalLoss = model.loss  + lossL2                
-#  start_time = time.time()
-#  grads, _ = tf.clip_by_global_norm(tf.gradients(totalLoss, tvars), 10)
-#  train_op = optimizer.apply_gradients(zip(grads, tvars))
-  train_op = optimizer.minimize(totalLoss)
+  start_time = time.time()
+  grads, _ = tf.clip_by_global_norm(tf.gradients(totalLoss, tvars), 10)
+  train_op = optimizer.apply_gradients(zip(grads, tvars))
+  #train_op = optimizer.minimize(totalLoss)
   sess.run(tf.global_variables_initializer())
   print 'build optimizer for seqLSTM cost time:', time.time()-start_time
 
@@ -251,8 +158,8 @@ def main(_):
         test_input = np.asarray(test_sentence,dtype=np.float32)
         print 'figer_test input:',np.shape(test_input)
         test_out = test_tag
-        test_entMentIndex = genEntMentMask(np.shape(test_input)[0],test_entment_mask)
-        test_entCtxLeft_Index,test_entCtxRight_Index = genEntCtxMask(np.shape(test_input)[0],test_entment_mask)
+        test_entMentIndex = genEntMentMask(args,np.shape(test_input)[0],test_entment_mask)
+        test_entCtxLeft_Index,test_entCtxRight_Index = genEntCtxMask(args,np.shape(test_input)[0],test_entment_mask)
         num_examples = len(test_entMentIndex)
         type_shape=  np.array([num_examples,args.class_size], dtype=np.int64)
       
@@ -270,23 +177,20 @@ def main(_):
                         model.pos_f2:pos2,
                         model.pos_f3:pos3,
                         model.keep_prob:1})
-        accuracy,precision,recall = getAccuracy(pred,target)
-        if (np.average(precision)+np.average(recall))==0:
-          f1 = 0
-        else:
-          f1 = np.average(precision)*np.average(recall)*2/(np.average(precision)+np.average(recall))*100
-        if f1 > maximum:
-          maximum = f1
+        f1_strict,f1_macro,f1_micro = getTypeEval(pred,target)
+        
+        if f1_strict > maximum:
+          maximum = f1_strict
           if maximum > 63.0:
             model.save(sess,args.restore,dataset) #optimize in the dev file!
           cPickle.dump(pred,open('data/'+dataset+'/fulltypeFeatures/'+'testType.p','wb'))
-          print("test: loss:%.4f total loss:%.4f average accuracy:%.4f F1:%.4f" %(loss1,tloss,accuracy,f1))
+          print("test: loss:%.4f total loss:%.4f F1_strict:%.2f f1_macro:%.2f f1_micro:%.2f" %(loss1,tloss,f1_strict,f1_macro,f1_micro))
           print "------------------"
       
       #train_input = padZeros(train_sentence_final)
       train_input = np.asarray(train_sentence_final,dtype=np.float32)
-      train_entMentIndex = genEntMentMask(args.batch_size,train_entment_mask)
-      train_entCtxLeft_Index,train_entCtxRight_Index = genEntCtxMask(args.batch_size,train_entment_mask)
+      train_entMentIndex = genEntMentMask(args,args.batch_size,train_entment_mask)
+      train_entCtxLeft_Index,train_entCtxRight_Index = genEntCtxMask(args,args.batch_size,train_entment_mask)
       train_out = train_tag_final #we need to generate entity mention masks!
       num_examples = len(train_entMentIndex)
       pos1 = np.expand_dims(np.array(num_examples*[[0]*5],np.float32),-1)
@@ -307,11 +211,7 @@ def main(_):
       id_epoch += 1
       
       if id_epoch % 100 == 0:
-        accuracy,precision,recall = getAccuracy(pred,target)
-        if (np.average(precision)+np.average(recall))==0:
-          f1 = 0
-        else:
-          f1 = np.average(precision)*np.average(recall)*2/(np.average(precision)+np.average(recall))*100
-        print("ids: %d,train: loss:%.4f total loss:%.4f accuracy:%.4f  F1:%.4f" %(id_epoch,loss1,tloss,accuracy,f1))
+        f1_strict,f1_macro,f1_micro = getTypeEval(pred,target)
+        print("ids: %d,train: loss:%.4f total loss:%.4f F1_strict:%.2f f1_macro:%.2f f1_micro:%.2f" %(id_epoch,loss1,tloss,f1_strict,f1_macro,f1_micro))
 if __name__=='__main__':
   tf.app.run()
