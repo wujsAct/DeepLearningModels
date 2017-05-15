@@ -30,6 +30,10 @@ class seqCtxLSTM(Model):
     self.entCtxLeftIndex = tf.placeholder(tf.int32,[None,10],name='ent_ctxleft_index')
     self.entCtxRightIndex = tf.placeholder(tf.int32,[None,10],name='ent_ctxright_index')
     
+    self.pos_f1 = tf.placeholder(tf.float32,[None,5,1])
+    self.pos_f2 = tf.placeholder(tf.float32,[None,10,1])
+    self.pos_f3 = tf.placeholder(tf.float32,[None,10,1])
+    
     self.figerHier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  #add the hierarchy features
     self.layers={}
     self.layers['BiLSTM'] = layers_lib.BiLSTM(self.args.rnn_size)
@@ -65,13 +69,13 @@ class seqCtxLSTM(Model):
     print 'input_f2:',input_f3
     
     
-    self.input_total = tf.concat([input_f1,input_f2,input_f3],1)
+    self.input_total = tf.nn.sigmoid(tf.concat([input_f1,input_f2,input_f3],1))
   
     if self.args.dropout:
       self.input_total =  tf.nn.dropout(self.input_total,self.keep_prob)
         
         
-    prediction = self.layers['fullyConnect'](self.input_total,tf.nn.tanh)
+    prediction = tf.nn.sigmoid(self.layers['fullyConnect'](self.input_total,tf.nn.tanh))
 
     loss = tf.reduce_mean(layers_lib.classification_loss('figer',self.dense_outputdata,prediction))
     

@@ -45,12 +45,12 @@ class seqCNN(Model):
     #self.hier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  #add the hierarchy features
     self.hier = np.asarray(cPickle.load(open('data/OntoNotes/OntoNoteshierarchical.p','rb')),np.float32)
     
-    print np.shape(self.hier)[0]
+    self.pred_bias = tf.Variable(tf.zeros([self.args.class_size]), name="pred_bias")
     
     self.layers={}
-    self.layers['CNN'] = layers_lib.CNN(filters=[1,2,3],word_embedding_size=self.args.word_dim+1,num_filters=5)
-    self.layers['fullyConnect_final'] = layers_lib.FullyConnection(self.args.class_size) # 90 is the row of type hierical 
-    
+    self.layers['CNN'] = layers_lib.CNN(filters=[1,2,3],word_embedding_size=self.args.word_dim+1,num_filters=10)
+    #self.layers['fullyConnect_final'] = layers_lib.FullyConnection(np.shape(self.hier)[0]) # 90 is the row of type hierical 
+    self.layers['fullyConnect_final'] = layers_lib.FullyConnection(self.args.class_size)
         
     self.dense_outputdata= tf.sparse_tensor_to_dense(self.output_data)
     
@@ -100,9 +100,14 @@ class seqCNN(Model):
     
     print 'final_input:',self.final_input
     
+    if self.args.dropout:
+      self.final_input = tf.nn.dropout(self.final_input, self.keep_prob)
+      
     
     prediction = self.layers['fullyConnect_final'](self.final_input,activation_fn=tf.nn.tanh)
-      
+     
+    #prediction = tf.nn.sigmoid(tf.matmul(prediction,self.hier) + self.pred_bias)
+                            
     loss = tf.reduce_mean(layers_lib.classification_loss('figer',self.dense_outputdata,prediction))
     return prediction,loss
   

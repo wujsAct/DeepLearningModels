@@ -36,10 +36,12 @@ class seqLSTM(Model):
     self.entCtxLeftIndex = tf.placeholder(tf.int32,[None,None],name='ent_ctxleft_index')
     self.entCtxRightIndex = tf.placeholder(tf.int32,[None,None],name='ent_ctxright_index')
      
-    #self.hier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  #add the hierarchy features
-    self.hier = np.asarray(cPickle.load(open('data/OntoNotes/OntoNoteshierarchical.p','rb')),np.float32)
-    
-    print np.shape(self.hier)[0]
+    self.hier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  #add the hierarchy features
+    #self.hier = np.asarray(cPickle.load(open('data/OntoNotes/OntoNoteshierarchical.p','rb')),np.float32)
+    self.pos_f1 = tf.placeholder(tf.float32,[None,5,1])
+    self.pos_f2 = tf.placeholder(tf.float32,[None,10,1])
+    self.pos_f3 = tf.placeholder(tf.float32,[None,10,1])
+    print 'hier shape:',np.shape(self.hier)
     
     self.layers={}
     self.layers['BiLSTM'] = layers_lib.BiLSTM(self.args.rnn_size)
@@ -67,11 +69,6 @@ class seqLSTM(Model):
     input_f2 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxLeftIndex),1),1)
     input_f3 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxRightIndex),1),1)
     
-#    input_ctx = tf.concat([input_f1,input_f2,input_f3],1)
-#    
-#    if self.args.dropout:  #dropout position is here!
-#      input_ctx =  tf.nn.dropout(input_ctx,self.keep_prob)
-#    prediction = self.layers['fullyConnect_ctx'](input_ctx,activation_fn=tf.nn.tanh)
     
     input_ctx = tf.concat([input_f2,input_f3],1)
     
@@ -80,11 +77,11 @@ class seqLSTM(Model):
       input_ctx =  tf.nn.dropout(input_ctx,self.keep_prob)
         
     prediction_l1_ment = self.layers['fullyConnect_ment'](input_f1,activation_fn=tf.nn.tanh)
-    prediction_metn = tf.matmul(prediction_l1_ment,self.hier)
+    prediction_ment = tf.matmul(prediction_l1_ment,self.hier)
     
     prediction_ctx = self.layers['fullyConnect_ctx'](input_ctx,activation_fn=tf.nn.tanh)
     
-    prediction = prediction_metn + prediction_ctx
+    prediction = tf.nn.sigmoid(prediction_ment + prediction_ctx)
     
     loss = tf.reduce_mean(layers_lib.classification_loss('figer',self.dense_outputdata,prediction))
     return prediction,loss
