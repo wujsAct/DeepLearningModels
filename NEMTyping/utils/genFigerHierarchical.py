@@ -7,12 +7,23 @@ Created on Thu May 04 10:10:13 2017
 
 import cPickle
 import numpy as np
+from sklearn.preprocessing import normalize
+
+def genTypePrior(type2id,entMents):
+  ret = np.zeros((len(type2id,)),dtype=np.float32)
+
+  for i in range(len(entMents)):
+    entList = entMents[i]
+    for enti in entList:
+      for typei in enti[2]:
+        ret[typei] += 1
+  return normalize(ret)
 
 def generateFigerHier():
   figer2id = cPickle.load(open('data/figer/figer2id.p','rb'))
   id2figer = {figer2id[key]:key for key in figer2id}
   
-  
+  print len(figer2id)
   #get the first level
   row = 0
   first2Level = {}
@@ -44,7 +55,7 @@ def generateFigerHier():
       #print row,ids
       figerHier[row,ids]=1
                
-               
+  print np.shape(figerHier)             
   cPickle.dump(figerHier,open('data/figer/figerhierarchical.p','wb'))
   
 def generateOntoNotesHier():
@@ -109,6 +120,14 @@ def generateOntoNotesHier():
       #print row,ids
       OntoNotesHier[row,ids]=1
   cPickle.dump(OntoNotesHier,open('data/OntoNotes/OntoNoteshierarchical.p','wb'))
-generateOntoNotesHier()
-    
-  
+
+#generateFigerHier()
+#generateOntoNotesHier()
+dir_path = 'data/figer/'
+type2id = cPickle.load(open(dir_path+'figer2id.p'))
+entMents =cPickle.load(open(dir_path+'features/train_entMents.p'))
+#print entMents
+type2weight = genTypePrior(type2id,entMents)
+print type2weight
+cPickle.dump(type2weight,open(dir_path+'type2weight.p','wb'))
+

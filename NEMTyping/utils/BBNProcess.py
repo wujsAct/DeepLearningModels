@@ -20,7 +20,7 @@ from sklearn import preprocessing
 def typeFiger():
   figer2id = {}
   typeId = 0
-  fname = 'data/OntoNotes/features/train_gold_entMen2aNosNoid.txt'
+  fname = 'data/BBN/features/train_gold_entMen2aNosNoid.txt'
   print fname
   for line in open(fname):
     line = line.strip()
@@ -35,10 +35,10 @@ def typeFiger():
          print fbType
          
   print typeId
-  cPickle.dump(figer2id,open('data/OntoNotes/type2id.p','wb'))
+  cPickle.dump(figer2id,open('data/BBN/type2id.p','wb'))
 
 def splitData():
-  fname = 'data/OntoNotes/features/test_sentid2aNosNoid.txt'
+  fname = 'data/BBN/features/test_sentid2aNosNoid.txt'
   docSet=set()
   aNo2sNo= collections.defaultdict(int)
   for line in open(fname):
@@ -76,7 +76,7 @@ def splitData():
   
   return validation
 
-def getSplitData(dir_path='data/OntoNotes/'):
+def getSplitData(dir_path='data/BBN/'):
   sid2aNosNo,aNosNo2sid = openSentid2aNosNoid(dir_path,"test")
   aNosNo2entMen = getaNosNo2entMenOntos(dir_path,"test")
   #testa = cPickle.load(open(dir_path+"figer.testa",'rb'))
@@ -98,9 +98,9 @@ def getSplitData(dir_path='data/OntoNotes/'):
   word = []
   maxLents = 0
   sid = 0
-  input_file_obj = open(dir_path+'features/OntoNotesData_test.txt')
-  testa_outfile = open(dir_path+'features/OntoNotesData_testa.txt','w')
-  testb_outfile = open(dir_path+'features/OntoNotesData_testb.txt','w')
+  input_file_obj = open(dir_path+'features/BBNData_test.txt')
+  testa_outfile = open(dir_path+'features/BBNData_testa.txt','w')
+  testb_outfile = open(dir_path+'features/BBNData_testb.txt','w')
   for line in tqdm(input_file_obj):
     if line in ['\n', '\r\n']:
       aNosNo = sid2aNosNo[sid]
@@ -217,17 +217,17 @@ for key in words:
 #  line = line.strip()
 #  pronominal_words[line.lower()]=1
                    
-dir_path = 'data/OntoNotes/'
+dir_path = 'data/BBN/'
 tag = 'train'
 #typeFiger()
-getEnts(dir_path,tag,pronominal_words)
+#getEnts(dir_path,tag,pronominal_words)
 #getTestEnts(dir_path,tag,pronominal_words)
 
 
-#tag = True
-#while tag:    
-#  print '----------------------'
-#  sim = getSplitData()
-#  if abs(sim) <=0.001:
-#    tag=False
-#  print '----------------------'
+tag = True
+while tag:    
+  print '----------------------'
+  sim = getSplitData()
+  if abs(sim) <=0.001:
+    tag=False
+  print '----------------------'

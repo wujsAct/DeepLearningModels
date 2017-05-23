@@ -33,9 +33,18 @@ def getEnts(dir_path,tag):
     entMents.append(entList)
     
   cPickle.dump(entMents,open(dir_path+'features/'+tag+'_entMents.p','wb'))
-  
-  
 
 dir_path = 'data/WebQuestion/'
-tag = 'train'
-getEnts(dir_path,tag)
+tag = 'test'
+#getEnts(dir_path,tag)
+
+#'''
+#@statisitc of entity mention for WEB question
+#'''
+#entMents = cPickle.load(open(dir_path+'features/'+tag+'_entMents.p','rb'))
+#totalMentions = 0
+#for i in range(len(entMents)):
+#  entList = entMents[i]
+#  totalMentions += len(entList)
+#  
+#print 'web question ', tag,' entity mention is:',totalMentions
