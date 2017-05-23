@@ -41,16 +41,19 @@ class seqCNN(Model):
     
     self.entCtxLeftIndex = tf.placeholder(tf.int32,[None,10],name='ent_ctxleft_index')
     self.entCtxRightIndex = tf.placeholder(tf.int32,[None,10],name='ent_ctxright_index')
-     
-    #self.hier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  #add the hierarchy features
-    self.hier = np.asarray(cPickle.load(open('data/OntoNotes/OntoNoteshierarchical.p','rb')),np.float32)
+    
+    if args.datasets == 'figer':
+      self.hier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  #add the hierarchy features
+    else:
+      self.hier = np.asarray(cPickle.load(open('data/OntoNotes/OntoNoteshierarchical.p','rb')),np.float32)
     
     self.pred_bias = tf.Variable(tf.zeros([self.args.class_size]), name="pred_bias")
     
     self.layers={}
-    self.layers['CNN'] = layers_lib.CNN(filters=[1,2,3],word_embedding_size=self.args.word_dim+1,num_filters=10)
-    #self.layers['fullyConnect_final'] = layers_lib.FullyConnection(np.shape(self.hier)[0]) # 90 is the row of type hierical 
-    self.layers['fullyConnect_final'] = layers_lib.FullyConnection(self.args.class_size)
+    self.layers['CNN'] = layers_lib.CNN(filters=[1,2,3,4,5],word_embedding_size=self.args.word_dim+1,num_filters=5)
+    self.layers['fullyConnect_ment'] = layers_lib.FullyConnection(self.args.class_size,name='FullyConnection_ment') # 90 is the row of type hierical 
+    self.layers['fullyConnect_ctx'] = layers_lib.FullyConnection(self.args.class_size,name='FullyConnection_ctx')
+    #self.layers['fullyConnect_ctx'] = layers_lib.FullyConnection(np.shape(self.hier)[0],name='FullyConnection_ctx')
         
     self.dense_outputdata= tf.sparse_tensor_to_dense(self.output_data)
     
@@ -59,15 +62,14 @@ class seqCNN(Model):
     self.prediction,self.loss_lm = self.cl_loss_from_embedding(self.input_data)
     print 'self.loss_lm:',self.loss_lm
       
-#    _,self.adv_loss = self.adversarial_loss()
-#    print 'self.adv_loss:',self.adv_loss
-#
-#    self.loss = tf.add(self.loss_lm,self.adv_loss)
-    self.loss = self.loss_lm 
+    _,self.adv_loss = self.adversarial_loss()
+    print 'self.adv_loss:',self.adv_loss
+
+    self.loss = tf.add(self.loss_lm,self.adv_loss)
+    #self.loss = self.loss_lm 
     
   def cl_loss_from_embedding(self,embedded,return_intermediate=False):
-    with tf.device('/gpu:1'):
-      #output,_,_ = self.layers['BiLSTM'](embedded)
+    with tf.device('/gpu:0'):
       output = tf.concat([tf.reshape(self.input_data,[-1,self.args.word_dim]),tf.constant(np.zeros((1,self.args.word_dim),dtype=np.float32))],0)
       
     self.input_f1 = tf.nn.embedding_lookup(output,self.entMentIndex)
@@ -90,25 +92,34 @@ class seqCNN(Model):
     self.h_pool_f1 = self.layers['CNN'](tf.expand_dims(self.input_f1,-1),5)
     print 'h_pool_f1:',self.h_pool_f1
     
+    
+    
     self.h_pool_f2 = self.layers['CNN'](tf.expand_dims(self.input_f2,-1),10)
     print 'h_pool_f2:',self.h_pool_f2
     
     self.h_pool_f3 = self.layers['CNN'](tf.expand_dims(self.input_f3,-1),10)
     print 'h_pool_f3:',self.h_pool_f3
     
-    self.final_input = tf.concat([self.h_pool_f1,self.h_pool_f2,self.h_pool_f3],1)
-    
-    print 'final_input:',self.final_input
     
     if self.args.dropout:
-      self.final_input = tf.nn.dropout(self.final_input, self.keep_prob)
-      
+      self.h_pool_f1 = tf.nn.dropout(self.h_pool_f1,self.keep_prob)
+      self.h_pool_f2 = tf.nn.dropout(self.h_pool_f2,self.keep_prob)
+      self.h_pool_f3 = tf.nn.dropout(self.h_pool_f3,self.keep_prob)
     
-    prediction = self.layers['fullyConnect_final'](self.final_input,activation_fn=tf.nn.tanh)
+    '''
+    @final results
+    '''
+    
+    self.ctx_input = tf.concat([self.h_pool_f2,self.h_pool_f3],1)
+    
+    prediction_ctx = self.layers['fullyConnect_ctx'](self.ctx_input,activation_fn=tf.nn.relu)   #utilize the relu activative function
      
-    #prediction = tf.nn.sigmoid(tf.matmul(prediction,self.hier) + self.pred_bias)
+    prediction_ment = self.layers['fullyConnect_ment'](tf.nn.l2_normalize(self.h_pool_f1,1),activation_fn=tf.nn.relu)
+    
+    
+    prediction = prediction_ctx + prediction_ment
                             
-    loss = tf.reduce_mean(layers_lib.classification_loss('figer',self.dense_outputdata,prediction))
+    loss = tf.reduce_mean(layers_lib.classification_loss('figer',self.dense_outputdata,prediction))  #rerank the entities
     return prediction,loss
   
   def adversarial_loss(self):

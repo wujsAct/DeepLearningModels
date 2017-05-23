@@ -75,7 +75,7 @@ class seqCtxLSTM(Model):
       self.input_total =  tf.nn.dropout(self.input_total,self.keep_prob)
         
         
-    prediction = tf.nn.sigmoid(self.layers['fullyConnect'](self.input_total,tf.nn.tanh))
+    prediction =self.layers['fullyConnect'](self.input_total,tf.nn.sigmoid)
 
     loss = tf.reduce_mean(layers_lib.classification_loss('figer',self.dense_outputdata,prediction))
     

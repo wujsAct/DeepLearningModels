@@ -35,18 +35,21 @@ class seqLSTM(Model):
     
     self.entCtxLeftIndex = tf.placeholder(tf.int32,[None,None],name='ent_ctxleft_index')
     self.entCtxRightIndex = tf.placeholder(tf.int32,[None,None],name='ent_ctxright_index')
-     
-    self.hier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  #add the hierarchy features
-    #self.hier = np.asarray(cPickle.load(open('data/OntoNotes/OntoNoteshierarchical.p','rb')),np.float32)
+    
+    if self.args.datasets =='figer':
+      self.hier = np.asarray(cPickle.load(open('data/figer/figerhierarchical.p','rb')),np.float32)  
+    else:
+      self.hier = np.asarray(cPickle.load(open('data/OntoNotes/OntoNoteshierarchical.p','rb')),np.float32)
     self.pos_f1 = tf.placeholder(tf.float32,[None,5,1])
     self.pos_f2 = tf.placeholder(tf.float32,[None,10,1])
     self.pos_f3 = tf.placeholder(tf.float32,[None,10,1])
     print 'hier shape:',np.shape(self.hier)
     
+    print 'self.args.rnn_size:',self.args.rnn_size
     self.layers={}
     self.layers['BiLSTM'] = layers_lib.BiLSTM(self.args.rnn_size)
-    self.layers['fullyConnect_ment'] = layers_lib.FullyConnection(np.shape(self.hier)[0]) # 90 is the row of type hierical 
-    self.layers['fullyConnect_ctx'] = layers_lib.FullyConnection(self.args.class_size) # 90 is the row of type hierical 
+    self.layers['fullyConnect_ment'] = layers_lib.FullyConnection(np.shape(self.hier)[0],name='fullyConnect_ment') # 90 is the row of type hierical 
+    self.layers['fullyConnect_ctx'] = layers_lib.FullyConnection(self.args.class_size,name='fullyConnect_ctx') # 90 is the row of type hierical 
     
     self.dense_outputdata= tf.sparse_tensor_to_dense(self.output_data)
     
@@ -54,21 +57,34 @@ class seqLSTM(Model):
     self.prediction,self.loss_lm = self.cl_loss_from_embedding(self.input_data)
     print 'self.loss_lm:',self.loss_lm
       
-#    _,self.adv_loss = self.adversarial_loss()
-#    print 'self.adv_loss:',self.adv_loss
-#
-#    self.loss = tf.add(self.loss_lm,self.adv_loss)
-    self.loss = self.loss_lm 
+    _,self.adv_loss = self.adversarial_loss()
+    print 'self.adv_loss:',self.adv_loss
+
+    self.loss = tf.add(self.loss_lm,self.adv_loss)
+    #self.loss = self.loss_lm 
     
   def cl_loss_from_embedding(self,embedded,return_intermediate=False):
     with tf.device('/gpu:1'):
-      output,_,_ = self.layers['BiLSTM'](embedded)
+      output,_ = self.layers['BiLSTM'](embedded)
       output = tf.concat([tf.reshape(output,[-1,2*self.args.rnn_size]),tf.constant(np.zeros((1,2*self.args.rnn_size),dtype=np.float32))],0)
       
     input_f1 =tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entMentIndex),1),1)
-    input_f2 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxLeftIndex),1),1)
-    input_f3 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxRightIndex),1),1)
     
+    #input_f2 =tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxLeftIndex),1),1)
+    
+    #input_f3 =tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(output,self.entCtxRightIndex),1),1)
+    
+    f2_temp = tf.nn.embedding_lookup(output,self.entCtxLeftIndex)
+    f3_temp = tf.nn.embedding_lookup(output,self.entCtxRightIndex)
+    
+    f2_atten = tf.nn.softmax(tf.einsum('aij,ajk->aik', f2_temp, tf.expand_dims(input_f1,-1)),-1)  #Batch matrix multiplication
+    f3_atten = tf.nn.softmax(tf.einsum('aij,ajk->aik', f3_temp, tf.expand_dims(input_f1,-1)),-1) 
+    
+    input_f2 = tf.einsum('aij,ajk->aik',tf.transpose(f2_temp,[0,2,1]),f2_atten)[:,:,0]
+    input_f3 = tf.einsum('aij,ajk->aik',tf.transpose(f3_temp,[0,2,1]),f3_atten)[:,:,0]
+    
+    print 'f2_input:',input_f2
+    print 'f3_input:',input_f3
     
     input_ctx = tf.concat([input_f2,input_f3],1)
     
@@ -76,11 +92,12 @@ class seqLSTM(Model):
       input_f1 =  tf.nn.dropout(input_f1,self.keep_prob)
       input_ctx =  tf.nn.dropout(input_ctx,self.keep_prob)
         
-    prediction_l1_ment = self.layers['fullyConnect_ment'](input_f1,activation_fn=tf.nn.tanh)
+    prediction_l1_ment = self.layers['fullyConnect_ment'](input_f1,activation_fn=None)
     prediction_ment = tf.matmul(prediction_l1_ment,self.hier)
     
-    prediction_ctx = self.layers['fullyConnect_ctx'](input_ctx,activation_fn=tf.nn.tanh)
-    
+    print 'ment:',prediction_ment
+    prediction_ctx = self.layers['fullyConnect_ctx'](input_ctx,activation_fn=None)
+    print 'ctx:',prediction_ctx
     prediction = tf.nn.sigmoid(prediction_ment + prediction_ctx)
     
     loss = tf.reduce_mean(layers_lib.classification_loss('figer',self.dense_outputdata,prediction))

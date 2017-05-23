@@ -17,13 +17,10 @@ def openSentid2aNosNoid(dir_path,tag):
   sNo = 0
   sid2aNosNo = {}
   aNosNo2sid = {}
-  if dir_path =='data/figer/':
-    fName = dir_path +'sentid2aNosNoid.txt'
-  else:
-    fName = dir_path +'features/'+tag+'_sentid2aNosNoid.txt'
-
   
-  for line in open(fName):
+  fName = dir_path +'features/'+tag+'_sentid2aNosNoid.txt'
+
+  for line in tqdm(open(fName)):
     line = line.strip()
     
     sid,aNosNo = line.split('\t')
@@ -38,7 +35,7 @@ def getaNosNo2entMenOntos(dir_path,tag):
   #lists: [[entSatrt,entEnd],...]
   aNosNo2entMen = collections.defaultdict(list)
   fName = dir_path +'features/'+tag+'_gold_entMen2aNosNoid.txt'
-  for line in open(fName):
+  for line in tqdm(open(fName)):
     line = line.strip()
     items = line.split('\t')
     
@@ -46,14 +43,24 @@ def getaNosNo2entMenOntos(dir_path,tag):
     aNosNo = items[3]
     typeList=[]
     flag = False
+    fflag = False
     totalEnts += 1
     for i in range(4,len(items)):
       typei = items[i]
       if typei in type2id:
         typeList.append(type2id[typei])
         flag = True
-    if flag:
+        fflag = True
+    if flag == False:
+      for typei in ["/other", "/location"]:
+        if typei in type2id:
+          typeList.append(type2id[typei])
+          fflag=True
+          
+    if fflag:
       aNosNo2entMen[aNosNo].append([ents,ente,typeList,items[0]])   #we delete the non-entityt types
+    else:
+      print line
   return aNosNo2entMen
 
 
@@ -65,6 +72,7 @@ def getaNosNo2entWebQuestion(dir_path,tag):
     line = line.strip()
     items = line.split('\t')
     
+    
     ents = items[2]; ente = items[3]
     aNosNo = items[1]
     typeList=[]   #assume the typeList is NULL
@@ -73,18 +81,36 @@ def getaNosNo2entWebQuestion(dir_path,tag):
     aNosNo2entMen[aNosNo].append([ents,ente,typeList,items[0]])   #we delete the non-entityt types
     
   return aNosNo2entMen
+
+
+def getaNosNo2entACE(dir_path,tag):
+  aNosNo2entMen = collections.defaultdict(list)
+  fName = dir_path +'features/'+'entMent2aNosNoid.txt'
+  
+  for line in open(fName):
+    line = line.strip()
+    items = line.split('\t')
     
+    ents = items[3]; ente = items[4]
+    aNosNo = items[2]
+    typeList=[]   #assume the typeList is NULL
     
+    aNosNo2entMen[aNosNo].append([ents,ente,typeList,items[0]])   #we delete the non-entityt types
+    
+  print aNosNo2entMen
+  return aNosNo2entMen 
+   
     
 
-def getaNosNo2entMen(dir_path):
+def getaNosNo2entMen(dir_path,tag):
   fb2figer = cPickle.load(open(dir_path+'fb2figer.p','rb'))
   totalEnts = 0
   figerTypeEnts = 0
   #lists: [[entSatrt,entEnd],...]
   #aNosNo2entMen= collections.defaultdict(set)
   aNosNo2entMen = collections.defaultdict(list)
-  fName = dir_path +'gold_entMen2aNosNoid.txt'
+  fName = dir_path +'features/'+tag+'_gold_entMen2aNosNoid.txt'
+  
   for line in open(fName):
     line = line.strip()
     items = line.split('\t')

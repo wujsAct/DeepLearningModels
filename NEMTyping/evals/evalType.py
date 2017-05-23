@@ -26,7 +26,7 @@ def getTypeEval(predArray,targetArray):
     predRet.add(np.argmax(pred))
     
     for j in range(len(pred)):
-      if pred[j] > 0.3:
+      if pred[j] > 0.5:   #fixed threshold is very diffcult to get! we just choose the 0.3
         predRet.add(j)
     
     targetRet = set(np.argsort(target)[target_lents:])
@@ -46,7 +46,10 @@ def getTypeEval(predArray,targetArray):
     if predRet == targetRet:
       right += 1
     alls += 1
-  
+  return right,alls,precision,recall,right_cross,predRet_list,targetRet_list
+
+
+def getRelTypeEval(right,alls,precision,recall,right_cross,predRet_list,targetRet_list):
   f1_macro = 0;
   f1_micro = 0;f1_micro_p=0;f1_micro_r=0;
   temp =  np.average(precision)+np.average(recall)
@@ -60,5 +63,4 @@ def getTypeEval(predArray,targetArray):
     
   if f1_micro_p+f1_micro_r!=0:
     f1_micro = 2*f1_micro_p*f1_micro_r/(f1_micro_p+f1_micro_r) * 100
-
-  return 1.0 * right/alls * 100,f1_macro,f1_micro
+  return 1.0 *right/alls * 100,f1_macro,f1_micro

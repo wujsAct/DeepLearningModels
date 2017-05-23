@@ -123,21 +123,32 @@ def getFigerEntTags(entList,sid,ent_no):
   
   return ent_no,ent_mention_mask,type_indices,type_val
 
-def get_input_figerTest_chunk(flag,dataset,dir_path,model,word_dim,sentence_length=-1):
-  vocab = model.vocab
-  randomVector = cPickle.load(open('data/figer/randomVector.p','rb'))
-  epochs = 1
+def get_input_figerTest_chunk(flag,tag,dir_path,batch_size,model,word_dim,sentence_length=-1):
+  
 #  vocab2id = cPickle.load(open('data/vocab2id.p'))
 #  print len(vocab2id)
   #figerTypes = 113
-  
-  if dir_path=='data/figer_test/':
-    input_file_obj = open(dir_path+'features/figerData.txt')
-    entMents = cPickle.load(open(dir_path+'features/figer_entMents.p','rb'))
-  else:
-    input_file_obj = open(dir_path+'features/'+dataset+'Data_test.txt')
-    entMents = cPickle.load(open(dir_path+'features/'+'test_entMents.p','rb'))
-  
+  if dir_path == 'data/figer/':
+    input_file_obj = open(dir_path+'features/'+'figerData_'+tag+'.txt')
+    entMents = cPickle.load(open(dir_path+'features/'+tag+'_entMents.p','rb'))
+    if tag =='testa':
+      sentenceNums = 43
+    if tag =='testb':
+      sentenceNums = 391
+  elif dir_path == 'data/OntoNotes/':
+    input_file_obj = open(dir_path+'features/'+'OntoNotesData_'+tag+'.txt')
+    entMents = cPickle.load(open(dir_path+'features/'+tag+'_entMents.p','rb'))
+    if tag=='testa':
+      sentenceNums = 126
+    if tag =='testb':
+      sentenceNums = 1186
+  elif dir_path == 'data/BBN/':
+    input_file_obj = open(dir_path+'features/'+'BBNData_'+tag+'.txt')
+    entMents = cPickle.load(open(dir_path+'features/'+tag+'_entMents.p','rb'))
+    if tag=='testa':
+      sentenceNums = 559
+    if tag == 'testb':
+      sentenceNums = 5779
   allid=0
   word = []
   #tag = []
@@ -145,143 +156,84 @@ def get_input_figerTest_chunk(flag,dataset,dir_path,model,word_dim,sentence_leng
   type_val=[]
   sentence = []
   ent_mention_mask=[]
+  retParams= []
   #sentence_tag = []
   if sentence_length == -1:
     max_sentence_length = find_max_length(input_file_obj)
   else:
     max_sentence_length = sentence_length
+  #print 'max_sentence_length:',max_sentence_length
+  vocab = model.vocab
+  randomVector = cPickle.load(open('data/figer/randomVector.p','rb'))
+  
   ent_no=0
   sentence_length = 0
   #print("max sentence length is %d" % max_sentence_length)
 #  sentence_final=[]
 #  type_final = []
 #  ent_mention_mask_final=[]
-  for epoch in range(epochs):
-    sid = 0
-    for line in input_file_obj:
-      if line in ['\n', '\r\n']:
-        #for _ in range(max_sentence_length - sentence_length):
-          #tag.append(np.array([0] * 5))
-        #  temp = np.array([0 for _ in range(word_dim)])
-        #  word.append(temp)
-        #if sentence_length > max_sentence_length:
-        #  print 'sentence_length is longer than max_sentence_length...', sentence_length
-        if flag=='LSTM':
-          word += [np.zeros((311,))]* (max_sentence_length - sentence_length)
-        else:
-          word += [np.zeros((300,))]* (max_sentence_length - sentence_length)
-        entList = entMents[sid]
-        ent_no,temp_ent_mention_mask,temp_type_indices,temp_type_val = getFigerEntTags(entList,allid,ent_no)
-        sentence.append(word)
-        ent_mention_mask += temp_ent_mention_mask
-        type_indices += temp_type_indices
-        type_val += temp_type_val
-        
-        
-        allid += 1   
-        sid += 1
-        sentence_length = 0
-        word = []
+  sid = 0
+  for line in input_file_obj:
+    if line in ['\n', '\r\n']:
+      #for _ in range(max_sentence_length - sentence_length):
+        #tag.append(np.array([0] * 5))
+      #  temp = np.array([0 for _ in range(word_dim)])
+      #  word.append(temp)
+      #if sentence_length > max_sentence_length:
+      #  print 'sentence_length is longer than max_sentence_length...', sentence_length
+      if flag=='LSTM':
+        word += [np.zeros((310,))]* (max_sentence_length - sentence_length)
       else:
-        assert (len(line.split()) == 3)  #only has Word,pos_tag
-        sentence_length += 1
-        wd = line.split()[0]
-        if wd in vocab:
-          temp = model[wd]
-        elif wd.lower() in vocab:
-          temp = model[wd.lower()]
-        else:
-          temp = np.zeros((300,))
-        if flag=='LSTM':
-          temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
-          temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-          temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
-          #print 'non words...'
-          #temp = randomVector
-#        wd = line.split()[0]
-#        if wd in vocab2id:
-#          temp = vocab2id[wd]
-#        elif wd.lower() in vocab2id:
-#          temp = vocab2id[wd.lower()]
-#        else:
-#          temp = vocab2id['NIL']
-        word.append(temp)
-  return ent_mention_mask,sentence,[np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)]
-
-def get_input_figer_chunk(batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
-  epochs = 1
-  #figerTypes = 113
-  input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
-  
-  entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
-  #figer2id = cPickle.load(open(dir_path+"figer2id.p",'rb'))
-  #otherType=len(figer2id)
-  #print 'figer types:',len(figer2id)
-  
-  allid=0
-  word = []
-  #tag = []
-  type_indices=[]
-  type_val=[]
-  sentence = []
-  ent_mention_mask=[]
-  #sentence_tag = []
-  if sentence_length == -1:
-    max_sentence_length = find_max_length(input_file_obj)
-  else:
-    max_sentence_length = sentence_length
-  ent_no=0
-  sentence_length = 0
-  #print("max sentence length is %d" % max_sentence_length)
-  sentence_final=[]
-  type_final = []
-  ent_mention_mask_final=[]
-  for epoch in range(epochs):
-    sid = 0
-    for line in input_file_obj:
-      if line in ['\n', '\r\n']:
-        for _ in range(max_sentence_length - sentence_length):
-          #tag.append(np.array([0] * 5))
-          temp = np.array([0 for _ in range(word_dim)])
-          word.append(temp)
-        entList = entMents[sid]
-        ent_no,temp_ent_mention_mask,temp_type_indices,temp_type_val = getFigerEntTags(entList,allid%batch_size,ent_no)
-        sentence.append(word)
-        ent_mention_mask += temp_ent_mention_mask
-        type_indices += temp_type_indices
-        type_val += temp_type_val
-        if (allid+1)%batch_size==0 and allid!=0:
-          if len(sentence) == batch_size:
-            #yield ent_mention_mask,sentence,[np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)]
-            sentence_final.append(np.asarray(sentence))
-            ent_mention_mask_final.append(ent_mention_mask)
-            type_final.append([np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)])
-            
-            #sentence_final;ent_mention_mask_final=[];type_final=[]
-            sentence=[];type_indices=[];type_val=[];ent_mention_mask=[];ent_no=0
-        allid += 1   
-        sid += 1
-        sentence_length = 0
-        word = []
+        word += [np.zeros((300,))]* (max_sentence_length - sentence_length)
+      entList = entMents[sid]
+      ent_no,temp_ent_mention_mask,temp_type_indices,temp_type_val = getFigerEntTags(entList,allid,ent_no)
+      sentence.append(word)
+      ent_mention_mask += temp_ent_mention_mask
+      type_indices += temp_type_indices
+      type_val += temp_type_val
+      if ((allid+1)%batch_size==0 or sid== sentenceNums-1) and allid!=0:
+          retParams.append([ent_mention_mask,np.asarray(sentence),[np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)]])
+          sentence=[];type_indices=[];type_val=[];ent_mention_mask=[];ent_no=0
+                 
+      
+      allid += 1   
+      sid += 1
+      sentence_length = 0
+      word = []
+    else:
+      assert (len(line.split()) == 3)  #only has Word,pos_tag
+      sentence_length += 1
+      wd = line.split()[0]
+      if wd in vocab:
+        temp = model[wd]
+      elif wd.lower() in vocab:
+        temp = model[wd.lower()]
       else:
-        assert (len(line.split()) == 3)  #only has Word,pos_tag
-        sentence_length += 1
-        #temp = model[line.split()[0]]
-        temp = temp = np.zeros((100,))
-        #temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
-        #temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
+        #temp = np.zeros((300,))
+        temp = randomVector
+      if flag=='LSTM':
+        temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
+        temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
         #temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
-        assert len(temp) == word_dim
-        word.append(temp)
-  return ent_mention_mask_final,sentence_final,type_final
+       
+      word.append(temp)
+  return retParams
 
 def get_input_figer_chunk_train(flag,dataset,batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
   #vocab2id = cPickle.load(open('data/vocab2id.p'))
-  randomVector = cPickle.load(open('data/figer/randomVector.p','rb'))
-  vocab = model.vocab
-  epochs = 2
-  figerTypes = 113
+  print dir_path+'features/'+dataset+'Data_'+set_tag+'.txt'
+  input_file_obj = open(dir_path+'features/'+dataset+'Data_'+set_tag+'.txt')
+  entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
   
+  '''
+  @split into train and validation
+  '''
+  if dataset == 'figer':
+    sentenceNums = 2000000 
+  elif dataset=='OntoNotes':
+    sentenceNums = 88284
+  elif dataset == 'BBN':
+    sentenceNums = 32739
   
   allid=0
   word = []
@@ -295,63 +247,69 @@ def get_input_figer_chunk_train(flag,dataset,batch_size,dir_path,set_tag,model,w
     max_sentence_length = find_max_length(input_file_obj)
   else:
     max_sentence_length = sentence_length
+  print 'max_sentence_length:',max_sentence_length
+  
+  randomVector = cPickle.load(open('data/figer/randomVector.p','rb'))
+  vocab = model.vocab
+  #vocab = None
   ent_no=0
   sentence_length = 0
-  #print("max sentence length is %d" % max_sentence_length)
-  for epoch in range(epochs):
-    sid = 0
-    #input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
-    input_file_obj = open(dir_path+'features/'+dataset+'Data_'+set_tag+'.txt')
-    entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
-    for line in input_file_obj:
-      if line in ['\n', '\r\n']:
-        if flag=='LSTM':
-          word += [np.zeros((311,))]* (max_sentence_length - sentence_length)
-        else:
-          word += [np.zeros((300,))]* (max_sentence_length - sentence_length)
-
-        entList = entMents[sid]
-        ent_no,temp_ent_mention_mask,temp_type_indices,temp_type_val = getFigerEntTags(entList,allid%batch_size,ent_no)
-        sentence.append(word)
-        ent_mention_mask += temp_ent_mention_mask
-        type_indices += temp_type_indices
-        type_val += temp_type_val
-        if (allid+1)%batch_size==0 and allid!=0:
-          if len(sentence) == batch_size:
-            yield ent_mention_mask,np.asarray(sentence),[np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)]
-            sentence=[];type_indices=[];type_val=[];ent_mention_mask=[];ent_no=0
-        allid += 1   
-        sid += 1
-        sentence_length = 0
-        word = []
+ 
+  sid = 0
+ 
+  for line in input_file_obj:
+    if line in ['\n', '\r\n']:
+      if flag=='LSTM':
+        word += [np.zeros((310,))]* (max_sentence_length - sentence_length)
       else:
-        assert (len(line.split()) == 3)  #only has Word,pos_tag
-        sentence_length += 1
-        wd = line.split()[0]
-        if wd in vocab:
-          temp = model[wd]
-        elif wd.lower() in vocab:
-          temp = model[wd.lower()]
-        else:
-          #we also utilize a random models
-          #temp = randomVector
-          #print wd,'non words...'
-          temp = np.zeros((300,))
-        if flag=='LSTM':
-          temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
-          temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-          temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
-        #temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
-        #temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
+        word += [np.zeros((300,))]* (max_sentence_length - sentence_length)
+
+      entList = entMents[sid]
+      ent_no,temp_ent_mention_mask,temp_type_indices,temp_type_val = getFigerEntTags(entList,allid%batch_size,ent_no)
+      sentence.append(word)
+      ent_mention_mask += temp_ent_mention_mask
+      type_indices += temp_type_indices
+      type_val += temp_type_val
+      if ((allid+1)%batch_size==0 or sid== sentenceNums-2) and allid!=0:
+        if len(sentence) == batch_size:
+          yield ent_mention_mask,np.asarray(sentence),[np.asarray(type_indices, dtype=np.int64),np.asarray(type_val, dtype=np.float32)]
+          sentence=[];type_indices=[];type_val=[];ent_mention_mask=[];ent_no=0
+      allid += 1
+      sid += 1
+      sentence_length = 0
+      word = []
+    else:
+      assert (len(line.split()) == 3)  #only has Word,pos_tag
+      sentence_length += 1
+      wd = line.split()[0]
+      if wd in vocab:
+        temp = model[wd]
+      elif wd.lower() in vocab:
+        temp = model[wd.lower()]
+      else:
+        #we also utilize a random models
+        temp = randomVector   #otherwise, there are maybe something wrong to count the length!
+        #print wd,'non words...'
+        #temp = np.zeros((300,))
+      if flag=='LSTM':
+        temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
+        temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
         #temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
-        #assert len(temp) == word_dim
-        word.append(temp)
+      #temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
+      #temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
+      #temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
+      #assert len(temp) == word_dim
+      word.append(temp)
+      
+    #print 'all lines:', sid
         
       
 if __name__ == '__main__':
   print 'genereate the figer typing embeddings ....'
   
-  dataset = "OntoNotes"
+  #dataset = "OntoNotes"
+  #print dataset
+  get_input_figer_chunk_train('MLP','figer',256,'data/figer/',"testa",None,300,-1)
   #cPickle.dump(np.random.rand(300),open('data/figer/randomVector.p','wb'))
-  get_input_figerTest_chunk('MLP',dataset,'data/'+dataset+'/',model=None,word_dim=100,sentence_length=250)
+  #get_input_figerTest_chunk('MLP','OntoNotes','data/OntoNotes/',256,None,300,sentence_length=-1)
   

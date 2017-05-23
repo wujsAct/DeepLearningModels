@@ -41,7 +41,7 @@ class seqMLP(Model):
     used = tf.sign(tf.reduce_max(tf.abs(self.input_data),reduction_indices=2))
     self.length = tf.cast(tf.reduce_sum(used,reduction_indices=1),tf.int32)
       
-    with tf.device('/gpu:1'):
+    with tf.device('/gpu:0'):
       self.prediction,self.loss_lm = self.cl_loss_from_embedding(self.input_data)
       print 'self.loss_lm:',self.loss_lm
       
@@ -49,6 +49,7 @@ class seqMLP(Model):
       print 'self.adv_loss:',self.adv_loss
 
       self.loss = tf.add(self.loss_lm,self.adv_loss)
+      #self.loss = self.loss_lm
       
   #rewrite this part
   def cl_loss_from_embedding(self,embedded,return_intermediate=False):
@@ -56,7 +57,7 @@ class seqMLP(Model):
    
     input_f1 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(self.reshape_input,self.entMentIndex),1),1)  #reduce_sum vs. reduce_mean
     print 'input_f1:',input_f1
-   
+    
     input_f2 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(self.reshape_input,self.entCtxLeftIndex),1),1)
     input_f3 = tf.nn.l2_normalize(tf.reduce_sum(tf.nn.embedding_lookup(self.reshape_input,self.entCtxRightIndex),1),1)
     
@@ -65,8 +66,8 @@ class seqMLP(Model):
     if self.args.dropout:
       self.input_total =  tf.nn.dropout(self.input_total,self.keep_prob)
         
-        
-    prediction = tf.nn.sigmoid(self.layers['fullyConnect'](self.input_total,tf.nn.tanh))
+    
+    prediction = self.layers['fullyConnect'](self.input_total,tf.nn.sigmoid)
 
     loss = tf.reduce_mean(layers_lib.classification_loss('figer',self.dense_outputdata,prediction))
     
@@ -75,7 +76,7 @@ class seqMLP(Model):
   def adversarial_loss(self):
     """Compute adversarial loss based on FLAGS.adv_training_method."""
 
-    return adv_lib.adversarial_loss_bidir(self.input_data,
+    return adv_lib.adversarial_loss(self.input_data,
                                       self.loss_lm,
                                       self.cl_loss_from_embedding) 
         #elif tag=='LSTM':
