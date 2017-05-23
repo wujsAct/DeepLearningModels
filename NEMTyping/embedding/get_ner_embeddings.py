@@ -175,8 +175,8 @@ def get_input_conll2003_test(model,word_dim, input_file_obj, output_embed, outpu
         elif wd.lower() in vocabs:
             temp = model[wd.lower()]
         else:
-            #temp = np.zeros((300,))
-            temp = randomVector
+            #temp = 0.001*np.zeros((300,))
+            temp = randomVector[:word_dim]  # to reduce the non-word effective
         
         temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
         temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
@@ -200,8 +200,9 @@ def get_input_conll2003_test(model,word_dim, input_file_obj, output_embed, outpu
   
   assert (len(sentence) == len(sentence_tag))
   print 'start to save datasets....'
-  cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
-  cPickle.dump(np.asarray(sentence_tag), open(output_tag, 'wb'))
+  return np.asarray(sentence),np.asarray(sentence_tag)
+  #cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
+  #cPickle.dump(np.asarray(sentence_tag), open(output_tag, 'wb'))
 
 #transfer into B,I,O formats
 def get_input_conll2003(model,batch_size,word_dim, input_file_obj,sentence_length=-1):
@@ -217,61 +218,62 @@ def get_input_conll2003(model,batch_size,word_dim, input_file_obj,sentence_lengt
   else:
     max_sentence_length = sentence_length
   sentence_length = 0
+  
   #ner2id = {'I-PER':'0','B-PER':'0','I-LOC':'1','I-ORG':'2','I-MISC':'3','O':'4'}
   #nertag2id={'B-E':0,'I-E':1,'0':2}
   print("max sentence length is %d" % max_sentence_length)
-  for epoch in range(3):
-    for line in input_file_obj:
-      if line in ['\n', '\r\n']:
-        #we need to generate B,I,O format tags
-        
-        for _ in range(max_sentence_length - sentence_length):
-          tag.append('4')
-          temp = np.array([0 for _ in range(word_dim + 10)])
-          word.append(temp)
-        sentence.append(word)
-        sentence_tag.append(np.array(getConll2003EntTags(tag)))
-        
-        if len(sentence)== batch_size:
-          yield sentence,sentence_tag
-          sentence=[];sentence_tag=[]
-          
-        sentence_length = 0
-        word = []
-        tag = []
-      else:
-        line = line.strip()
-        assert (len(line.split()) == 4)
-        sentence_length += 1
-        wd = line.split()[0]
-        if wd in vocabs:
-            temp = model[wd]
-        elif wd.lower() in vocabs:
-            temp = model[wd.lower()]
-        else:
-            #temp = np.zeros((300,))
-            temp = randomVector
-        
-        temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
-        temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-        #temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
-        assert len(temp) == word_dim+10  #还需要添加上
+  sentId = 0
+  for line in input_file_obj:
+    if line in ['\n', '\r\n']:
+      #we need to generate B,I,O format tags
+      
+      for _ in range(max_sentence_length - sentence_length):
+        tag.append('4')
+        temp = np.array([0 for _ in range(word_dim + 10)])
         word.append(temp)
-        t = line.split()[3] # Five classes 0-None,1-Person,2-Location,3-Organisation,4-Misc
-        if 'PER' in t:
-          tag.append('0')
-        elif 'LOC' in t:
-          tag.append('1')
-        elif 'ORG' in t:
-          tag.append('2')
-        elif 'MISC' in t:
-          tag.append('3')
-        elif 'O' in t:
-          tag.append('4')
-        else:
-          print 'tag is wrong...'
-          exit(0)
-  
+      sentence.append(word)
+      sentence_tag.append(np.array(getConll2003EntTags(tag)))
+      
+      if len(sentence)== batch_size or sentId+1 == 13959:
+        yield sentence,sentence_tag
+        sentence=[];sentence_tag=[]
+        
+      sentence_length = 0
+      word = []
+      tag = []
+      sentId+= 1
+    else:
+      line = line.strip()
+      assert (len(line.split()) == 4)
+      sentence_length += 1
+      wd = line.split()[0]
+      if wd in vocabs:
+        temp = model[wd]
+      elif wd.lower() in vocabs:
+        temp = model[wd.lower()]
+      else:
+        #temp = np.zeros((300,))
+        temp = randomVector[:word_dim]
+      
+      temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
+      temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
+      #temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
+      assert len(temp) == word_dim+10  #还需要添加上
+      word.append(temp)
+      t = line.split()[3] # Five classes 0-None,1-Person,2-Location,3-Organisation,4-Misc
+      if 'PER' in t:
+        tag.append('0')
+      elif 'LOC' in t:
+        tag.append('1')
+      elif 'ORG' in t:
+        tag.append('2')
+      elif 'MISC' in t:
+        tag.append('3')
+      elif 'O' in t:
+        tag.append('4')
+      else:
+        print 'tag is wrong...'
+        exit(0)
 #  assert (len(sentence) == len(sentence_tag))
 #  print 'start to save datasets....'
 #  cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
@@ -346,7 +348,7 @@ def get_input_figer(model,word_dim,input_file_obj,output_embed, output_tag, sent
         temp = model[wd.lower()]
       else:
         #temp = np.zeros((300,))
-        temp = randomVector
+        temp = randomVector[:word_dim]
           
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
@@ -356,9 +358,10 @@ def get_input_figer(model,word_dim,input_file_obj,output_embed, output_tag, sent
       word.append(temp)
       
   assert (len(sentence) == len(sentence_tag))
-  print 'start to save datasets....'
-  cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
-  cPickle.dump(np.asarray(sentence_tag), open(output_tag, 'wb'))
+  return np.asarray(sentence),np.asarray(sentence_tag)
+#  print 'start to save datasets....'
+#  cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
+#  cPickle.dump(np.asarray(sentence_tag), open(output_tag, 'wb'))
   
 def getFigerTag(entList,max_sentence_length):
   nerTags = [[0,0,1]]*max_sentence_length
@@ -423,7 +426,7 @@ def get_input_figer_chunk_test_ner(model,word_dim, input_file_obj,entMents, outp
         temp = model[wd.lower()]
       else:
         #temp = np.zeros((300,))
-        temp = randomVector
+        temp = randomVector[:word_dim]
       #temp = np.zeros((100,))
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
@@ -433,11 +436,13 @@ def get_input_figer_chunk_test_ner(model,word_dim, input_file_obj,entMents, outp
         
   assert (len(sentence) == len(tag))
   print 'start to save datasets....'
-  cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
-  cPickle.dump(np.asarray(tag), open(output_tag, 'wb'))
+  return np.asarray(sentence),np.asarray(tag)
 
-def get_input_figer_chunk_test_ner_train(batch_size,model,word_dim, input_file_obj,entMents, sentence_length=-1):
-  epochs=1
+  #cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
+  #cPickle.dump(np.asarray(tag), open(output_tag, 'wb'))
+
+def get_input_figer_chunk_train_ner(model,word_dim,batch_size,input_file_obj,entMents, output_embed, output_tag, sentence_length=-1):
+  
   vocabs = model.vocab
   randomVector = cPickle.load(open('data/figer/randomVector.p','rb'))
   #input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
@@ -456,101 +461,56 @@ def get_input_figer_chunk_test_ner_train(batch_size,model,word_dim, input_file_o
     max_sentence_length = sentence_length
   sentence_length = 0
   #print("max sentence length is %d" % max_sentence_length)
-  for epoch in range(epochs):
-    sid = 0
-    
-    allLines = input_file_obj.readlines()
-    for line in allLines:
-      if line in ['\n', '\r\n']:
-        for _ in range(max_sentence_length - sentence_length):
-          #tag.append(np.array([0] * 5))
-          temp = np.array([0 for _ in range(word_dim + 6+4)])
-          word.append(temp)
-        
-        entList = entMents[sid]
-        nerTags=getFigerTag(entList,max_sentence_length) 
-        sentence.append(word)
-        tag.append(nerTags)
-        if ((allid+1)%batch_size==0 and allid!=0) or allid == 2854-1:
+  sid = 0
+  allLines = input_file_obj.readlines()
+  for line in allLines:
+    if line in ['\n', '\r\n']:
+      for _ in range(max_sentence_length - sentence_length):
+        #tag.append(np.array([0] * 5))
+        temp = np.array([0 for _ in range(word_dim + 6+4)])
+        word.append(temp)
+      
+      entList = entMents[sid]
+      nerTags=getFigerTag(entList,max_sentence_length) 
+      sentence.append(word)
+      tag.append(nerTags)
+      
+      if ((allid+1)%batch_size==0 and allid!=0) or allid == 1312-1:
           #if len(sentence) == batch_size:
           if len(sentence)!=0:
             yield np.asarray(sentence),np.asarray(tag)
             sentence=[];tag=[]
-        allid += 1   
-        sid += 1
-        sentence_length = 0
-        word = []
+      
+      
+      allid += 1   
+      sid += 1
+      sentence_length = 0
+      word = []
+    else:
+      line = line.strip()
+      assert (len(line.split("\t")) == 3)  #only has Word,pos_tag
+      sentence_length += 1
+      wd = line.split()[0]
+      if wd in vocabs:
+        temp = model[wd]
+      elif wd.lower() in vocabs:
+        temp = model[wd.lower()]
       else:
-        line = line.strip()
-        assert (len(line.split("\t")) == 3)  #only has Word,pos_tag
-        sentence_length += 1
-        wd = line.split()[0]
-        if wd in vocabs:
-          temp = model[wd]
-        elif wd.lower() in vocabs:
-          temp = model[wd.lower()]
-        else:
-          #temp = np.zeros((300,))
-          temp = randomVector
-        #temp = np.zeros((100,))
-        temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
-        temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-        #temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
-        assert len(temp) == word_dim+6+4
-        word.append(temp)
+        #temp = np.zeros((300,))
+        temp = randomVector[:word_dim]
+      #temp = np.zeros((100,))
+      temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
+      temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
+      #temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
+      assert len(temp) == word_dim+6+4
+      word.append(temp)
+        
+  assert (len(sentence) == len(tag))
+  print 'start to save datasets....'
+  #return np.asarray(sentence),np.asarray(tag)
 
-def get_input_figer_chunk_train_ner(batch_size,dir_path,set_tag,model,word_dim,sentence_length=-1):
-  epochs=1
-  input_file_obj = open(dir_path+'features/figerData_'+set_tag+'.txt')
-  
-  entMents = cPickle.load(open(dir_path+'features/'+set_tag+'_entMents.p','rb'))
-  #print 'figer types:',len(figer2id)
-  
-  allid=0
-  word = []
-  tag = []
-  sentence = []
-  #sentence_tag = []
-  if sentence_length == -1:
-    max_sentence_length = find_max_length(input_file_obj)
-  else:
-    max_sentence_length = sentence_length
-  sentence_length = 0
-  #print("max sentence length is %d" % max_sentence_length)
-  for epoch in range(epochs):
-    sid = 0
-    for line in input_file_obj:
-      if line in ['\n', '\r\n']:
-        for _ in range(max_sentence_length - sentence_length):
-          #tag.append(np.array([0] * 5))
-          temp = np.array([0 for _ in range(word_dim +6+4)])
-          word.append(temp)
-        
-        entList = entMents[sid]
-        nerTags=getFigerTag(entList,max_sentence_length) 
-        sentence.append(word)
-        tag.append(nerTags)
-        
-        if ((allid+1)%batch_size==0 and allid!=0) or allid == 200000-1:
-          #if len(sentence) == batch_size:
-          if len(sentence)!=0:
-            yield np.asarray(sentence),np.asarray(tag)
-            sentence=[];tag=[]
-        allid += 1   
-        sid += 1
-        sentence_length = 0
-        word = []
-      else:
-        assert (len(line.split()) == 3)  #only has Word,pos_tag
-        sentence_length += 1
-        temp = model[line.split()[0]]
-        #temp = np.zeros((100,))
-        temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
-        temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-        #temp = np.append(temp, capital(line.split()[0]))  # adding capital embedding
-        #assert len(temp) == word_dim+6+5
-        assert len(temp) == word_dim+10
-        word.append(temp)
+  #cPickle.dump(np.asarray(sentence), open(output_embed, 'wb'))
+  #cPickle.dump(np.asarray(tag), open(output_tag, 'wb'))
 
 if __name__ == '__main__':
   
@@ -568,7 +528,7 @@ if __name__ == '__main__':
   if args.dir_path == 'data/figer/' or args.dir_path == 'data/figer_test/':
     input_file_obj = openFile(args.dir_path+args.data_tag+'Data.txt')
   elif args.dir_path =='data/conll2003/':
-    input_file_obj = openFile(args.dir_path+'eng.'+args.data_tag)
+    input_file_obj = openFile(args.dir_path+args.data_tag+'.out')
   
   print 'start to load word2vec models!'
   #trained_model = cPickle.load(open(args.use_model, 'rb'))
@@ -582,7 +542,7 @@ if __name__ == '__main__':
             args.dir_path+'nerFeatures/'+args.data_tag+'_embed.p'+str(args.model_dim),
             args.dir_path+'nerFeatures/'+args.data_tag+'_tag.p'+str(args.model_dim),
             sentence_length=args.sentence_length)
-  elif args.dir_path =='data/WebQuestion/':
+  elif args.dir_path =='data/WebQuestion/' or args.dir_path =='data/ace/':
     input_file_obj = open(args.dir_path+'features/'+args.data_tag+'_Data.txt')
     entMents = cPickle.load(open(args.dir_path+'features/'+args.data_tag+'_entMents.p','rb'))
     output_embed = args.dir_path+'nerFeatures/'+args.data_tag+'_embed.p'+str(args.model_dim)
