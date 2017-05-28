@@ -308,7 +308,46 @@ def getFigerTestTag(max_sentence_length):
         exit(0)
   return finalTag
 
-
+def get_NER_embedding(model,randomVector,rawData):
+  word_dim=300
+  max_sentence_length = 250
+  vocabs = model.vocab
+  sentence=[]
+  
+  tag =[]
+  
+  tokenList = rawData['tokenArrays']
+  posList = rawData['posArrays']
+  chunkList = rawData['chunkArrays']
+  sentNums = len(tokenList)
+  for i in range(len(tokenList)):
+    word =[]
+    sentence_length=len(tokenList[i])
+    for j in range(sentence_length):
+      wd = tokenList[i][j]
+      if wd in vocabs:
+        temp = model[wd]
+      elif wd.lower() in vocabs:
+        temp = model[wd.lower()]
+      else:
+        #temp = np.zeros((300,))
+        temp = randomVector[:word_dim]
+          
+      temp = np.append(temp, pos(posList[i][j]))  # adding pos embeddings
+      temp = np.append(temp, chunk(chunkList[i][j]))  # adding chunk embeddings
+      assert len(temp) == word_dim+10
+      word.append(temp)
+    for _ in range(max_sentence_length - sentence_length):
+      temp = np.array([0 for _ in range(word_dim + 10)])
+      word.append(temp)
+        
+    sentence.append(word)
+  sentence = np.asarray(sentence)
+  tag = np.asarray(sentNums*[[0]*max_sentence_length])
+  assert np.shape(sentence)[0] == np.shape(tag)[0]
+  return sentence,tag
+    
+  
 
 def get_input_figer(model,word_dim,input_file_obj,output_embed, output_tag, sentence_length=-1):
   vocabs = model.vocab
