@@ -1,6 +1,6 @@
 import numpy as np
 
-def getTypeEval(predArray,targetArray):
+def getTypeEval(threshold,predArray,targetArray):
   right = 0; alls = 0
   '''
   @revise the accuracy test method
@@ -26,7 +26,7 @@ def getTypeEval(predArray,targetArray):
     predRet.add(np.argmax(pred))
     
     for j in range(len(pred)):
-      if pred[j] > 0.5:   #fixed threshold is very diffcult to get! we just choose the 0.3
+      if pred[j] > threshold:   #fixed threshold is very diffcult to get! we just choose the 0.3
         predRet.add(j)
     
     targetRet = set(np.argsort(target)[target_lents:])
