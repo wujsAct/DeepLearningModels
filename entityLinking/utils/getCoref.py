@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 '''
 @editor: wujs
-@time: 2017/2/14
+@time: 2017/2/14; revise: 6/13 add kbp datasets
 function: get coreference for entity mentions
 '''
 
@@ -12,15 +12,18 @@ from tqdm import tqdm
 from collections import Counter
 from mongoUtils import mongoUtils
 import argparse
+import loadDataUtils
+
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data_tag', type=str, help='which data file(ace or msnbc)', required=True)
+parser.add_argument('--data_tag', type=str, help='which data file(ace or msnbc or kbp)', required=True)
+parser.add_argument('--dataset', type=str, help='train or eval(but " " for ace and msnbc)', required=True)
 parser.add_argument('--dir_path', type=str, help='data directory path(data/ace or data/msnbc) ', required=True)
-  
-data_args = parser.parse_args()
 
+data_args = parser.parse_args()
 data_tag = data_args.data_tag
 dir_path = data_args.dir_path
+dataset = data_args.dataset
 
 mongo = mongoUtils()
 #title = 'Lake Burton (Georgia)'
@@ -28,24 +31,41 @@ mongo = mongoUtils()
 #title1 = title1.replace('(',ord(u'('))
 #print mongo.get_tail_from_enwikiTitle()
 #exit(0)
+
 '''read mid2name'''
+wikititle2fb,fb2wikititle = loadDataUtils.getMid2WikiTitle()
+if dataset!="":
+  dataset = dataset +"/"
 
-fname = 'data/mid2name.tsv'
-wikititle2fb = collections.defaultdict(list)
-fb2wikititle={}
-with open(fname,'r') as file:
-  for line in tqdm(file):
-    line = line.strip()
-    items = line.split('\t')
-    if len(items)==2:
-      fbId = items[0]; title = items[1]  
-      fb2wikititle[fbId] = title.lower()
-      wikititle2fb[title.lower()].append(fbId)
-fb2wikititle['NIL'] = 'NIL'
+kbpEntid2Wiki = dict()
+if data_tag == 'tackbp':
+  with open('data/kbp/kbpentid2wiki.txt') as file:
+    for line in file:
+      line = line.strip()
+      items = line.split("\t")
+      entid = items[0]; wikiname = items[2].lower()
+      kbpEntid2Wiki[entid] = wikiname
+
+kbpQid2wiki = dict()
 
 
-'''read entmention 2 aNosNoid'''
-entsFile = dir_path+'entMen2aNosNoid.txt'
+if data_tag=='tackbp':
+  lineNo = 0
+  with open(dir_path+dataset+'tac_kbp_2014_english_EDL_'+dataset+'_KB_links.tab') as file:
+    for line in file:
+      if lineNo!=0:
+        line = line.strip()
+        items = line.split('\t')
+        kbpQid = items[0]; kbpEntid = items[1]
+        if kbpEntid in kbpEntid2Wiki:
+          kbpQid2wiki[kbpQid] = kbpEntid2Wiki[kbpEntid]  
+        else:
+          kbpQid2wiki[kbpQid] = kbpEntid
+print 'len kbpQid2wiki:',kbpQid2wiki
+      
+ 
+  
+entsFile = dir_path+dataset+'entMen2aNosNoid.txt'
 hasMid = 0
 entMentsTags={}
 entMents2surfaceName={}
@@ -56,15 +76,19 @@ with open(entsFile) as file:
     line = line.strip()
     items = line.split('\t')
     entMent = items[0]; linkingEnt = items[1]; aNosNo = items[2]; start = items[3]; end = items[4]
-  
+    if data_tag=='kbp':
+      linkingEnt = kbpQid2wiki[linkingEnt]
+      
     if "Walters" in entMent:
       print line
     if "Walters" in entMent:
       print line
     key = aNosNo + '\t' + start+'\t'+end
     
+    
     #print line
-    if linkingEnt == 'NIL':
+    if linkingEnt.startswith('NIL'):
+    #if linkingEnt == 'NIL':
       entMentsTags[key]='NIL'
       entMent2line[key] = line
       entMents2surfaceName[key] = entMent
