@@ -32,7 +32,8 @@ def getfname2pageid():
     for line in tqdm(file):
       line = line.strip().split('\t')
       pageId = line[0]; title = line[1]
-      title2pageId[title] = pageId       
+      title2pageId[title.lower()] = pageId    
+      #print title.lower()   
   return title2pageId
 
 def getmid2Name():
@@ -57,8 +58,6 @@ def getmid2Name():
           mid2name[mid].append(name)
         else:
           print line
-        
-      
   print len(mid2name)
   return mid2name
 

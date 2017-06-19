@@ -12,34 +12,42 @@ from entityRecog import nameEntityRecognition,pp,flags,args
 import numpy as np
 import argparse
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_tag', type=str, help='which data file(ace or msnbc)', required=True)
 parser.add_argument('--dir_path', type=str, help='data directory path(data/ace or data/msnbc) ', required=True)
+parser.add_argument('--features', type=str, help='data directory path(data/ace or data/msnbc) ', required=True)
   
 data_args = parser.parse_args()
 
 data_tag = data_args.data_tag
 dir_path = data_args.dir_path
+features = data_args.features
 
 corefEnts = cPickle.load(open(dir_path+'entMent2repMent.p'))
+print data_tag,' coref:',len(corefEnts)
+
+for key in corefEnts:
+  print key, corefEnts[key]
+
 
 ent_Mentions = cPickle.load(open(dir_path+'features/ent_mention_index.p'))
-
+candidateEntNum = 90
 entMentsTags = cPickle.load(open(dir_path+data_tag+'_entMentsTags.p','rb'))
 #print entMentsTags
-    
 
-#'''read mid2name'''
+
+'''read mid2name'''
 #fname = 'data/mid2name.tsv'
 #wikititle2fb = collections.defaultdict(list)
-#fb2wikititle={}
+#fb2wikititle=collections.defaultdict(list)
 #with codecs.open(fname,'r','utf-8') as file:
 #  for line in tqdm(file):
 #    line = line.strip()
 #    items = line.split('\t')
 #    if len(items)==2:
 #      fbId = items[0]; title = items[1]  
-#      fb2wikititle[fbId] = title
+#      fb2wikititle[fbId].append(title)
 #      wikititle2fb[title].append(fbId)
 #fb2wikititle['NIL'] = 'NIL'
 
@@ -54,14 +62,22 @@ with codecs.open(dir_path+'sentid2aNosNoid.txt','r','utf-8') as file:
     sentid += 1
 
 '''read ER result entmentions'''
-
-testUtils = inputUtils(args.rawword_dim,data_tag)
+if data_tag == 'kbp':
+  testUtils = inputUtils(args.rawword_dim,data_tag+'_evaluation')
+else:
+  testUtils = inputUtils(args.rawword_dim,data_tag)
 test_entliking= testUtils.ent_linking;
 ent_mention_index = test_entliking['ent_mention_index'];
 ent_mention_tag = test_entliking['ent_mention_tag']; 
+
 #NERrets = cPickle.load(open(dir_path+data_tag+'_entityLinkingResult.p'))  #[300,30]
-NERrets = cPickle.load(open(dir_path+'entityLinkingResult.p'))  #[300,30]
-NERentCands = cPickle.load(open(dir_path+'features/'+data_tag+'_ent_cand_mid.p'))  #[300,candsNums]
+NERrets = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/entityLinkingResult.p'+features))  #[300,30]
+#NERrets = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+features+'_aida_'+data_tag+'_entityLinkingResult.p'))  #[300,30]
+#retpath=dir_path+'features/'+str(candidateEntNum)+'/'+features+'_aida_'+data_tag+'_entityLinkingResult.p'
+#print 'retpath:',retpath
+#NERrets = cPickle.load(open(retpath,'rb'))
+
+NERentCands = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_ent_cand_mid_new.p'+str(candidateEntNum)))  #[300,candsNums]
 rightPred = 0
 recall = 0
 wrongEnts =0
@@ -82,7 +98,7 @@ rightEnts =0
 RecallEnts = 0
 allEnts = 0
 k  = -1
-
+wrongEnts_dict={}
 for i in tqdm(range(len(ent_Mentions))):
   aNosNo = sentId2aNosNo[i]
   
@@ -91,21 +107,21 @@ for i in tqdm(range(len(ent_Mentions))):
   tagid=-1
   for j in range(len(ents)):
     allEnts += 1
-    entids +=1
+    
     sindex = ents[j][0];eindex = ents[j][1]
     
     key = aNosNo+'\t'+str(sindex)+'\t'+str(eindex)
-    
-    
-    linkTag = entMentsTags[key]   #get entity mention linking mid!
-    k+=1
-    cand_mid_dict = NERentCands[k]
+    key1 = aNosNo+'\t'+str(sindex)+'\t'+str(eindex)+'\t'+ents[j][2]
    
+    linkTag = entMentsTags[key]   #get entity mention linking mid!
+    
     if linkTag=='NIL':
       passEnts+=1
-      NILEntKeys[key] = 1
+      NILEntKeys[key1] = 1
       continue
-    
+    k+=1
+    cand_mid_dict = NERentCands[k]
+    entids +=1
     tagid +=1
 #    if np.sum(ent_mention_tag[i][tagid]) == 0:
 #      notrecall += 1
@@ -127,14 +143,17 @@ for i in tqdm(range(len(ent_Mentions))):
  
     if predMid in linkTag: #or entMentsTags[key]=='NIL':
       rightPred += 1
-      ent_mention_index_right[key] = 1  
+      ent_mention_index_right[key1] = 1  
     else:
       wrongEnts += 1
+      wrongEnts_dict[key1] = [ents[j],predMid,linkTag[0],candMids]
+#      print ents[j]
 #      print predMid
 #      print linkTag
 #      print candMids
 #      print '---------------------'
-    
+
+print 'coref:',len(corefEnts)
 print 'rightPred:',rightPred
 print 'pass ents:',passEnts
 print 'wrong ents:',wrongEnts
@@ -148,15 +167,22 @@ total = wrongEnts+rightPred
 
 if data_tag=='msnbc':
   for key in corefEnts:
-    if key not in ent_mention_index and key not in NILEntKeys:
+    #print key
+    if key not in ent_mention_index_right and key not in NILEntKeys:
       val = corefEnts[key]
       items = val.split('\t')
       key_coref = '\t'.join(items[0:3])
       if entMentsTags[key_coref]!='NIL':
-        if key_coref in ent_mention_index_right:
+        if val in ent_mention_index_right:
           rightPred += 1
+          if key in wrongEnts_dict:
+            wrongEnts_dict.pop(key)
         else:
           wrongEnts += 1
+          wrongEnts_dict[key]=[val,entMentsTags[key_coref]]
+          if val in wrongEnts_dict:
+            wrongEnts_dict[key].append(wrongEnts_dict[val])
+          print key,corefEnts[key]
           pass
       else:
         passEnts+=1
@@ -164,15 +190,20 @@ if data_tag=='msnbc':
       passEnts += 1
 else:
   for key in corefEnts:
-    if key not in ent_mention_index and key not in NILEntKeys:
+    print 'key:',key
+    if key not in ent_mention_index_right and key not in NILEntKeys:
       val = corefEnts[key]
       items = val.split('\t')
       key_coref = '\t'.join(items[0:3])
       if entMentsTags[key_coref]!='NIL':
-        if key_coref in ent_mention_index_right:
+        if val in ent_mention_index_right:
+          if key in wrongEnts_dict:
+            wrongEnts_dict.pop(key)
           rightPred += 1
           wrongEnts -= 1
       else:
+        if key in wrongEnts_dict:
+          wrongEnts_dict.pop(key)
         passEnts+=1
       #print key,val
 print 'rightPred:',rightPred
@@ -180,3 +211,24 @@ print 'pass ents:',passEnts
 print 'wrong ents:',wrongEnts
 print 'total:',wrongEnts+rightPred
 print 'precision:',rightPred*1.0/(wrongEnts+rightPred)
+
+#numbers =0
+#for key in wrongEnts_dict:
+#  if len(wrongEnts_dict[key]) > 3:
+#    print numbers, key
+#    if wrongEnts_dict[key][1] in fb2wikititle:
+#      print 'predict:',wrongEnts_dict[key][1],fb2wikititle[wrongEnts_dict[key][1]]
+#    else: 
+#      print 'predict:',wrongEnts_dict[key][1]
+#    if wrongEnts_dict[key][2] in fb2wikititle:
+#      print 'standard right::',wrongEnts_dict[key][2],fb2wikititle[wrongEnts_dict[key][2]]
+#    else: 
+#      print 'standard right::',wrongEnts_dict[key][2]
+#      
+#    print 'cands:', wrongEnts_dict[key][3]
+#    
+#    print '----------------------'
+#  else:
+#    print numbers, key 
+#    print 'predict:',wrongEnts_dict[key]
+#  numbers += 1

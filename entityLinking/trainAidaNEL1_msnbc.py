@@ -15,6 +15,7 @@ from utils import getLinkingFeature
 import numpy  as np
 import cPickle
 import argparse
+
 def getData(dataTag):
   dataUtils = inputUtils(args.rawword_dim,dataTag)
   data_input = dataUtils.emb; 
@@ -50,7 +51,7 @@ def getDataTestSets():
     #msnbcTestRet.append(msnbcFeatureList[i][msnbcTrainRange:msnbcNums])
     #TrainRet.append(np.concatenate((aceFeatureList[i][0:aceTrainRange],msnbcFeatureList[i][0:msnbcTrainRange])))
     #TrainRet.append(aceFeatureList[i])
-  return aceFeatureList,msnbcFeatureList,msnbcFeatureList
+  return aceFeatureList,msnbcFeatureList,aceFeatureList
   
   
 '''
@@ -73,19 +74,17 @@ def getDataSets():
 #    trainRet.append(np.concatenate((trainFeatureList[i],aceFeatureList[i][0:aceTrainRange],msnbcFeatureList[i][0:msnbcTrainRange])))
 #    aceTestRet.append(aceFeatureList[i][aceTrainRange:aceNums])
 #    msnbcTestRet.append(msnbcFeatureList[i][msnbcTrainRange:msnbcNums])
-  return trainFeatureList,aceFeatureList,msnbcFeatureList 
+  return trainFeatureList,aceFeatureList,aceFeatureList 
   #return trainRet,aceTestRet,msnbcTestRet
 
 def main(_):
   pp.pprint(flags.FLAGS.__flags)
-  
   parser = argparse.ArgumentParser()
   parser.add_argument('--features', type=str, help='0,1,2,3', required=True)
   
   data_args = parser.parse_args()
 
   features = data_args.features
-  
   
   aceTestList,msnbcTestList,trainList = getDataTestSets()
   train_input, train_out, train_ent_mention_index, train_ent_mention_link_feature, \
@@ -111,7 +110,7 @@ def main(_):
   lstm_output_msnbc = nerInstance.getEntityRecognition(msnbc_input,msnbc_out)
   config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
   config.gpu_options.allow_growth=True
-  testflag = 'ace'
+  testflag = 'msnbc'
   with tf.Session(config=config) as sess:
     modelNEL = ctxSum(args,features)  #build named entity linking models
     
@@ -122,6 +121,7 @@ def main(_):
     print 'tvars_linking:',tvars
     grads,_ = tf.clip_by_global_norm(tf.gradients(loss_linking,tvars),10)
     train_op_linking = optimizer.apply_gradients(zip(grads,tvars))
+    #train_op_linking = optimizer.minimize(lossL2)
     sess.run(tf.global_variables_initializer())
     
     if modelNEL.load(sess,args.restore,"aida_"+features):
@@ -159,8 +159,8 @@ def main(_):
           print 'ace loss:',loss2,lossl2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro
               
         ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-  ent_mention_lstm_feature,candidate_ent_relcoherent_feature_ngd,candidate_ent_relcoherent_feature_fb,ent_surfacewordv_feature = \
-    getLinkingFeature(args,lstm_output_msnbc,msnbc_ent_mention_index,msnbc_ent_mention_tag,
+          ent_mention_lstm_feature,candidate_ent_relcoherent_feature_ngd,candidate_ent_relcoherent_feature_fb,ent_surfacewordv_feature = \
+getLinkingFeature(args,lstm_output_msnbc,msnbc_ent_mention_index,msnbc_ent_mention_tag,
                        msnbc_ent_relcoherent,msnbc_ent_mention_link_feature,msnbc_ent_linking_type,
                        msnbc_ent_linking_candprob,msnbc_ent_surfacewordv_feature,0,flag='msnbc')
         loss2,lossl2,accuracy,pred = sess.run([loss_linking,lossL2,modelNEL.accuracy,modelNEL.prediction],

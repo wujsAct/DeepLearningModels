@@ -4,7 +4,7 @@
 @time: 2017/2/14; revise: 6/13 add kbp datasets
 function: get coreference for entity mentions
 '''
-
+import csv
 import codecs
 import cPickle
 import collections
@@ -35,24 +35,34 @@ mongo = mongoUtils()
 '''read mid2name'''
 wikititle2fb,fb2wikititle = loadDataUtils.getMid2WikiTitle()
 if dataset!="":
-  dataset = dataset +"/"
+  dir_path = dir_path +dataset+"/"
 
-kbpEntid2Wiki = dict()
-if data_tag == 'tackbp':
+print dir_path
+ 
+kbpEntid2Wiki = {}
+wiki2kbpEntid = {}
+if data_tag == 'kbp':
   with open('data/kbp/kbpentid2wiki.txt') as file:
     for line in file:
       line = line.strip()
       items = line.split("\t")
-      entid = items[0]; wikiname = items[2].lower()
-      kbpEntid2Wiki[entid] = wikiname
+      if len(items)==3 :
+        entid = items[0]; wikiname = items[1].lower(); wikiTitle = items[2]
+        kbpEntid2Wiki[entid] = wikiname
+        wiki2kbpEntid[wikiname] = entid
+      else:
+        print line
+                   
+print'kbpEntid2Wiki:', len(kbpEntid2Wiki)
 
-kbpQid2wiki = dict()
+kbpQid2wiki = {}
 
-
-if data_tag=='tackbp':
+if data_tag=='kbp':
   lineNo = 0
-  with open(dir_path+dataset+'tac_kbp_2014_english_EDL_'+dataset+'_KB_links.tab') as file:
-    for line in file:
+  entLinkTagFile =  dir_path+'tac_kbp_2014_english_EDL_'+dataset+'_KB_links.tab'
+  print entLinkTagFile
+  with open(entLinkTagFile) as tsv:
+    for line in tsv:
       if lineNo!=0:
         line = line.strip()
         items = line.split('\t')
@@ -61,11 +71,13 @@ if data_tag=='tackbp':
           kbpQid2wiki[kbpQid] = kbpEntid2Wiki[kbpEntid]  
         else:
           kbpQid2wiki[kbpQid] = kbpEntid
-print 'len kbpQid2wiki:',kbpQid2wiki
+      lineNo += 1
+            
+print 'len kbpQid2wiki:',len(kbpQid2wiki) 
       
  
   
-entsFile = dir_path+dataset+'entMen2aNosNoid.txt'
+entsFile = dir_path+'entMen2aNosNoid.txt'
 hasMid = 0
 entMentsTags={}
 entMents2surfaceName={}
@@ -76,8 +88,10 @@ with open(entsFile) as file:
     line = line.strip()
     items = line.split('\t')
     entMent = items[0]; linkingEnt = items[1]; aNosNo = items[2]; start = items[3]; end = items[4]
+    
     if data_tag=='kbp':
       linkingEnt = kbpQid2wiki[linkingEnt]
+    
       
     if "Walters" in entMent:
       print line
@@ -93,7 +107,6 @@ with open(entsFile) as file:
       entMent2line[key] = line
       entMents2surfaceName[key] = entMent
     else:
-
       if linkingEnt.lower() in wikititle2fb:
 #        #print wikititle2fb[linkingEnt]
         hasMid +=1 
@@ -104,13 +117,12 @@ with open(entsFile) as file:
       else:
         new_linkingEnt = linkingEnt.replace(' ','_')
         mids = mongo.get_tail_from_enwikiTitle(new_linkingEnt)
-        print mids
         if len(mids)>=1:
           entMentsTags[key] = mids.pop()
           entMent2line[key] = line
           entMents2surfaceName[key] = entMent
         else:
-          print 'not in freebase:',aNosNo,linkingEnt
+          print 'not in freebase:',aNosNo,new_linkingEnt,wiki2kbpEntid[linkingEnt]
           entMentsTags[key] ='NIL'
           entMent2line[key] = line
           entMents2surfaceName[key] = entMent
@@ -118,8 +130,8 @@ with open(entsFile) as file:
 print 'entMentsTags nums:',len(entMentsTags)
 print 'not in freebase:',notInFreebase
 print 'has mid:',hasMid
+cPickle.dump(entMentsTags,open(dir_path+data_tag+'_entMentsTags.p','w'))
 
-cPickle.dump(entMentsTags,open(dir_path+'entMentsTags.p','w'))
 '''
 with codecs.open(dir_path+"corefRet.txt",'r','utf-8') as file:
   for line in file:
@@ -156,6 +168,7 @@ with open(dir_path+"corefRet.txt") as file:
           wordList.append(word)
     wordDict = Counter(wordList)
     wordDict= sorted(wordDict.iteritems(), key=lambda d:d[1], reverse = True)
+    #print 'wordDict:',wordDict
     
     for enti in items:
       aNosNo, start, end, mention = enti.split('\t')
@@ -166,8 +179,9 @@ with open(dir_path+"corefRet.txt") as file:
       flag = False
       if key in entMentsTags:
         for iment in mention.split(' '):
-          if iment == wordDict[0][0]:
-            flag = True
+          if len(wordDict)>0:
+            if iment == wordDict[0][0]:
+              flag = True
         if flag:
           entInDict[enti] = len(mention.split(" "))
       else:
@@ -220,8 +234,9 @@ with open(dir_path+"corefRet.txt") as file:
                     aNosNorep = entRep1.split('\t')[0].split('_')[0]
                     if aNo == aNosNorep:
                       for iment in entMents2surfaceName[keyNgram].split(' '):
-                        if iment == wordDict[0][0]:
-                          flag = True
+                        if len(wordDict)>0:
+                          if iment == wordDict[0][0]:
+                            flag = True
                       
                       if flag:
                         if len(entMents2surfaceName[keyNgram].split(' '))>entRep1MentLent:
@@ -322,6 +337,7 @@ cPickle.dump(entMent2repMent,open(dir_path+'entMent2repMent.p','wb'))
 
 entMent2repMent = cPickle.load(open(dir_path+'entMent2repMent.p','rb'))
 print 'entMent2repMent lent:',len(entMent2repMent)
+
 #for key in entMent2repMent:
 #  print key,entMent2repMent[key]                     
 newEntsFile = open(dir_path+'new_entMen2aNosNoid.txt','w')

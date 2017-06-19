@@ -8,29 +8,30 @@ dims="100"
 :<<!
 extract ent mention and its types
 !
-#python transfer.py data/aida/ eng.train train_ents.p
-#python transfer.py data/aida/ eng.testa testa_ents.p
-#python transfer.py data/aida/ eng.testb testb_ents.p
-
-
 #python transfer.py data/aida/ eng.train train.p
 #python transfer.py data/aida/ eng.testa testa.p
 #python transfer.py data/aida/ eng.testb testb.p
 
 :<<!
+utilzie coreference to find non-linking partial entity string to get its real complete entity!
+!
+
+
+:<<!
 generate entity mention candidates and related entities
 !
+#python getCandiates.py data/aida/process/ testb.p testb_candEnts.p
 #python getCandiates.py data/aida/process/ train.p train_candEnts.p
 #python getCandiates.py data/aida/process/ testa.p testa_candEnts.p
-#python getCandiates.py data/aida/process/ testb.p testb_candEnts.p
 #python getLinkTags.py data/aida/process/ train.p train_candEnts.p
 #python getLinkTags.py data/aida/process/ testa.p testa_candEnts.p
 #python getLinkTags.py data/aida/process/ testb.p testb_candEnts.p
 
 :<<!
-genenrate wid2fbId and wtitle2fbId 
+genenrate wid2fbId and wtitle2fbId
 !
-#python utils/wiki2fb.py
+python utils/wiki2fb.py
+python utils/reverseIndexUtils.py
 
 :<<!
 generate freebase mid2type, generate data/mid2types.txt
@@ -40,9 +41,9 @@ generate freebase mid2type, generate data/mid2types.txt
 :<<!
 extract raw sentence to train word2vec
 !
-#python getSentenceEntMent.py  data/aida/process/ train.p  train_candEnts.p train_sent.txt train_candEnt_descrip_dict.p
-#python getSentenceEntMent.py  data/aida/process/ testa.p testa_candEnts.p testa_sent.txt testa_candEnt_descrip_dict.p
-#python getSentenceEntMent.py  data/aida/process/ testb.p testb_candEnts.p testb_sent.txt testb_candEnt_descrip_dict.p
+#python getSentenceEntMent.py  data/aida/process/ train.p  train_candEnts.p train_sent.txt train_candEnt_descrip_dict.p train
+#python getSentenceEntMent.py  data/aida/process/ testa.p testa_candEnts.p testa_sent.txt testa_candEnt_descrip_dict.p testa
+#python getSentenceEntMent.py  data/aida/process/ testb.p testb_candEnts.p testb_sent.txt testb_candEnt_descrip_dict.p testb
 #cd data/aida/process/; cat testa_sent.txt testb_sent.txt train_sent.txt > total_sent.txt;cd ..;cd ..;cd ..;
 #python embeddings/wordvec_model.py --dir_path ${dir_path} --corpus ${dir_path}/process/total_sent.txt --dimension ${dims} #--vocab_size 23661
 
@@ -65,9 +66,9 @@ get data embddings for bi-LSTM layers
 
 #python embeddings/getNERSequenceLength.py --dir_path ${dir_path} --model_dim ${dims}
 
-python trainAidaNER.py
+#python trainAidaNER.py
 
-python trainAidaNEL1.py
+#python trainAidaNEL1.py
 :<<!
 generate entity linking tag data/aida/aida-annotation.p
 !

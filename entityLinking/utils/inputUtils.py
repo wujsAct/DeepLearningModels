@@ -9,6 +9,7 @@ class inputUtils(object):
     elif flag=='testa':
       self.emb = pkl.load(open(dir_path+'/test_a_embed.p'+dims,'rb'))
       self.tag = pkl.load(open(dir_path+'/test_a_tag.p'+dims,'rb'))
-    else:
+    elif flag =='testb':
       self.emb = pkl.load(open(dir_path+'/test_b_embed.p'+dims,'rb'))
       self.tag = pkl.load(open(dir_path+'/test_b_tag.p'+dims,'rb'))
+    

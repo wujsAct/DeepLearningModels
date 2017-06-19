@@ -9,10 +9,14 @@ dir_path="data/ace/"
 dims="100"
 
 :<<!
+generate coreference results and entMentsTags.p
+!
+#python utils/getCoref.py --dir_path ${dir_path} --data_tag ${data_tag}
+
+:<<!
 generate named entity recognition datasets.
 !
-#python utils/getLinkingTag.py --dir_path ${dir_path} --data_tag ${data_tag}
-#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --train ${dir_path}/aceData.txt --sentence_length -1 --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
+#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --data_tag ${data_tag} --train ${dir_path}/aceData.txt --sentence_length 250 --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
 
 :<<!
 Named entity recognition using pre-trained NER model on CONLL datasets, very import module of our system
@@ -30,9 +34,8 @@ generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]]
 generate candidate entities for entity mentions
 !
 #python getACECandiates.py --dir_path ${dir_path} --data_tag ${data_tag}
-#python transfer.py data/ace/ eng.ace ace.p
-
-
+##python transfer.py data/ace/ eng.ace ace.p #abandon
+##python utils/getLinkingTag.py --dir_path ${dir_path} --data_tag ${data_tag} #abandon
 :<<!
 generate entity linking features
 !
@@ -40,7 +43,8 @@ generate entity linking features
 #python embeddings/generate_ace_entmention_linking_features.py --dir_path ${dir_path} --data_tag ${data_tag}
 #python trainAidaNEL1.py
 
-python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
-python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag}
+#python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
+#python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag}
+
 
 

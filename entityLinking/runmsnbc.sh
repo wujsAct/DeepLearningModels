@@ -14,9 +14,9 @@ generate named entity recognition datasets.
 if [ ! -d "data/msnbc/features" ]; then
  mkdir "data/msnbc/features"
 fi
-#python utils/getCoref.py
-#python utils/getLinkingTag.py --dir_path ${dir_path} --data_tag ${data_tag}
-#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --train ${dir_path}/msnbcData.txt --sentence_length 124 --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
+#python utils/getCoref.py --dir_path ${dir_path} --data_tag ${data_tag}
+
+#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --data_tag ${data_tag} --train ${dir_path}/msnbcData.txt --sentence_length 124 --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
 
 :<<!
 Named entity recognition using pre-trained NER model on CONLL datasets, very import module of our system
@@ -26,7 +26,7 @@ only has the 98 percent correctness
 
 :<<!
 Extract entity mention from NER results;
-generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]]
+generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]], we just delete coref entities in this part, we dont not delte nil
 !
 #python getNERentMentions.py --dir_path ${dir_path} --data_tag ${data_tag}
 
@@ -35,8 +35,7 @@ generate candidate entities for entity mentions
 !
 #python getACECandiates.py --dir_path ${dir_path} --data_tag ${data_tag}
 #python transfer.py data/ace/ eng.ace ace.p
-
-
+#python utils/getLinkingTag.py --dir_path ${dir_path} --data_tag ${data_tag}
 :<<!
 generate entity linking features
 !
@@ -45,4 +44,4 @@ generate entity linking features
 #python trainAidaNEL.py
 
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
-#python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag}
+python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag} --features 

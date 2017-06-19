@@ -104,10 +104,10 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
   for line in codecs.open(input_file,'r','utf-8'):
     if line in [u'\n', u'\r\n']:
       
-      for _ in range(max_sentence_length - sentence_length):
-        tag.append(np.array([0] * 5))
-        temp = np.array([0 for _ in range(word_dim + 14)])   #´Ë´¦³öÏÖÁËÒ»¸ö´íÎó¹þ£¡
-        word.append(temp)
+#      for _ in range(max_sentence_length - sentence_length):
+#        tag.append(np.array([0] * 5))
+#        temp = np.array([0 for _ in range(word_dim + 14)])   #´Ë´¦³öÏÖÁËÒ»¸ö´íÎó¹þ£¡
+#        word.append(temp)
       #ctx information and candidates information
       senti = u' '.join(sent)
       lent = len(sent)
@@ -145,7 +145,8 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
       assert len(temp) == word_dim
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-      temp = np.append(temp ,capital(line.split()[0],prevword,wtitleIndex))  # adding capital embedding
+      #temp = np.append(temp ,capital(line.split()[0],prevword,wtitleIndex))  # adding capital embedding
+      assert len(temp) == word_dim + 10
       word.append(temp)
       t = line.split()[3]
       # Five classes 0-None,1-Person,2-Location,3-Organisation,4-Misc
@@ -231,13 +232,13 @@ if __name__ == '__main__':
             sentence_length=args.sentence_length)
   
   
-#  data = cpkl.load(open(args.data_testb,'r'))
-#  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents']
-#  sents2id = {sent:i for i,sent in enumerate(sents)}
-#  get_input(trained_model,wtitleIndex,args.model_dim, args.test_b,
-#            args.dir_path+'/features/testb_embed.p'+str(args.model_dim),
-#            args.dir_path+'/features/testb_tag.p'+str(args.model_dim),
-#            args.dir_path+'/features/testb_entms.p'+str(args.model_dim),
-#            id2aNosNo,sents2id,ents,
-#            sentence_length=args.sentence_length)
+  data = cpkl.load(open(args.data_testb,'r'))
+  aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents']
+  sents2id = {sent:i for i,sent in enumerate(sents)}
+  get_input(trained_model,wtitleIndex,args.model_dim, args.test_b,
+            args.dir_path+'/features/testb_embed.p'+str(args.model_dim),
+            args.dir_path+'/features/testb_tag.p'+str(args.model_dim),
+            args.dir_path+'/features/testb_entms.p'+str(args.model_dim),
+            id2aNosNo,sents2id,ents,
+            sentence_length=args.sentence_length)
   

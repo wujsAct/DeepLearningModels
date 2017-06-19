@@ -29,7 +29,8 @@ def find_max_length(file_name):
       if temp_len > max_length:
         max_length = temp_len
         maxlenLine = items
-  print maxlenLine
+  #print 'maxlenLine:',maxlenLine
+  #print max_length
   return max_length
 
 
@@ -63,24 +64,33 @@ def chunk(tag):
   return one_hot
 
 
-def capital(word,prevword,wtitleIndex):
-  wordl = word.lower()
-  ret = np.array([0,0,0,0])
-  if ord('A') <= ord(word[0]) <= ord('Z'):
-    ret[0]=1
-  if wordl in wtitleIndex:
-    ret[1]=1
-    if wordl in wtitleIndex[wordl]:
-      ret[2]=1
-  if ord('A') <= ord(prevword[0]) <= ord('Z'):  #previous tags!
-    ret[3]=1
-  return ret
+'''
+revise time: 2017/1/11, add more extrac features!
+'''
+#def capital(word):
+#  ret =np.array([0])
+#  if ord('A') <= ord(word[0]) <= ord('Z'): #inital words are capital
+#    ret[0]=1
+#  return ret
+
+#def capital(word,prevword,wtitleIndex):
+#  wordl = word.lower()
+#  ret = np.array([0,0,0,0])
+#  if ord('A') <= ord(word[0]) <= ord('Z'):
+#    ret[0]=1
+#  if wordl in wtitleIndex:
+#    ret[1]=1
+#    if wordl in wtitleIndex[wordl]:
+#      ret[2]=1
+#  if ord('A') <= ord(prevword[0]) <= ord('Z'):  #previous tags!
+#    ret[3]=1
+#  return ret
 
 
 def get_input(model,wtitleIndex, word_dim, input_file,output_embed,sentence_length=-1):
   print('processing %s' % input_file)
   word = []
-  tag = []
+  #tag = []
   sentence = []
   if sentence_length == -1:
     max_sentence_length = find_max_length(input_file)
@@ -88,32 +98,33 @@ def get_input(model,wtitleIndex, word_dim, input_file,output_embed,sentence_leng
     max_sentence_length = sentence_length
   print 'max sentence length:',max_sentence_length
   sentence_length = 0
-  prevword=''
+  #prevword=''
   print("max sentence length is %d" % max_sentence_length)
   for line in codecs.open(input_file,'r','utf-8'):
     if line in [u'\n', u'\r\n']:
-      for _ in range(max_sentence_length - sentence_length):
-        tag.append(np.array([0] * 5))
-        temp = np.array([0 for _ in range(word_dim + 14)])
-        word.append(temp)
+#      for _ in range(max_sentence_length - sentence_length):
+#        tag.append(np.array([0] * 5))
+#        temp = np.array([0 for _ in range(word_dim + 14)])
+#        word.append(temp)
       
       sentence.append(word)
       
       sentence_length = 0
       word = []
-      tag = []
+      #tag = []
     else:
-      assert (len(line.split()) == 3)
-      if sentence_length==0:
-        prevword=' '
+      #assert (len(line.split()) == 3)
+      #if sentence_length==0:
+      #  prevword=' '
       sentence_length += 1
       temp = model[line.split()[0]]
       assert len(temp) == word_dim
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
-      temp = np.append(temp, capital(line.split()[0],prevword,wtitleIndex))  # adding capital embedding
+      #temp = np.append(temp, capital(line.split()[0],prevword,wtitleIndex))  # adding capital embedding
+      assert len(temp)==word_dim+10
       word.append(temp)
-      prevword = line.split()[0]
+      #prevword = line.split()[0]
       '''
       t = line.split()[3]
       # Five classes 0-None,1-Person,2-Location,3-Organisation,4-Misc
@@ -146,7 +157,6 @@ if __name__ == '__main__':
   parser.add_argument('--model_dim', type=int, help='model dimension of words', required=True)
   args = parser.parse_args()
   max_sentence_length = find_max_length(args.train)
-  
   print max_sentence_length
   print 'start to load wtitleReverseIndex'
   start_time = time.time()

@@ -40,7 +40,7 @@ def getCandEntsByWiki(searchent):
   except:
     pass
   '''
-  @top three!
+  @top 10 
   '''
   try:
     candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
@@ -74,7 +74,7 @@ def funcs(ids,id2entstr,lent):
   return [ids,candidate_ent]
 
 #print candidate_ent
-candidate_ent = getCandEntsByWiki("Surrey")
+candidate_ent = getCandEntsByWiki("London")
 print candidate_ent
 #candidate_ent = getCandEntsByWiki("Schindler 'S List")
 #print 'candidate_ent:',candidate_ent

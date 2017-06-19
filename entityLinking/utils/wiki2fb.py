@@ -24,11 +24,12 @@ def getWikititle2Freebase(fname="/home/wjs/demo/entityType/informationExtract/da
       items = line.split('\t')
       if len(items) >=2:
         fbId = items[0]; title = ' '.join(items[1:]).lower() #lower case 
+        #print title,'----:',fbId
         if fbId not in wikititle2fb[title]:
           wikititle2fb[title].append(fbId)  #one title may has more than ids...
   return wikititle2fb
   
 #wid2fbid =  getWikidata2Freebase()
-wtitle2fbid  = getWikititle2Freebase()
+#wtitle2fbid  = getWikititle2Freebase()
 #cPickle.dump(wid2fbid,open('/home/wjs/demo/entityType/informationExtract/data/wid2fbid.p','wb'))
-cPickle.dump(wtitle2fbid,open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','wb'))
+#cPickle.dump(wtitle2fbid,open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','wb'))

@@ -2,7 +2,7 @@
 
 dir_path="data/kbp/LDC2017EDL/data/2014"
 data_tag="kbp"
-dataset="evaluation"
+dataset="training"
 dims="100"
 
 :<<!
@@ -24,7 +24,7 @@ only has the 98 percent correctness
 
 :<<!
 Extract entity mention from NER results; we abandon the NIL entities!
-generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]]
+#generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]]
 !
 #python getNERentMentions.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
 
@@ -38,8 +38,8 @@ generate candidate entities for entity mentions
 generate entity linking features
 !
 #we also need to delete the non entity mention sentences!
-python embeddings/generate_ace_entmention_linking_features.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
+#python embeddings/generate_ace_entmention_linking_features.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
 #python trainAidaNEL1.py
 
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
-#python getNEL.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}  --features 3
+python getNEL.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}

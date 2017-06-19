@@ -18,17 +18,18 @@ flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
 flags.DEFINE_integer("batch_size",256,"batch size of training")
 flags.DEFINE_string("datasets","aida","dataset name")
-flags.DEFINE_integer("sentence_length",124,"max sentence length")
+flags.DEFINE_integer("sentence_length",250,"max sentence length")
 flags.DEFINE_integer("class_size",5,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
-flags.DEFINE_integer("word_dim",114,"hidden dimension of rnn")
-flags.DEFINE_integer("candidate_ent_num",40,"hidden dimension of rnn")
+flags.DEFINE_integer("word_dim",110,"hidden dimension of rnn")
+flags.DEFINE_integer("candidate_ent_num",90,"hidden dimension of rnn")
 flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
 flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
 flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
 flags.DEFINE_string("restore","checkpoint","path of saved model")
 flags.DEFINE_boolean("dropout",True,"apply dropout during training")
 flags.DEFINE_float("learning_rate",0.005,"apply dropout during training")
+args = flags.FLAGS
 args = flags.FLAGS
 def f1(args, prediction, target, length):
   tp = np.array([0] * (args.class_size + 1))
@@ -91,26 +92,33 @@ class nameEntityRecognition():
     self.data_tag = data_tag
     #optimizer = tf.train.AdamOptimizer(0.003)   #when training, we do not need to build those.
     self.model = seqLSTM(args)
+    
+    
+    optimizer = tf.train.RMSPropOptimizer(args.learning_rate)
+    tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+    
+    grads, _ = tf.clip_by_global_norm(tf.gradients(self.model.loss, tvars), 10)
+    self.train_op = optimizer.apply_gradients(zip(grads, tvars))
+  
     #print 'initiliaze parameters cost time:', time.time()-start_time
 
     if self.model.load(self.sess,args.restore,"aida"):
       print "[*] seqLSTM is loaded..."
     else:
       print "[*] There is no checkpoint for aida"
-  def getEntityRecognition(self,test_input,test_out):
+  def getEntityRecognition(self,test_input,test_out,flag):
     num_examples = np.shape(test_input)[0]
+
     loss1,length,lstm_output,tf_unary_scores,tf_transition_params = self.sess.run([self.model.loss,self.model.length,self.model.output,self.model.unary_scores,self.model.transition_params],
                                  {self.model.input_data:test_input,
                                   self.model.output_data:test_out,
                                   self.model.num_examples:num_examples,
                                   self.model.keep_prob:1})
     pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,test_out,length)
-    if self.data_tag == 'ace' or self.data_tag == 'msnbc':
-      cPickle.dump(pred,open(self.dir_path+'features/'+self.data_tag+'_NERresult.p','wb'))
-    fscore = f1(args, pred,test_out,length)
-    print("test: loss:%.4f accuracy:%f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,accuracy,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
+    #fscore = f1(args, pred,test_out,length)
+    #print("test: loss:%.4f accuracy:%f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,accuracy,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))
     
-    return lstm_output
+    return pred,lstm_output
 
 if __name__=='__main__':
   '''
@@ -126,36 +134,46 @@ if __name__=='__main__':
   data_tag = data_args.data_tag
   dir_path = data_args.dir_path
   
+  config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=8,inter_op_parallelism_threads=8)
+  config.gpu_options.allow_growth=True
+  sess = tf.InteractiveSession(config=config)
+  nerClass = nameEntityRecognition(sess,dir_path,data_tag)
+  
   print 'start to load data...'
   start_time = time.time()
   feature_dir_path = dir_path+'features/'
+  
+  utils = inputUtils()
 
-  test_input = cPickle.load(open(feature_dir_path+data_tag+'_embed.p100','rb'))
+  test_input = utils.padZeros(cPickle.load(open(feature_dir_path+data_tag+'_embed.p100','rb')))
   print 'load data cost time:', time.time()-start_time
   
-  testShape = np.shape(test_input)
-  
-  print testShape
-  
-  test_input  = np.concatenate((test_input,np.zeros([testShape[0],max(0,124-testShape[1]),testShape[2]])),axis=1)
-  
-  print np.shape(test_input)
+                                         
   testShape = np.shape(test_input)
   print testShape
-  assert testShape[1]==124
   if data_tag=='testa' or data_tag=='testb':
-    test_out = cPickle.load(open(feature_dir_path+data_tag+'_tag.p100','rb'))
+    test_out =  utils.padZeros(cPickle.load(open(feature_dir_path+data_tag+'_tag.p100','rb')),5)
   else:
     test_out = np.zeros([testShape[0],testShape[1],args.class_size],dtype=np.float32)
   test_out = np.argmax(test_out,2)
   
-  config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
-  config.gpu_options.allow_growth=True
-  sess = tf.InteractiveSession(config=config);
-  nerClass = nameEntityRecognition(sess,dir_path,data_tag);
   
-  '''
-  testbUtils = inputUtils(args.rawword_dim,"testb")
-  test_input = testbUtils.emb; test_out = testbUtils.tag;
-  '''
-  lstm_output = nerClass.getEntityRecognition(test_input,test_out)
+  final_pred= None
+  batchNo =0
+  allSamples = 0
+  #final_lstmout =[]
+  for input_batch,output_batch in utils.iterate(args.batch_size,test_input,test_out):
+    print batchNo,np.shape(input_batch)[0],np.shape(output_batch)
+    pred,lstm_output = nerClass.getEntityRecognition(input_batch,output_batch,'test')
+    allSamples += len(pred)
+    print pred
+    if batchNo==0:
+      final_pred = pred
+    else:
+      final_pred = np.concatenate((final_pred,pred))
+    batchNo += 1
+    #final_lstmout.append(final_lstmout)
+  print 'start to save dataset...'
+  print 'all pred:',allSamples
+  print np.shape(final_pred)
+  cPickle.dump(final_pred,open(dir_path+'features/'+data_tag+'_NERresult.p','wb'))

@@ -25,6 +25,22 @@ class mongoUtils(object):
         rel = u'<http://rdf.freebase.com/ns/'+line+u'>'
         self.mediator[rel] = meids
         meids += 1
+  def getHasRel(self,midi,midj):
+    midi = u'<http://rdf.freebase.com/ns/'+midi.replace('/m/','m.')+'>'
+    midj = u'<http://rdf.freebase.com/ns/'+midj.replace('/m/','m.')+'>'
+    ret = self.freebase.find({'head':midi,'tail':midj}).limit(1000)
+    '''
+    @reduce the searching times!
+    '''
+    if ret.count()>0:
+      return True
+    else:
+      ret1 = self.freebase.find({'head':midj,'tail':midi}).limit(1000)
+      if ret1.count()>0:
+        return True
+      else:
+        return False
+    
   def get_tail_from_enwikiTitle(self,title):
     title1 = '\"'+title+'\"'
     #print title1
@@ -44,7 +60,7 @@ class mongoUtils(object):
       
       
   def get_coOccurent_ents(self,ent):
-    coents=set()
+    coents_dict={}
     enttag=u'<http://rdf.freebase.com/ns/m.'
     
     #print ent.split('/')[-1]#,self.freebase.count({'head':ent}).limit(10000)#,self.freebase.count({'tail':ent})
@@ -56,14 +72,14 @@ class mongoUtils(object):
       try:
         head = item['head']; rel= item['rel']; tail=item['tail']
         if rel not in self.mediator and enttag in tail:
-          coents.add(tail)
-        if rel in self.mediator:
-          #print 'rel:',rel
-          for item2 in self.freebase.find({'head':tail}):
-            head1 = item2['head']; rel1= item2['rel']; tail1=item2['tail'] 
-            if enttag in tail1 and rel1 not in self.mediator:
-              coents.add(tail1)
+          coents_dict[tail]=1
+#        if rel in self.mediator:
+#          #print 'rel:',rel
+#          for item2 in self.freebase.find({'head':tail}):
+#            head1 = item2['head']; rel1= item2['rel']; tail1=item2['tail'] 
+#            if enttag in tail1 and rel1 not in self.mediator:
+#              coents.add(tail1)
       except:
         print 'mongo api wrong'
         pass
-    return coents
+    return coents_dict

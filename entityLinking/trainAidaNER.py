@@ -24,10 +24,10 @@ flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
 flags.DEFINE_integer("batch_size",256,"batch size of training")
 flags.DEFINE_string("datasets","aida","dataset name")
-flags.DEFINE_integer("sentence_length",124,"max sentence length")
+flags.DEFINE_integer("sentence_length",250,"max sentence length")
 flags.DEFINE_integer("class_size",5,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
-flags.DEFINE_integer("word_dim",114,"hidden dimension of rnn")
+flags.DEFINE_integer("word_dim",110,"hidden dimension of rnn")
 flags.DEFINE_integer("candidate_ent_num",30,"hidden dimension of rnn")
 flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
 flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
@@ -102,16 +102,17 @@ def main(_):
 #  train_TFfileName = trainUtils.TFfileName; train_nerShapeFile = trainUtils.nerShapeFile;
 #  train_batch_size = args.batch_size;
   
-  trainUtils = inputUtils(args.rawword_dim,"train")
+  datautils = inputUtils()
+  trainUtils = datautils(args.rawword_dim,"train")
   train_input = trainUtils.emb;train_out = np.argmax(trainUtils.tag,2)
   
-  testaUtils = inputUtils(args.rawword_dim,"testa")
+  testaUtils = datautils(args.rawword_dim,"testa")
   testa_input = testaUtils.emb;testa_out =  np.argmax(testaUtils.tag,2)
   testa_num_example = np.shape(testa_input)[0]
   
  
   
-  testbUtils = inputUtils(args.rawword_dim,"testb")
+  testbUtils = datautils(args.rawword_dim,"testb")
   testb_input = testbUtils.emb;testb_out =  np.argmax(testbUtils.tag,2)
   testb_num_example = np.shape(testb_input)[0]
   print 'load data cost time:',time.time()-start_time
@@ -125,7 +126,7 @@ def main(_):
   print 'initiliaze parameters cost time:', time.time()-start_time
 
   optimizer = tf.train.RMSPropOptimizer(args.learning_rate)
-  tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,scope='seqLSTM_variables')
+  tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
   print 'tvars:',tvars
 
   start_time = time.time()
@@ -160,7 +161,6 @@ def main(_):
                         model.num_examples:testa_num_example,
                         model.keep_prob:1})
       pred,accuracy = getCRFRet(tf_unary_scores,tf_transition_params,testa_out,length)
-        
       fscore = f1(args, pred, testa_out, length)
       print "-----------------"
       print("testa: loss:%.4f accuracy:%f NER:%.2f LOC:%.2f MISC:%.2f ORG:%.2f PER:%.2f" %(loss1,accuracy,100*fscore[5],100*fscore[1],100*fscore[3],100*fscore[2],100*fscore[0]))

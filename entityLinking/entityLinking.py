@@ -107,7 +107,9 @@ if __name__=='__main__':
   nerInstance = nameEntityRecognition(sess_ner,dir_path,data_tag)
 
   lstm_output_test = nerInstance.getEntityRecognition(test_input,test_out)
+  cPickle.dump(lstm_output_test,open(dir_path+data_tag+'lstm_output.p','wb'))
   sess_ner.close() 
+  exit(0)
   features['lstm_output_test']=lstm_output_test  
   
   config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
