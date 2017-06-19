@@ -44,6 +44,7 @@ class crfLabeling():
     self.unary_scores = tf.reshape(matricized_unary_scores,
                              [self.shape,self.num_words,self.num_tags])
     
+    print 'self.unary_scores:',self.unary_scores
     
     # Compute the log-likelihood of the gold sequences and keep the transition
     # params for inference at test time.
@@ -87,7 +88,7 @@ def main(_):
         # Remove padding from the scores and tag sequence.
         tf_unary_scores_ = tf_unary_scores_[:sequence_length_]
         y_ = y_[:sequence_length_]
-  
+        
         # Compute the highest scoring sequence.
         viterbi_sequence, _ = tf.contrib.crf.viterbi_decode(
             tf_unary_scores_, tf_transition_params)

@@ -8,7 +8,7 @@ class Model(object):
     self.vocab = None
     self.data = None
 
-  def save(self, sess, checkpoint_dir, dataset_name, global_step=None):
+  def save(self, sess, checkpoint_dir, dataset_name,features=None,global_step=None):
     self.saver = tf.train.Saver()
 
     print(" [*] Saving checkpoints...")
@@ -24,7 +24,7 @@ class Model(object):
     self.saver.save(sess, 
         os.path.join(checkpoint_dir, model_name), global_step=global_step)
 
-  def load(self, sess, checkpoint_dir, dataset_name):
+  def load(self, sess, checkpoint_dir, dataset_name,features=None,global_step=None):
     model_name = type(self).__name__ or "Reader"
     self.saver = tf.train.Saver()
 

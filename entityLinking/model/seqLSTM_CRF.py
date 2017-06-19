@@ -5,9 +5,12 @@
 '''
 import tensorflow as tf
 from base_model import Model
+import time
 import layers as layers_lib
+import numpy as np
+import adversarial_losses as adv_lib
 
-class seqLSTM(Model):
+class seqLSTM_CRF(Model):
   '''
   self.args: parameters for all the entities mentions!
   '''
@@ -17,11 +20,11 @@ class seqLSTM(Model):
     @editor: wujs
     @function: also need to return the candidates entity mentions lstm representation
     '''
-    super(seqLSTM, self).__init__()
+    super(seqLSTM_CRF, self).__init__()
     self.args = args
+    
     self.input_data = tf.placeholder(tf.float32,[None,self.args.sentence_length,self.args.word_dim])
-    #need add
-    #self.output_data = tf.placeholder(tf.int32,[None,self.args.sentence_length,self.args.class_size])
+  
     self.output_data = tf.placeholder(tf.int32,[None,self.args.sentence_length])
     self.keep_prob = tf.placeholder(tf.float32,name='keep_prob_NER')
     self.num_examples = tf.placeholder(tf.int32,name='num_examples')
@@ -34,10 +37,14 @@ class seqLSTM(Model):
     self.input_data = tf.nn.l2_normalize(self.input_data,1)  #l2 normalize may has efficient methods.
     
     with tf.device('/gpu:1'):
-      self.output,self.unary_scores,self.transition_params,self.length,self.loss_lm = self.cl_loss_from_embedding(self.input_data)
+      self.unary_scores,self.transition_params,self.length,self.loss_lm = self.cl_loss_from_embedding(self.input_data)
       print 'self.loss_lm:',self.loss_lm
     
+    #with tf.device('/cpu:0'):
+    #  _,_,_,_,self.adv_loss = self.adversarial_loss()
+    #  print 'self.adv_loss:',self.adv_loss
     self.loss = self.loss_lm
+    #self.loss = tf.add(self.loss_lm,self.adv_loss)
     
   def cl_loss_from_embedding(self,embedded,return_intermediate=False):
     output,length= self.layers['BiLSTM'](embedded)
@@ -48,9 +55,18 @@ class seqLSTM(Model):
       
     transition_params,loss = self.layers['crfLyaer'](unary_scores,self.output_data,length)
       
-    return output,unary_scores,transition_params,length,loss
+    return unary_scores,transition_params,length,loss
       
-      
+  def adversarial_loss(self):
+    """Compute adversarial loss based on FLAGS.adv_training_method."""
+
+    return adv_lib.adversarial_loss(self.input_data,
+                                      self.loss_lm,
+                                      self.cl_loss_from_embedding) 
+#      '''
+#      @revise time: 2017/2/19 add crf layer to predict sequence label!
+#      '''
+#      
 #      output_f = tf.reshape(self.output,[-1,2*self.args.rnn_size])
 #      print output_f      
 #      W = tf.get_variable(

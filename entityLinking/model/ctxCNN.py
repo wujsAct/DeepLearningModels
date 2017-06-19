@@ -10,14 +10,14 @@ class ctxCNN(object):
   convolution and max pooling for entity contexts information!
   """
   def __init__(self,sequence_length,vocab_size,embedding_size,filter_sizes,num_filters):
-    self.input_x = tf.placeholder(tf.int32,[None,sequence_length],name='input_x')
+    self.input_x = tf.placeholder(tf.int32,[None,None,50],name='input_x')
     self.keep_prob = tf.placeholder(tf.float32,name='keep_prob')
     
-    #embedding layer
-    with tf.device('/cpu:0'), tf.name_scope('embedding'):
-      W = tf.Variable(tf.random_uniform([vocab_size,embedding_size]),name='W')
-      self.embedding_x = tf.nn.embedding_lookup(W,self.input_x)
-      self.embedding_x_expanded = tf.expand_dims(self.embedding_x,-1) #扩展维度，在最后一行加1，表示1个通道
+#    #embedding layer
+#    with tf.device('/cpu:0'), tf.name_scope('embedding'):
+#      W = tf.Variable(tf.random_uniform([vocab_size,embedding_size]),name='W')
+#      self.embedding_x = tf.nn.embedding_lookup(W,self.input_x)
+#      self.embedding_x_expanded = tf.expand_dims(self.embedding_x,-1) #扩展维度，在最后一行加1，表示1个通道
     
     pooled_outputs = []
     for i,filter_size in enumerate(filter_sizes):
@@ -52,4 +52,5 @@ class ctxCNN(object):
     #Add dropout
     with tf.name_scope("dropout"):
       self.h_drop = tf.nn.dropout(self.h_pool_flat,self.keep_prob)
+    print 'self.h_drop:',self.h_drop
       
