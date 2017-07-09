@@ -73,22 +73,10 @@ revise time: 2017/1/11, add more extrac features!
 #    ret[0]=1
 #  return ret
 
-#def capital(word,prevword,wtitleIndex):
-#  wordl = word.lower()
-#  ret = np.array([0,0,0,0])
-#  if ord('A') <= ord(word[0]) <= ord('Z'):
-#    ret[0]=1
-#  if wordl in wtitleIndex:
-#    ret[1]=1
-#    if wordl in wtitleIndex[wordl]:
-#      ret[2]=1
-#  if ord('A') <= ord(prevword[0]) <= ord('Z'):  #previous tags!
-#    ret[3]=1
-#  return ret
-
-
-def get_input(model,wtitleIndex, word_dim, input_file,output_embed,sentence_length=-1):
+def get_input(model, word_dim, input_file,output_embed,sentence_length=-1):
   print('processing %s' % input_file)
+  vocabs = model.vocab
+  
   word = []
   #tag = []
   sentence = []
@@ -117,7 +105,14 @@ def get_input(model,wtitleIndex, word_dim, input_file,output_embed,sentence_leng
       #if sentence_length==0:
       #  prevword=' '
       sentence_length += 1
-      temp = model[line.split()[0]]
+      #temp = model[line.split()[0]]
+      wd = line.split()[0]
+      if wd in vocabs:
+          temp = model[wd]
+      elif wd.lower() in vocabs:
+          temp = model[wd.lower()]
+      else:
+          temp = np.zeros((300,))[:word_dim]
       assert len(temp) == word_dim
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
@@ -158,17 +153,15 @@ if __name__ == '__main__':
   args = parser.parse_args()
   max_sentence_length = find_max_length(args.train)
   print max_sentence_length
-  print 'start to load wtitleReverseIndex'
   start_time = time.time()
-  wtitleIndex = pkl.load(open('data/wtitleReverseIndex.p','rb')) 
+  #wtitleIndex = pkl.load(open('data/wtitleReverseIndex.p','rb')) 
   
   print 'load data cost time:',time.time()-start_time
   
-  print 'start to load word2vec'
-  start_time = time.time()
-  trained_model = pkl.load(open(args.use_model, 'rb'))
-  print 'load data cost time:',time.time()-start_time
+  print 'start to load word2vec models!'
+  trained_model = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin', binary=True)
+  print 'load word2vec model cost time:',time.time()-start_time
   #print trained_model.wvec_model.vocab
-  get_input(trained_model,wtitleIndex, args.model_dim, args.train, 
+  get_input(trained_model, args.model_dim, args.train, 
             args.dir_path+'/features/'+args.data_tag+'_embed.p'+str(args.model_dim),
             sentence_length=args.sentence_length)

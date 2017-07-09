@@ -1,9 +1,19 @@
 #@time: 2017/6/13
 
-dir_path="data/kbp/LDC2017EDL/data/2014"
+dir_path="data/kbp/2010"
 data_tag="kbp"
 dataset="evaluation"
-dims="100"
+dims="300"
+
+
+if [ ! -d "data/kbp/2010/evaluation/features" ]; then
+ mkdir "data/kbp/2010/evaluation/features"
+fi
+
+
+if [ ! -d "data/kbp/2010/evaluation/features/90" ]; then
+ mkdir "data/kbp/2010/evaluation/features/90"
+fi
 
 :<<!
 generate coreference results and entMentsTags.p
@@ -14,7 +24,7 @@ generate coreference results and entMentsTags.p
 :<<!
 generate named entity recognition datasets.
 !
-#python embeddings/get_ace_embeddings.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag} --train ${dir_path}/${dataset}/${data_tag}Data.txt --sentence_length -1 --use_model data/wordvec_model_${dims}.p --model_dim ${dims}
+#python embeddings/get_ace_embeddings.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag} --train ${dir_path}/${dataset}/${data_tag}Data.txt --sentence_length 124 --use_model data/wordvec_model_${dims}.p --model_dim ${dims}
 
 :<<!
 Named entity recognition using pre-trained NER model on CONLL datasets, very import module of our system
@@ -31,15 +41,17 @@ generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]]
 :<<!
 generate candidate entities for entity mentions
 !
-#python getACECandiates.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
+python getACECandiates.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
 ##python transfer.py data/ace/ eng.ace ace.p #abandon
 ##python utils/getLinkingTag.py --dir_path ${dir_path} --data_tag ${data_tag} #abandon
 :<<!
 generate entity linking features
 !
 #we also need to delete the non entity mention sentences!
-python embeddings/generate_ace_entmention_linking_features.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
+#python embeddings/generate_ace_entmention_linking_features.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
 #python trainAidaNEL1.py
 
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
 #python getNEL.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}  --features 3
+
+#python utils/genKBPResult.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}  --features 3

@@ -6,7 +6,7 @@
 #step3. an entity mentions linking is right, when and only when entity mention recognition is right and linked entity is right!
 data_tag="msnbc"
 dir_path="data/msnbc/"
-dims="100"
+dims="300"
 
 :<<!
 generate named entity recognition datasets.
@@ -14,9 +14,13 @@ generate named entity recognition datasets.
 if [ ! -d "data/msnbc/features" ]; then
  mkdir "data/msnbc/features"
 fi
-#python utils/getCoref.py --dir_path ${dir_path} --data_tag ${data_tag}
 
-#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --data_tag ${data_tag} --train ${dir_path}/msnbcData.txt --sentence_length 124 --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
+if [ ! -d "data/msnbc/features/90" ]; then
+ mkdir "data/msnbc/features/90"
+fi
+#python utils/getCoref.py --dir_path ${dir_path} --data_tag ${data_tag} --dataset  ""
+
+#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --data_tag ${data_tag} --train ${dir_path}/msnbcData.txt --sentence_length 124 --use_model data/GoogleNews-vectors-negative300.bin --model_dim ${dims};
 
 :<<!
 Named entity recognition using pre-trained NER model on CONLL datasets, very import module of our system
@@ -44,4 +48,4 @@ generate entity linking features
 #python trainAidaNEL.py
 
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
-python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag} --features 
+python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag} --features 3

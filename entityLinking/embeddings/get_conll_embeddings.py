@@ -21,6 +21,7 @@ from description_embed_model import WordVec,MyCorpus
 from random_vec import RandomVec
 import codecs
 import time
+import gensim
 
 
 def find_max_length(file_name):
@@ -81,67 +82,39 @@ def capital(word,prevword,wtitleIndex):
     ret[3]=1
   return ret
 
-
-def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,output_entms,id2aNosNo,sents2id,ents,sentence_length=-1):
+def get_input_aida(model,word_dim,input_file,sentence_length):
   print('processing %s' % input_file)
-  
+  vocabs = model.vocab
   word = []
   tag = []
-  sent=[]
   sentence = []
   sentence_tag = []
-  ent_Mentions = []
-  ent_ctxs = []
-  
-  aNo_has_ents=collections.defaultdict(set)
+ 
   if sentence_length == -1:
     max_sentence_length = find_max_length(input_file)
   else:
     max_sentence_length = sentence_length
   sentence_length = 0
-  prevword=''
   print("max sentence length is %d" % max_sentence_length)
   for line in codecs.open(input_file,'r','utf-8'):
     if line in [u'\n', u'\r\n']:
-      
-#      for _ in range(max_sentence_length - sentence_length):
-#        tag.append(np.array([0] * 5))
-#        temp = np.array([0 for _ in range(word_dim + 14)])   #´Ë´¦³öÏÖÁËÒ»¸ö´íÎó¹þ£¡
-#        word.append(temp)
-      #ctx information and candidates information
-      senti = u' '.join(sent)
-      lent = len(sent)
-      if senti in sents2id:
-        ids = sents2id[senti]
-        aNosNo = id2aNosNo[ids]
-        aNo = aNosNo.split('_')[0]
-        entm = ents[ids][0]
-        ent_Mentions.append(entm)
-        ent_ctx=[]
-        for enti in entm:
-          aNo_has_ents[aNo].add(enti.getContent().lower())
-          s,e  = enti.getIndexes()
-          ctx = u' '.join(sent[max(0,s-5):min(lent,e+5)])
-          ent_ctx.append([aNo,ctx])
-        ent_ctxs.append(ent_ctx)
-        sentence.append(word)
-        sentence_tag.append(np.array(tag))
-      else:
-        print(senti)
+      sentence.append(word)
+      sentence_tag.append(np.array(tag))
 
       sentence_length = 0
       word = []
       tag = []
-      sent=[]
     else:
       assert (len(line.split()) == 4)
-      if sentence_length==0:
-        prevword=' '
       sentence_length += 1
-     
-      temp = model[line.split()[0]]
-      sent.append(line.split()[0])
-      #print(line.split()[0])
+      wd = line.split()[0]
+      if wd in vocabs:
+        temp = model[wd]
+      elif wd.lower() in vocabs:
+        temp = model[wd.lower()]
+      else:
+        temp = np.zeros((300,))[:word_dim]
+      #print len(temp), word_dim
       assert len(temp) == word_dim
       temp = np.append(temp, pos(line.split()[1]))  # adding pos embeddings
       temp = np.append(temp, chunk(line.split()[2]))  # adding chunk embeddings
@@ -163,21 +136,51 @@ def get_input(model,wtitleIndex,word_dim, input_file, output_embed, output_tag,o
       else:
         print("error in input tag {%s}" % t)
         sys.exit(0)
-      prevword = line.split()[0]
+  assert (len(sentence) == len(sentence_tag))
+  return sentence,sentence_tag
+  
+
+def get_input(model,word_dim, input_file,output_entms,id2aNosNo,sents2id,ents,sentence_length=-1):
+  print('processing %s' % input_file)
+  sent=[]
+  sentence = []
+  sentence_tag = []
+  ent_Mentions = []
+  
+  aNo_has_ents=collections.defaultdict(set)
+  if sentence_length == -1:
+    max_sentence_length = find_max_length(input_file)
+  else:
+    max_sentence_length = sentence_length
+  sentence_length = 0
+  print("max sentence length is %d" % max_sentence_length)
+  for line in codecs.open(input_file,'r','utf-8'):
+    if line in [u'\n', u'\r\n']:
+
+      senti = u' '.join(sent)
+      if senti in sents2id:
+        ids = sents2id[senti]
+        aNosNo = id2aNosNo[ids]
+        aNo = aNosNo.split('_')[0]
+        entm = ents[ids][0]
+        ent_Mentions.append(entm)
+        for enti in entm:
+          aNo_has_ents[aNo].add(enti.getContent().lower())
+          s,e  = enti.getIndexes()
+      else:
+        print(senti)
+
+      sentence_length = 0
+      sent=[]
+    else:
+      assert (len(line.split()) == 4)
+      sentence_length += 1
+      sent.append(line.split()[0])
   print('finished!!')
   assert (len(sentence) == len(sentence_tag))
   print('start to save the data!!')
   
-  cpkl.dump(sentence, open(output_embed, 'wb'))
-  cpkl.dump(sentence_tag, open(output_tag, 'wb'))
-  '''
-  @author:wujs
-  revise time:2017/1/9, utilzie tf record to store the data
-  '''
-  print np.shape(sentence)
-  print np.shape(sentence_tag)
-#  ner_d3array_TFRecord(sentence,sentence_tag,output_embed+'.tfrecords',output_embed+'.shape')
-  param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs}
+  param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents}
   cpkl.dump(param_dict, open(output_entms, 'wb'))
 
 if __name__ == '__main__':
@@ -195,13 +198,13 @@ if __name__ == '__main__':
   
   print 'start to load wtitleReverseIndex'
   start_time = time.time()
-  wtitleIndex = cpkl.load(open('data/wtitleReverseIndex.p','rb')) 
+  #wtitleIndex = cpkl.load(open('data/wtitleReverseIndex.p','rb')) 
   
   args = parser.parse_args()
   
   print 'start to load word2vec models!'
-  trained_model = cpkl.load(open(args.use_model, 'rb'))
-  print 'finish load cost time:',time.time()-start_time
+  trained_model = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin', binary=True)
+  print 'load word2vec model cost time:',time.time()-start_time
   #print trained_model.wvec_model.vocab
   
   
@@ -209,24 +212,17 @@ if __name__ == '__main__':
   data = cpkl.load(open(args.data_train,'r'))
   aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents']
   sents2id = {sent:i for i,sent in enumerate(sents)}
-  get_input(trained_model,wtitleIndex, args.model_dim, args.train,
-            args.dir_path+'/features/train_embed.p'+str(args.model_dim),
-            args.dir_path+'/features/train_tag.p'+str(args.model_dim),
+  get_input(trained_model, args.model_dim, args.train,
             args.dir_path+'/features/train_entms.p'+str(args.model_dim),
             id2aNosNo,sents2id,ents,
             sentence_length=args.sentence_length)
-  
-  
-  
   
   
   data = cpkl.load(open(args.data_testa,'r'))
   aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents']
 
   sents2id = {sent:i for i,sent in enumerate(sents)}
-  get_input(trained_model,wtitleIndex, args.model_dim, args.test_a,
-            args.dir_path+'/features/testa_embed.p'+str(args.model_dim),
-            args.dir_path+'/features/testa_tag.p'+str(args.model_dim),
+  get_input(trained_model, args.model_dim, args.test_a,
             args.dir_path+'/features/testa_entms.p'+str(args.model_dim),
             id2aNosNo,sents2id,ents,
             sentence_length=args.sentence_length)
@@ -235,10 +231,8 @@ if __name__ == '__main__':
   data = cpkl.load(open(args.data_testb,'r'))
   aNosNo2id = data['aNosNo2id']; id2aNosNo=data['id2aNosNo']; sents=data['sents']; ents=data['ents']
   sents2id = {sent:i for i,sent in enumerate(sents)}
-  get_input(trained_model,wtitleIndex,args.model_dim, args.test_b,
-            args.dir_path+'/features/testb_embed.p'+str(args.model_dim),
-            args.dir_path+'/features/testb_tag.p'+str(args.model_dim),
+  get_input(trained_model,args.model_dim, args.test_b,
             args.dir_path+'/features/testb_entms.p'+str(args.model_dim),
             id2aNosNo,sents2id,ents,
-            sentence_length=args.sentence_length)
+            sentence_length=-1)
   

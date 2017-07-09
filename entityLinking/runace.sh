@@ -6,23 +6,33 @@
 #step3. an entity mentions linking is right, when and only when entity mention recognition is right and linked entity is right!
 data_tag="ace"
 dir_path="data/ace/"
-dims="100"
+dims="300"
+
+
+if [ ! -d "data/ace/features" ]; then
+ mkdir "data/ace/features"
+fi
+
+
+if [ ! -d "data/ace/features/90" ]; then
+ mkdir "data/ace/features/90"
+fi
 
 :<<!
 generate coreference results and entMentsTags.p
 !
-#python utils/getCoref.py --dir_path ${dir_path} --data_tag ${data_tag}
+#python utils/getCoref.py --dir_path ${dir_path} --data_tag ${data_tag} --dataset ""
 
 :<<!
 generate named entity recognition datasets.
 !
-#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --data_tag ${data_tag} --train ${dir_path}/aceData.txt --sentence_length 250 --use_model data/wordvec_model_${dims}.p --model_dim ${dims};
+#python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --data_tag ${data_tag} --train ${dir_path}/aceData.txt --sentence_length 124 --use_model data/GoogleNews-vectors-negative300.bin --model_dim ${dims};
 
 :<<!
 Named entity recognition using pre-trained NER model on CONLL datasets, very import module of our system
 only has the 98 percent correctness
 !
-#python entityRecog.py --dir_path ${dir_path} --data_tag ${data_tag}
+#python entityRecog.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
 
 :<<!
 Extract entity mention from NER results;
@@ -44,7 +54,7 @@ generate entity linking features
 #python trainAidaNEL1.py
 
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
-#python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag}
+python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag} --features 3
 
 
 

@@ -4,7 +4,7 @@ data_train="train"
 data_testb="testb"
 data_testa="testa"
 dir_path="data/aida/"
-dims="100"
+dims="300"
 
 :<<!
 Step1: extract ent mention and its types
@@ -18,9 +18,9 @@ Step2: get data embddings for bi-LSTM layers
 !
 #rm -rf ${dir_path}/features;
 #mkdir ${dir_path}/features;
-#time:2017/1/9 revise train data into TFRecord, so that we can do 
-#
-python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --data_train ${dir_path}/process/train.p --data_testa ${dir_path}/process/testa.p --data_testb ${dir_path}/process/testb.p --train ${dir_path}/features/train.out --test_a ${dir_path}/features/testa.out --test_b ${dir_path}/features/testb.out --use_model data/wordvec_model_${dims}.p --model_dim ${dims}  --sentence_length 250
+#time:2017/7/9: generate entity mention gold annotation:(train_entms.p : param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents})
+python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --data_train ${dir_path}/process/train.p --data_testa ${dir_path}/process/testa.p --data_testb ${dir_path}/process/testb.p --train ${dir_path}/features/train.out --test_a ${dir_path}/features/testa.out --test_b ${dir_path}/features/testb.out --use_model data/GoogleNews-vectors-negative300.bin --model_dim ${dims}  --sentence_length 124
+
 
 #python trainAidaNER.py
 #python entityRecog.py --dir_path ${dir_path} --data_tag testb
@@ -80,9 +80,9 @@ generate all candiate entities to entity mentions. flag testa: annotation train 
 :<<!
 generate testa_ent_cand_mid_new.p: run getNELAida function: printfeatues
 !
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testa}
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb}
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_train}
+#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testa} --features 3
+#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb} --features 3
+#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_train} --features 3
 
 :<<!
 generate entity linking features cPickle
@@ -98,7 +98,7 @@ generate entity linking features cPickle
 
 #python trainAidaNEL1.py
 #python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testa}
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb}
+#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb} --features 3
 #python getNELAida.py --dir_path ${dir_path} --data_tag ${data_train}
 
 :<<!
@@ -106,7 +106,7 @@ generate similar entity mention!
 !
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_testa} #get testa entity mention encoder!
 #python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testa}  #run function:
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb}
+#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb} --features 3
 
 #python trainAidaNEL2.py --features 0
 #python trainAidaNEL2.py --features 1_1

@@ -14,6 +14,7 @@ sys.path.append('utils')
 sys.path.append('main1')
 sys.path.append('main2')
 sys.path.append('embeddings')
+from utils import getWikititle2Freebase
 from spacyUtils import spacyUtils
 from getctxCnnData import getmid2Name,getLinkedEntsFmid
 from mongoUtils import mongoUtils
@@ -55,53 +56,53 @@ def processDescription(line):
         
   return descript
         
-def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fout):
-  '''
-  @2016/12/26
-  '''
-  ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p_new','rb'))
-  if data_flag=='train':
-    ent_id = 0
-  if data_flag=='testa':
-    ent_id = 23396
-  if data_flag=='testb':
-    ent_id = 29313
-  print 'ent_id:', ent_id
-  print 'finish load all datas'
-  allcandents=collections.defaultdict(set)
-  
-  k=-1
-  for i in tqdm(range(len(ent_Mentions))):
-  #for i in tqdm(xrange(145,200)):
-    ents = ent_Mentions[i]  #ents
-    tag = False
-    doc_ents_cand_mid_dict=[]
-    for j in range(len(ents)):
-      enti = ents[j]
-      enti_name = enti.content.lower()
-      '''
-      if enti_name not in entstr_lower2mid:
-        continue
-      else:
-        k += 1
-        tag = entstr_lower2mid[enti_name]
-      '''
-      enti_linktag_item = ent_ment_link_tags[ent_id]
-      tag = enti_linktag_item[1]
-
-      if tag == 'NIL':
-        ent_id += 1
-        continue
-      k += 1
-      ent_id += 1
-        
-      cand_mid_dict = all_candidate_mids[k]
-      for mid in cand_mid_dict:    
-        midt = mid.replace(u'/',u'.')[1:]
-        new_mid = u'<http://rdf.freebase.com/ns/'+midt+u'>' 
-        if new_mid not in allcandents:
-          allcandents[new_mid] = mongoutils.get_coOccurent_ents(new_mid)
-  cPickle.dump(allcandents,open(fout,'wb'))
+#def get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,fout):
+#  '''
+#  @2016/12/26
+#  '''
+#  ent_ment_link_tags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p_new','rb'))
+#  if data_flag=='train':
+#    ent_id = 0
+#  if data_flag=='testa':
+#    ent_id = 23396
+#  if data_flag=='testb':
+#    ent_id = 29313
+#  print 'ent_id:', ent_id
+#  print 'finish load all datas'
+#  allcandents=collections.defaultdict(set)
+#  
+#  k=-1
+#  for i in tqdm(range(len(ent_Mentions))):
+#  #for i in tqdm(xrange(145,200)):
+#    ents = ent_Mentions[i]  #ents
+#    tag = False
+#    doc_ents_cand_mid_dict=[]
+#    for j in range(len(ents)):
+#      enti = ents[j]
+#      enti_name = enti.content.lower()
+#      '''
+#      if enti_name not in entstr_lower2mid:
+#        continue
+#      else:
+#        k += 1
+#        tag = entstr_lower2mid[enti_name]
+#      '''
+#      enti_linktag_item = ent_ment_link_tags[ent_id]
+#      tag = enti_linktag_item[1]
+#
+#      if tag == 'NIL':
+#        ent_id += 1
+#        continue
+#      k += 1
+#      ent_id += 1
+#        
+#      cand_mid_dict = all_candidate_mids[k]
+#      for mid in cand_mid_dict:    
+#        midt = mid.replace(u'/',u'.')[1:]
+#        new_mid = u'<http://rdf.freebase.com/ns/'+midt+u'>' 
+#        if new_mid not in allcandents:
+#          allcandents[new_mid] = mongoutils.get_coOccurent_ents(new_mid)
+#  cPickle.dump(allcandents,open(fout,'wb'))
   
 def get_candidate_fbrel_features(data_flag,ent_Mentions,all_candidate_mids,fout,allcandents_coents,id2aNosNo):
   #candidate_nums = 50
@@ -140,11 +141,11 @@ def get_candidate_fbrel_features(data_flag,ent_Mentions,all_candidate_mids,fout,
         k += 1
         tag = entstr_lower2mid[enti_name]
       '''
-      enti_linktag_item = ent_ment_link_tags[ent_id]
-      tag = enti_linktag_item[1]
-      if tag == 'NIL':
-        ent_id+=1
-        continue
+#      enti_linktag_item = ent_ment_link_tags[ent_id]
+#      tag = enti_linktag_item[1]
+#      if tag == 'NIL':
+#        ent_id+=1
+#        continue
       k += 1
       ent_id+=1
       cand_mid_dict = all_candidate_mids[k]
@@ -164,23 +165,26 @@ def get_candidate_fbrel_features(data_flag,ent_Mentions,all_candidate_mids,fout,
     aNo = aNosNo.split('_')[0]
     ents = ent_Mentions[i]  
     senti_temprelCoherent=[]
+    docEntCands = doc_ents_cand_mid_dict[aNo]
+    
     for j in range(len(ents)):
+      
       enti = ents[j]
       s=enti.startIndex;e=enti.endIndex
       key = aNosNo+'\t'+str(s)+'\t'+str(e)
 
-      enti_linktag_item = ent_ment_link_tags[ent_id]
-      linkTag = enti_linktag_item[1]
-      if linkTag == 'NIL':
-        ent_id+=1
-        continue
+#      enti_linktag_item = ent_ment_link_tags[ent_id]
+#      linkTag = enti_linktag_item[1]
+#      if linkTag == 'NIL':
+#        ent_id+=1
+#        continue
       k += 1
       ent_id+=1
       #此处出现问题，很奇怪呢！
       s_cand_mid_dict = all_candidate_mids[k]
       
       t_cand_mid_dict = {}
-      docEntCands = doc_ents_cand_mid_dict[aNo]
+      
       for idocEnt in range(len(docEntCands)):
         items = docEntCands[idocEnt]
         key_docEnt = items[0]; o_cand_mid_dict = items[1]
@@ -189,37 +193,57 @@ def get_candidate_fbrel_features(data_flag,ent_Mentions,all_candidate_mids,fout,
           
       temprelCoherent = []
       for icand in s_cand_mid_dict:
-        icand = u'<http://rdf.freebase.com/ns/'+icand.replace('/m/','m.')+'>'
         hasRel = 0.0
         nums= 0
-        if icand in mid2midFBLink:
-          icand_coents = mid2midFBLink[icand]
-        else:
-          icand_coents = mongoutils.get_coOccurent_ents(icand)
-          mid2midFBLink[icand] = icand_coents
+        
         for jcand in t_cand_mid_dict:
-          jcand = u'<http://rdf.freebase.com/ns/'+jcand.replace('/m/','m.')+'>'
           if icand != jcand:
-            if jcand in mid2midFBLink:
-              jcand_coents = mid2midFBLink[jcand]
-            else:
-              jcand_coents = mongoutils.get_coOccurent_ents(jcand)
-              mid2midFBLink[jcand] = jcand_coents
-            if icand in jcand_coents or jcand in icand_coents:
-              hasRel+=1
+            keymid2mid = icand+'\t'+jcand
+            keymid2mid1 = jcand+'\t'+icand
+            if keymid2mid in mid2midFBLink or keymid2mid1 in mid2midFBLink:
+              hasRel += 1
               nums+=1
+            else:
+              if keymid2mid in nonmid2midFBLink or keymid2mid1 in nonmid2midFBLink:
+                hasRel+=0
+              else:
+                retDict,flaglink = mongoutils.getHasRel_1(icand,jcand,allcandents_coents)
+                #dynamic to add the cache files...
+                if len(retDict):
+                  for retkey in retDict:
+                    allcandents_coents[retkey] = retDict[retkey]
+                if flaglink:
+                  hasRel += 1
+                  nums+=1
+                  mid2midFBLink[keymid2mid]=1
+                else:
+                  allcandents_coents[keymid2mid] = 1
         if nums==0:
           temprelCoherent.append(0)
         else:
           temprelCoherent.append(hasRel)
-      print temprelCoherent
+      #print temprelCoherent
       senti_temprelCoherent.append(temprelCoherent)
     ent_mention_relCoherent_feature.append(senti_temprelCoherent)
       
   cPickle.dump(ent_mention_relCoherent_feature,open(fout+str(candidate_nums),'wb'))
+
+def getPageLinks(midi,midj):
+  if midi in mid2incomingLinks:
+    ipages = mid2incomingLinks[midi]
+  else:
+    ipages = getLinkedEntsFmid(ngd,mid2Name,midi)
+    mid2incomingLinks[midi] = ipages
+  if midj in mid2incomingLinks:
+    jpages = mid2incomingLinks[midj]
+  else:
+    jpages = getLinkedEntsFmid(ngd,mid2Name,midj)
+    mid2incomingLinks[midj] = jpages
+ 
+  return ngd.semantic_relatedness(ipages,jpages)
+
   
-  
-def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,allcandents_coents,id2aNosNo,mid2incomingLinks,mid2mid_NGD):
+def get_candidate_rel_features(ngdType,data_flag,ent_Mentions,all_candidate_mids,fout,allcandents_coents,id2aNosNo):
   #candidate_nums = 50
   print 'candidate_nums:',candidate_nums
   '''
@@ -256,16 +280,16 @@ def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,al
         k += 1
         tag = entstr_lower2mid[enti_name]
       '''
-      enti_linktag_item = ent_ment_link_tags[ent_id]
-      tag = enti_linktag_item[1]
-      if tag == 'NIL':
-        ent_id+=1
-        continue
+      #enti_linktag_item = ent_ment_link_tags[ent_id]
+      #tag = enti_linktag_item[1]
+      #if tag == 'NIL':
+        #ent_id+=1
+        #continue
       k += 1
       ent_id+=1
       cand_mid_dict = all_candidate_mids[k]
       doc_ents_cand_mid_dict[aNo].append([key,cand_mid_dict])
-  print 'total k:',k 
+  #print 'total k:',k 
   if data_flag=='train':
     ent_id = 0
   if data_flag=='testa':
@@ -285,11 +309,11 @@ def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,al
       s=enti.startIndex;e=enti.endIndex
       key = aNosNo+'\t'+str(s)+'\t'+str(e)
 
-      enti_linktag_item = ent_ment_link_tags[ent_id]
-      linkTag = enti_linktag_item[1]
-      if linkTag == 'NIL':
-        ent_id+=1
-        continue
+      #enti_linktag_item = ent_ment_link_tags[ent_id]
+      #linkTag = enti_linktag_item[1]
+      #if linkTag == 'NIL':
+        #ent_id+=1
+        #continue
       k += 1
       ent_id+=1
       #此处出现问题，很奇怪呢！
@@ -305,34 +329,31 @@ def get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,fout,al
           
       temprelCoherent = []
       for icand in s_cand_mid_dict:
-        hasNGD = 0.0
+        ngdList= []
         nums= 0
-        if icand in mid2incomingLinks:
-          ipages = mid2incomingLinks[icand]
-        else:
-          ipages = getLinkedEntsFmid(ngd,mid2Name,icand)
-          mid2incomingLinks[icand] = ipages
         for jcand in t_cand_mid_dict:
-          if icand != jcand and jcand in mid2Name:
-            keyij = icand+'\t'+jcand
-            keyji = icand +'\t'+jcand
-            if keyij in mid2mid_NGD:
-              hasNGD += mid2mid_NGD[keyij]
-            else:
-              if jcand in mid2incomingLinks:
-                jpages = mid2incomingLinks[jcand]
-              else:
-                jpages = getLinkedEntsFmid(ngd,mid2Name,jcand)
-                mid2incomingLinks[jcand] = jpages
-              srtemp = ngd.semantic_relatedness(ipages,jpages)
-              hasNGD += srtemp
-              mid2mid_NGD[keyij]=srtemp
-              mid2mid_NGD[keyji]=srtemp
-            nums+=1
+          pl_key = icand +"\t"+jcand
+          
+          if pl_key in mid2midpageLinkNums:
+            #hasNGD += mid2midpageLinkNums[pl_key]
+            ngdList.append(mid2midpageLinkNums[pl_key])
+            
+          else:  
+            if icand != jcand and icand in mid2Name and jcand in mid2Name:
+              temp_pl_nums = getPageLinks(icand,jcand)
+              #hasNGD += temp_pl_nums
+              ngdList.append(temp_pl_nums)
+              mid2midpageLinkNums[pl_key] = temp_pl_nums
+              nums+=1
         if nums==0:
           temprelCoherent.append(0)
         else:
-          temprelCoherent.append(hasNGD/nums)
+          if ngdType=='max':
+            temprelCoherent.append(np.max(ngdList))
+          elif ngdType=='average':
+            temprelCoherent.append(np.average(ngdList))
+          else:
+            temprelCoherent.append(np.sum(ngdList))
       #print temprelCoherent
       senti_temprelCoherent.append(temprelCoherent)
     ent_mention_relCoherent_feature.append(senti_temprelCoherent)
@@ -395,9 +416,9 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
       enti_linktag_item = ent_ment_link_tags[ent_id]
       tag = enti_linktag_item[1]
      
-      if tag == 'NIL':
-        ent_id += 1
-        continue
+      #if tag == 'NIL':
+      #  ent_id += 1
+        #continue
       ent_id += 1
       k += 1  
       tag_t = 0
@@ -409,9 +430,10 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
       tcanditetype=[]
       tcandprob = []
       
-      
+      #if tag=='NIL':
+      #  ent_mention_tag_temp.append(90)
       cand_mid_dict = all_candidate_mids[k]
-  
+      
       for mid in cand_mid_dict:  
         if mid not in mid2description and mid == tag:   
           print 'mide not in mid2description', mid
@@ -483,7 +505,7 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
       temps.append(tdescip)
       temps_tag.append(ent_mention_tag_temp)
       temps_cand_prob.append(tcandprob)
-      temps_ent_index.append((enti.startIndex,enti.endIndex)) 
+      temps_ent_index.append((enti.startIndex,enti.endIndex,ent_id,tag)) 
       
     ent_mention_surface_wordv.append(temps_mentwordv)
     
@@ -493,7 +515,7 @@ def get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2des
     
     ent_mention_tag.append(temps_tag)
     ent_mention_index.append(temps_ent_index)
-    
+  
   '''
   print len(ent_mention_link_feature),len(ent_mention_link_feature[3]),len(ent_mention_link_feature[3][0])
   print len(ent_mention_tag),len(ent_mention_tag[3]),len(ent_mention_tag[3][0])
@@ -526,7 +548,7 @@ def recalls():
     for j in range(len(ents)):
       enti = ents[j]
       
-      enti_name = enti.content.lower()
+      enti_name = enti.content.lower()  
       '''
       if enti_name not in entstr_lower2mid:
         continue   
@@ -538,9 +560,9 @@ def recalls():
       tag = enti_linktag_item[1]
        
       if tag == 'NIL':
-        ent_id += 1
+        #ent_id += 1
         pass_num += 1
-        continue
+        #continue
       ent_id += 1
       k += 1  
       #print 'k:',k
@@ -588,6 +610,8 @@ if __name__=='__main__':
   #exit(0)
   print 'load dataEnts candidates cost time:',time.time()-stime
   print 'start to comput recall....'
+  
+  
   #recalls()
   #get_all_candidate_mid_cocurrent(data_flag,ent_Mentions,all_candidate_mids,f_outputtemp)   
   #allcandents_coents = cPickle.load(open(f_outputtemp,'rb'))
@@ -598,90 +622,104 @@ if __name__=='__main__':
   id2aNosNo = {val:key for key,val in aNosNo2id.items()}
   
   '''
-  mid2mid_NGD = {}
-  if os.path.isfile(dir_path+'mid2mid_NGD.p'):
-    print 'start to load mid2mid_NGD ... '
-    mid2mid_NGD=cPickle.load(open(dir_path+'mid2mid_NGD.p','rb'))
-    
+      
+  mid2midpageLinkNums = {}
+  stime = time.time()
+  if os.path.isfile('data/cacheFile/mid2midpageLink.p'):
+    print 'start to load mid2midpageLink ... '
+    mid2midpageLinkNums=cPickle.load(open('data/cacheFile/mid2midpageLink.p','rb'))
+  print 'load mid2mid page linkNums:',time.time()-stime
+                                               
+                                               
   mid2incomingLinks={}
   if os.path.isfile(dir_path+'mid2incomingLinks.p'):
     print 'start to load mid2incomingLinks ... '
     mid2incomingLinks=cPickle.load(open(dir_path+'mid2incomingLinks.p','rb'))
-  get_candidate_rel_features(data_flag,ent_Mentions,all_candidate_mids,f_output3,allcandents_coents,id2aNosNo,mid2incomingLinks,mid2mid_NGD)
-#  cPickle.dump(mid2incomingLinks,open(dir_path+'mid2incomingLinks.p','wb'))
-#  cPickle.dump(mid2mid_NGD,open(dir_path+'mid2mid_NGD.p','wb'))
+  
+  ngdType= 'average'
+  get_candidate_rel_features(ngdType,data_flag,ent_Mentions,all_candidate_mids,f_output3,allcandents_coents,id2aNosNo)
+  cPickle.dump(mid2incomingLinks,open('data/cacheFile/mid2incomingLinks.p','wb'))
+  cPickle.dump(mid2midpageLinkNums,open('data/cacheFile/mid2midpageLink.p','wb'))
   '''
 
-
-  mid2midFBLink={}
-  if os.path.isfile(dir_path+'mid2midFBLink.p'):
-    print 'start to load mid2incomingFBLink ... '
-    mid2midFBLink=cPickle.load(open(dir_path+'mid2midFBLink.p','rb'))
-  get_candidate_fbrel_features(data_flag,ent_Mentions,all_candidate_mids,f_output3_2,allcandents_coents,id2aNosNo)
-  cPickle.dump(mid2midFBLink,open(dir_path+'mid2midFBLink.p','wb'))
   
-#  '''
-#  #sent_embed = cPickle.load(open(f_input_ent_embed,'rb'))
-#  #assert len(ent_Mentions) == len(sent_embed)
-#  '''
-#  '''
-#  @time: 2017/2/8
-#  @function: load re-rank feature£ºentity type
-#  '''
-#  fid2title = collections.defaultdict(list)
-#  fid2vec = {}
-#  wtitle2fid = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
-#  for key in wtitle2fid:
-#    for item in wtitle2fid[key]:
-#      fid2title[item].append(key)
-#  '''
-#  @time: 2016/12/23
-#  @function: load re-rank feature£ºentity type
-#  '''  
-#  stime = time.time()
-#  descript_Words = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p', 'rb'))
-#  print 'load wordvec_model_100 cost time: ', time.time()-stime
+#  allcandents_coents = cPickle.load(open('data/cacheFile/mid2tailmids.p','rb'))
 #  
-#  wordsVectors = descript_Words.wvec_model
-#      
-#  for key in fid2title:
-#    num = 0
-#    fwordv = np.zeros((100,))
-#    for item in fid2title[key]:    
-#      num += 1
-#      twordv = np.zeros((100,))
-#      for word in item.split(u' '):
-#        if word in wordsVectors:
-#          twordv += wordsVectors[word]
-#      fwordv += twordv
-#    fwordv /=num
-#    fid2vec[key] = fwordv  
-#  
-#  stime = time.time()
-#  mid2figer = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/mid2figer.p','rb'))
-#  print 'load mid2figer cost time:',time.time()-stime
-#                                             
+#  nonmid2midFBLink={}
+#  mid2midFBLink={}
+#  if os.path.isfile('data/cacheFile/mid2midFBLink.p'):
+#    print 'start to load mid2midFBLink ... '
+#    mid2midFBLink=cPickle.load(open('data/cacheFile/mid2midFBLink.p','rb'))
+#    nonmid2midFBLink=cPickle.load(open('data/cacheFile/nonmid2midFBLink.p','rb'))
 #
-#  stime = time.time()
-#  mid2description={}  #nearly 2.3G
-#  with codecs.open('/home/wjs/demo/entityType/informationExtract/data/mid2description.txt','r','utf-8') as file:
-#    for line in file:
-#      items = line.strip().split('\t')
-#      if len(items) >=2:
-#        mid2description[items[0]] =items[1]
-#  print 'load mid2descriptioon cost time: ', time.time()-stime
-##
-#  get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2description,descript_Words.wvec_model,mid2figer,fid2vec,f_output,f_output1,f_output2,f_output4)
+#  get_candidate_fbrel_features(data_flag,ent_Mentions,all_candidate_mids,f_output3_2,allcandents_coents,id2aNosNo)
+#  cPickle.dump(mid2midFBLink,open('data/cacheFile/mid2midFBLink.p','wb'))
+#  cPickle.dump(nonmid2midFBLink,open('data/cacheFile/nonmid2midFBLink.p','wb'))
+#  cPickle.dump(allcandents_coents,open('data/cacheFile/mid2tailmids.p','wb'))
 #  
-#  '''
-#  param_dict = cPickle.load(open(f_output,'rb'))
-#  ent_mention_link_feature = param_dict['ent_mention_link_feature']
-#  assert len(ent_mention_link_feature) == len(ent_Mentions)
-#  if len(ent_mention_link_feature) == len(ent_Mentions):
-#    print 'right'
-#  else:
-#    print 'wrong'
-#  '''
+  
+  '''
+  #sent_embed = cPickle.load(open(f_input_ent_embed,'rb'))
+  #assert len(ent_Mentions) == len(sent_embed)
+  '''
+  '''
+  @time: 2017/2/8
+  @function: load re-rank feature£ºentity type
+  '''
+  fid2title = collections.defaultdict(list)
+  fid2vec = {}
+  wtitle2fid = getWikititle2Freebase()
+  for key in wtitle2fid:
+    for item in wtitle2fid[key]:
+      fid2title[item].append(key)
+  '''
+  @time: 2016/12/23
+  @function: load re-rank feature£ºentity type
+  '''  
+  stime = time.time()
+  descript_Words = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wordvec_model_100.p', 'rb'))
+  print 'load wordvec_model_100 cost time: ', time.time()-stime
+  
+  wordsVectors = descript_Words.wvec_model
+      
+  for key in fid2title:
+    num = 0
+    fwordv = np.zeros((100,))
+    for item in fid2title[key]:    
+      num += 1
+      twordv = np.zeros((100,))
+      for word in item.split(u' '):
+        if word in wordsVectors:
+          twordv += wordsVectors[word]
+      fwordv += twordv
+    fwordv /=num
+    fid2vec[key] = fwordv  
+  
+  stime = time.time()
+  mid2figer = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/mid2figer.p','rb'))
+  print 'load mid2figer cost time:',time.time()-stime
+                                             
+
+  stime = time.time()
+  mid2description={}  #nearly 2.3G
+  with codecs.open('/home/wjs/demo/entityType/informationExtract/data/mid2description.txt','r','utf-8') as file:
+    for line in file:
+      items = line.strip().split('\t')
+      if len(items) >=2:
+        mid2description[items[0]] =items[1]
+  print 'load mid2descriptioon cost time: ', time.time()-stime
+                                                      
+  get_candidate_ent_features(data_flag,ent_Mentions,all_candidate_mids,mid2description,descript_Words.wvec_model,mid2figer,fid2vec,f_output,f_output1,f_output2,f_output4)
+  
+  '''
+  param_dict = cPickle.load(open(f_output,'rb'))
+  ent_mention_link_feature = param_dict['ent_mention_link_feature']
+  assert len(ent_mention_link_feature) == len(ent_Mentions)
+  if len(ent_mention_link_feature) == len(ent_Mentions):
+    print 'right'
+  else:
+    print 'wrong'
+  '''
   
   
 
