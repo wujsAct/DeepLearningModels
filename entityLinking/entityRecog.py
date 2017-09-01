@@ -17,11 +17,12 @@ pp = pprint.PrettyPrinter()
 flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
 flags.DEFINE_integer("batch_size",256,"batch size of training")
-flags.DEFINE_string("datasets","aida","dataset name")
-flags.DEFINE_integer("sentence_length",250,"max sentence length")
+
+flags.DEFINE_integer("sentence_length",124,"max sentence length")
 flags.DEFINE_integer("class_size",5,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
-flags.DEFINE_integer("word_dim",110,"hidden dimension of rnn")
+flags.DEFINE_integer("word_dim",310,"hidden dimension of rnn")
+flags.DEFINE_integer("ner_word_dim",300,"hidden dimension of rnn")
 flags.DEFINE_integer("candidate_ent_num",90,"hidden dimension of rnn")
 flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
 flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
@@ -29,8 +30,10 @@ flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
 flags.DEFINE_string("restore","checkpoint","path of saved model")
 flags.DEFINE_boolean("dropout",True,"apply dropout during training")
 flags.DEFINE_float("learning_rate",0.005,"apply dropout during training")
+
+
 args = flags.FLAGS
-args = flags.FLAGS
+
 def f1(args, prediction, target, length):
   tp = np.array([0] * (args.class_size + 1))
   fp = np.array([0] * (args.class_size + 1))
@@ -106,7 +109,7 @@ class nameEntityRecognition():
       print "[*] seqLSTM is loaded..."
     else:
       print "[*] There is no checkpoint for aida"
-  def getEntityRecognition(self,test_input,test_out,flag):
+  def getEntityRecognition(self,test_input,test_out):
     num_examples = np.shape(test_input)[0]
 
     loss1,length,lstm_output,tf_unary_scores,tf_transition_params = self.sess.run([self.model.loss,self.model.length,self.model.output,self.model.unary_scores,self.model.transition_params],
@@ -145,14 +148,14 @@ if __name__=='__main__':
   
   utils = inputUtils()
 
-  test_input = utils.padZeros(cPickle.load(open(feature_dir_path+data_tag+'_embed.p100','rb')))
+  test_input = utils.padZeros(cPickle.load(open(feature_dir_path+data_tag+'_embed.p'+args.rawword_dim,'rb')))
   print 'load data cost time:', time.time()-start_time
   
                                          
   testShape = np.shape(test_input)
   print testShape
   if data_tag=='testa' or data_tag=='testb':
-    test_out =  utils.padZeros(cPickle.load(open(feature_dir_path+data_tag+'_tag.p100','rb')),5)
+    test_out =  utils.padZeros(cPickle.load(open(feature_dir_path+data_tag+'_tag.p'+args.rawword_dim,'rb')),5)
   else:
     test_out = np.zeros([testShape[0],testShape[1],args.class_size],dtype=np.float32)
   test_out = np.argmax(test_out,2)
@@ -164,7 +167,7 @@ if __name__=='__main__':
   #final_lstmout =[]
   for input_batch,output_batch in utils.iterate(args.batch_size,test_input,test_out):
     print batchNo,np.shape(input_batch)[0],np.shape(output_batch)
-    pred,lstm_output = nerClass.getEntityRecognition(input_batch,output_batch,'test')
+    pred,lstm_output = nerClass.getEntityRecognition(input_batch,output_batch)
     allSamples += len(pred)
     print pred
     if batchNo==0:

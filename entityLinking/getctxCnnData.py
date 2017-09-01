@@ -15,6 +15,7 @@ sys.path.append('utils')
 sys.path.append('main1')
 sys.path.append('main2')
 import cPickle
+from utils import getWikititle2Freebase,getWikidata2Freebase,getreverseIndex
 import Levenshtein
 from PhraseRecord import EntRecord
 import codecs
@@ -24,7 +25,6 @@ from tqdm import tqdm
 import collections
 from NGDUtils import NGDUtils
 import numpy as np
-
 
 def getfname2pageid():
   title2pageId = {}
@@ -344,8 +344,8 @@ def get_final_ent_cands():
       
       if tag == 'NIL':
         pass_nums = pass_nums + 1
-        ent_id += 1
-        continue
+#        ent_id += 1
+#        continue
       ent_id += 1
       if aNosNoMSE in entMent2repMent:
         isRepflag = True
@@ -374,13 +374,13 @@ def get_final_ent_cands():
   
       cantent_mid2,word2vecEnts =  get_ent_word2vec_cands(mid2incomingLinks,ngd,mid2name,enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,dict(cantent_mid1)) #get word2vec coherent candidates
       #cantent_mid2 = get_ent_word2vec_cands(enti.content,w2fb,wikititle2fb,w2vModel,context_ents,candiate_ent,cantent_mid1) #get word2vec coherent candidates
-      freebaseNum = max(0,30 - len(cantent_mid2))
+      freebaseNum = max(0,90 - len(cantent_mid2))
       final_mid,freebase_cants = get_freebase_ent_cands(mid2incomingLinks,ngd,mid2name,dict(cantent_mid2),enti.content,context_ent_pageId,context_ents,wikititle2fb,wikititle_reverse_index,freebaseNum,word2vecEnts)
       #cantent_mid3 = get_freebase_ent_cands(cantent_mid2,enti.content,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum) #search by freebase matching
       
       
       #final_mid = list(cantent_mid2)
-      totalCand = len(final_mid)
+      #totalCand = len(final_mid)
       #if tag in cantent_mid1 or tag in cantent_mid2 or tag in cantent_mid3:
       if tag in final_mid:
         if isRepflag:
@@ -388,7 +388,7 @@ def get_final_ent_cands():
         right_nums += 1
       else:
         wrong_nums = wrong_nums + 1
-        print 'wrong:',tag,enti.content,totalCand#,final_mid
+        #print 'wrong:',tag,enti.content,totalCand#,final_mid
         #print cantent_mid1,cantent_mid2,cantent_mid3
         #exit()
         
@@ -428,15 +428,10 @@ if __name__=='__main__':
   print 'entstr2id',len(entstr2id)
   mid2name = getmid2Name()
   ngd = NGDUtils()
-  w2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wid2fbid.p','rb'))
-  wikititle2fb = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitle2fbid.p','rb'))
+  w2fb = getWikidata2Freebase()
+  wikititle2fb = getWikititle2Freebase()
   ids = entstr2id['wall street']
-#  for idi in ids:
-#    print idi
-#    for kk in candiate_ent[idi]:
-#      print kk
-#      print w2fb[kk['ids']],kk['title']
-#  exit(0)
+
   averages = []
   max_candidate = 0
   new_candiate_ent=[]
@@ -485,7 +480,7 @@ if __name__=='__main__':
   #param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents,'ent_ctxs':ent_ctxs} ==>
   dataEnts = cPickle.load(open(f_input_entMents,'r'))
   
-  ent_Mentions = dataEnts['ent_Mentions']; aNo_has_ents=dataEnts['aNo_has_ents'];ent_ctxs=dataEnts['ent_ctxs']
+  ent_Mentions = dataEnts['ent_Mentions']; aNo_has_ents=dataEnts['aNo_has_ents']#;ent_ctxs=dataEnts['ent_ctxs']
   print len(ent_Mentions)
   #print ent_Mentions
   #exit(0)
@@ -505,33 +500,24 @@ if __name__=='__main__':
       enti_name = enti.content
       value = entstr2id_org.get(enti_name)
       if enti_name.lower() not in docId_entstr2id[docId]:
-        
-        docId_entstr2id[docId][enti_name]= {value}
+        docId_entstr2id[docId][enti_name.lower()]= {value}
       else:
-        docId_entstr2id[docId][enti_name].add(value)
+        docId_entstr2id[docId][enti_name.lower()].add(value)
   #print docId_entstr2id
   print 'start to load wikititle...'
   s_time = time.time()
-  #w2vModel=[]
-  #wikititle_reverse_index=[]
   w2vModel = gensim.models.Word2Vec.load_word2vec_format('/home/wjs/demo/entityType/informationExtract/data/GoogleNews-vectors-negative300.bin',binary=True)
   print 'w2vModel:',time.time()-s_time
-  wikititle_reverse_index  = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/wtitleReverseIndex.p','rb'))
-  print 'wikititle_reverse_index:',time.time()-s_time
-  #w2vModel=[]
-  #wikititle2fb=[]
-  #wikititle_reverse_index=[]
-  
+  wikititle_reverse_index  = getreverseIndex()
+
   print 'start to solve problems...'
   #
   title2pageId = getfname2pageid()
   mid2incomingLinks={}
-  if os.path.isfile(dir_path+'mid2incomingLinks.p'):
-    print 'start to load mid2incomingLinks ... '
-    mid2incomingLinks=cPickle.load(open(dir_path+'mid2incomingLinks.p','rb'))
+  #if os.path.isfile(dir_path+'mid2incomingLinks.p'):
+  #  print 'start to load mid2incomingLinks ... '
+  #  mid2incomingLinks=cPickle.load(open(dir_path+'mid2incomingLinks.p','rb'))
   all_candidate_mids,wiki_candidate_mids,freebase_candidate_mids = get_final_ent_cands()
   data_param={'all_candidate_mids':all_candidate_mids,'wiki_candidate_mids':wiki_candidate_mids,'freebase_candidate_mids':freebase_candidate_mids}
   cPickle.dump(data_param,open(f_output,'wb'))
-  #cPickle.dump(mid2incomingLinks,open(dir_path+'mid2incomingLinks.p','wb'))
-  
-  
+ 

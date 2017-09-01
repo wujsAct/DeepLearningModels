@@ -1,18 +1,23 @@
 #@time: 2017/6/13
 
-dir_path="data/kbp/2010"
+dir_path="data/kbp/2014"
 data_tag="kbp"
 dataset="evaluation"
 dims="300"
 
 
-if [ ! -d "data/kbp/2010/evaluation/features" ]; then
- mkdir "data/kbp/2010/evaluation/features"
+if [ ! -d "data/kbp/2014/evaluation/features" ]; then
+ mkdir "data/kbp/2014/evaluation/features"
 fi
 
 
-if [ ! -d "data/kbp/2010/evaluation/features/90" ]; then
- mkdir "data/kbp/2010/evaluation/features/90"
+if [ ! -d "data/kbp/2014/evaluation/features/90" ]; then
+ mkdir "data/kbp/2014/evaluation/features/90"
+fi
+
+
+if [ ! -d "data/kbp/2014/evaluation/features/50" ]; then
+ mkdir "data/kbp/2014/evaluation/features/50"
 fi
 
 :<<!
@@ -36,12 +41,12 @@ only has the 98 percent correctness
 Extract entity mention from NER results; we abandon the NIL entities!
 generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]]
 !
-#python getNERentMentions.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
+#python steps/getNERentMentions.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
 
 :<<!
 generate candidate entities for entity mentions
 !
-python getACECandiates.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
+#python steps/getACECandiates.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
 ##python transfer.py data/ace/ eng.ace ace.p #abandon
 ##python utils/getLinkingTag.py --dir_path ${dir_path} --data_tag ${data_tag} #abandon
 :<<!
@@ -49,9 +54,10 @@ generate entity linking features
 !
 #we also need to delete the non entity mention sentences!
 #python embeddings/generate_ace_entmention_linking_features.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
+#python embeddings/generate_ace_entmention_linking_features_doc.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}
 #python trainAidaNEL1.py
 
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
-#python getNEL.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}  --features 3
+python steps/getNEL.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}  --features 3 --candidateEntNum 50
 
 #python utils/genKBPResult.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}  --features 3

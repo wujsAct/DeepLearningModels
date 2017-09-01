@@ -1,28 +1,26 @@
-#@time: 2016/11/28
-#funtion: deal with CoNLL 2003 datasets, 数据中存在很多问题呢！
+#@time: 2017/8/4
+#we utilize the new model to solve entity linking
 
 data="testa"
 dir_path="data/aida/"
 dims="100"
 
 :<<!
-extract ent mention and its types
+extract all candidate entity
 !
-#python transfer.py data/aida/ eng.train train.p
-#python transfer.py data/aida/ eng.testa testa.p
-#python transfer.py data/aida/ eng.testb testb.p
+python newSteps/extractAllCandidatesEnts.py
 
 :<<!
-utilzie coreference to find non-linking partial entity string to get its real complete entity!
+we utilize co-occurence to train the embeddings for all candidate entities
 !
 
 
 :<<!
 generate entity mention candidates and related entities
 !
-#python steps/getCandiates.py data/aida/process/ testb.p testb_candEnts.p
-#python steps/getCandiates.py data/aida/process/ train.p train_candEnts.p
-#python steps/getCandiates.py data/aida/process/ testa.p testa_candEnts.p
+#python getCandiates.py data/aida/process/ testb.p testb_candEnts.p
+#python getCandiates.py data/aida/process/ train.p train_candEnts.p
+#python getCandiates.py data/aida/process/ testa.p testa_candEnts.p
 #python getLinkTags.py data/aida/process/ train.p train_candEnts.p
 #python getLinkTags.py data/aida/process/ testa.p testa_candEnts.p
 #python getLinkTags.py data/aida/process/ testb.p testb_candEnts.p

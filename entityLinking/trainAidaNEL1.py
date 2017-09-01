@@ -8,13 +8,35 @@ revise: 2017/1/8
 import tensorflow as tf
 import time
 from model import ctxSum
-from entityRecog import nameEntityRecognition,pp,flags,args #get seqLSTM features
 from sklearn.metrics import f1_score
 from utils import nelInputUtils as inputUtils
-from utils import getLinkingFeature
+from utils import getLinkingFeature,genEntMentMask
 import numpy  as np
+import pprint
+import time
 import cPickle
 import argparse
+pp = pprint.PrettyPrinter()
+
+flags = tf.app.flags
+flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
+flags.DEFINE_integer("batch_size",10,"batch size of training")
+flags.DEFINE_string("datasets","ace","hidden dimension of rnn")
+flags.DEFINE_integer("sentence_length",124,"max sentence length")
+flags.DEFINE_integer("class_size",5,"number of classes")
+flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
+flags.DEFINE_integer("word_dim",310,"hidden dimension of rnn")
+flags.DEFINE_integer("ner_word_dim",300,"hidden dimension of rnn")
+flags.DEFINE_integer("candidate_ent_num",90,"hidden dimension of rnn")
+flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
+flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
+flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
+flags.DEFINE_string("restore","checkpoint","path of saved model")
+flags.DEFINE_boolean("dropout",True,"apply dropout during training")
+flags.DEFINE_float("learning_rate",0.005,"apply dropout during training")
+
+args = flags.FLAGS
+
 def getData(dataTag):
   dataUtils = inputUtils(args.rawword_dim,dataTag)
   data_input = dataUtils.emb; 
@@ -88,27 +110,36 @@ def main(_):
   
   
   aceTestList,msnbcTestList,trainList = getDataTestSets()
-  train_input, train_out, train_ent_mention_index, train_ent_mention_link_feature, \
-  train_ent_mention_tag, train_ent_relcoherent,train_ent_linking_type,\
-  train_ent_linking_candprob,train_ent_surfacewordv_feature = trainList
   
   ace_input, ace_out, ace_ent_mention_index, ace_ent_mention_link_feature, \
   ace_ent_mention_tag, ace_ent_relcoherent,ace_ent_linking_type,\
   ace_ent_linking_candprob,ace_ent_surfacewordv_feature =  aceTestList
+  ace_example_nums = np.shape(ace_input)[0]
+  ace_entMentIndex,ace_entMent_length = genEntMentMask(args,ace_example_nums,ace_ent_mention_index)
+  
+  
+  train_input, train_out, train_ent_mention_index, train_ent_mention_link_feature, \
+  train_ent_mention_tag, train_ent_relcoherent,train_ent_linking_type,\
+  train_ent_linking_candprob,train_ent_surfacewordv_feature = trainList
+  
+  
+  
   
   msnbc_input, msnbc_out, msnbc_ent_mention_index, msnbc_ent_mention_link_feature, \
   msnbc_ent_mention_tag, msnbc_ent_relcoherent,msnbc_ent_linking_type,\
   msnbc_ent_linking_candprob,msnbc_ent_surfacewordv_feature =  msnbcTestList
+  msnbc_example_nums = np.shape(msnbc_input)[0]
+  msnbc_entMentIndex,msnbc_entMent_length = genEntMentMask(args,msnbc_example_nums,msnbc_ent_mention_index)
   
-  #function: lstm_output from seqLSTM
-  config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=6,inter_op_parallelism_threads=6)
-  config.gpu_options.allow_growth=True
-  sess_ner = tf.InteractiveSession(config=config)
-  
-  nerInstance = nameEntityRecognition(sess_ner,'checkpoint','aida')
-  lstm_output_train = nerInstance.getEntityRecognition(train_input,train_out)
-  lstm_output_ace = nerInstance.getEntityRecognition(ace_input,ace_out)
-  lstm_output_msnbc = nerInstance.getEntityRecognition(msnbc_input,msnbc_out)
+#  #function: lstm_output from seqLSTM
+#  config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=6,inter_op_parallelism_threads=6)
+#  config.gpu_options.allow_growth=True
+#  sess_ner = tf.InteractiveSession(config=config)
+#  
+#  nerInstance = nameEntityRecognition(sess_ner,'checkpoint','aida')
+#  lstm_output_train = nerInstance.getEntityRecognition(train_input,train_out)
+#  lstm_output_ace = nerInstance.getEntityRecognition(ace_input,ace_out)
+#  lstm_output_msnbc = nerInstance.getEntityRecognition(msnbc_input,msnbc_out)
   config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
   config.gpu_options.allow_growth=True
   testflag = 'ace'
@@ -118,7 +149,7 @@ def main(_):
     optimizer = tf.train.AdamOptimizer(0.001)
     tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,scope='ctxSum')
     lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.01
-    loss_linking = modelNEL.linking_loss  + lossL2
+    loss_linking = modelNEL.linking_loss  #+ lossL2
     print 'tvars_linking:',tvars
     grads,_ = tf.clip_by_global_norm(tf.gradients(loss_linking,tvars),10)
     train_op_linking = optimizer.apply_gradients(zip(grads,tvars))
@@ -132,12 +163,12 @@ def main(_):
     max_accracy_ace=0
     for e in range(200):
       print 'Epoch: %d------------' %(e)
-      for ptr in xrange(0,len(train_input),10):
+      for ptr in xrange(0,len(train_input),args.batch_size):
         ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-            ent_mention_lstm_feature,candidate_ent_relcoherent_feature_ngd,candidate_ent_relcoherent_feature_fb,ent_surfacewordv_feature = \
-               getLinkingFeature(args,lstm_output_ace,ace_ent_mention_index,ace_ent_mention_tag,
+        candidate_ent_relcoherent_feature_ngd,candidate_ent_relcoherent_feature_fb,ent_surfacewordv_feature = \
+               getLinkingFeature(args,ace_ent_mention_index,ace_ent_mention_tag,
                                  ace_ent_relcoherent,ace_ent_mention_link_feature,ace_ent_linking_type,
-                                 ace_ent_linking_candprob,ace_ent_surfacewordv_feature,0,flag='ace')
+                                 ace_ent_linking_candprob,ace_ent_surfacewordv_feature,ace_example_nums,0,flag='ace')
         loss2,lossl2,accuracy,pred,w1,w2,w3,w4,w5 = sess.run([loss_linking,lossL2,modelNEL.accuracy,modelNEL.prediction,modelNEL.w1,modelNEL.w2,modelNEL.w3,modelNEL.w4,modelNEL.w5],
                                    {modelNEL.ent_mention_linking_tag:ent_mention_linking_tag_list,
                                      modelNEL.candidate_ent_coherent_feature_ngd:candidate_ent_relcoherent_feature_ngd,
@@ -145,7 +176,9 @@ def main(_):
                                     modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
                                     modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
                                     modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                                    modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature,
+                                    modelNEL.input_data:ace_input,
+                                    modelNEL.entMentIndex:ace_entMentIndex,
+                                    #modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature,
                                     modelNEL.ent_surfacewordv_feature:ent_surfacewordv_feature,
                                     modelNEL.keep_prob:1.0
                                    })
@@ -159,10 +192,10 @@ def main(_):
           print 'ace loss:',loss2,lossl2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro
               
         ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-  ent_mention_lstm_feature,candidate_ent_relcoherent_feature_ngd,candidate_ent_relcoherent_feature_fb,ent_surfacewordv_feature = \
-    getLinkingFeature(args,lstm_output_msnbc,msnbc_ent_mention_index,msnbc_ent_mention_tag,
+candidate_ent_relcoherent_feature_ngd,candidate_ent_relcoherent_feature_fb,ent_surfacewordv_feature = \
+    getLinkingFeature(args,msnbc_ent_mention_index,msnbc_ent_mention_tag,
                        msnbc_ent_relcoherent,msnbc_ent_mention_link_feature,msnbc_ent_linking_type,
-                       msnbc_ent_linking_candprob,msnbc_ent_surfacewordv_feature,0,flag='msnbc')
+                       msnbc_ent_linking_candprob,msnbc_ent_surfacewordv_feature,msnbc_example_nums,0,flag='msnbc')
         loss2,lossl2,accuracy,pred = sess.run([loss_linking,lossL2,modelNEL.accuracy,modelNEL.prediction],
                          {modelNEL.ent_mention_linking_tag:ent_mention_linking_tag_list,
                           #modelNEL.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
@@ -171,7 +204,9 @@ def main(_):
                           modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
                           modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
                           modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                          modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature,
+                          modelNEL.input_data:msnbc_input,
+                          modelNEL.entMentIndex:msnbc_entMentIndex,
+                          #modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature,
                           modelNEL.ent_surfacewordv_feature:ent_surfacewordv_feature,
                           modelNEL.keep_prob:1.0
                          })
@@ -185,14 +220,16 @@ def main(_):
           print 'msnbc loss:',loss2,lossl2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro
           #if max_accracy_msnbc > 0.75:
           #  modelNEL.save(sess,args.restore,"aida_"+features)
-        lstm_output = lstm_output_train[ptr:min(ptr+10,len(train_input))];
+        batch_size = min(np.shape(train_input)[0],ptr+args.batch_size) -ptr
         ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-         ent_mention_lstm_feature,candidate_ent_relcoherent_feature_ngd,candidate_ent_relcoherent_feature_fb,ent_surfacewordv_feature= \
-                                                getLinkingFeature(args,lstm_output,train_ent_mention_index,train_ent_mention_tag,
+         candidate_ent_relcoherent_feature_ngd,candidate_ent_relcoherent_feature_fb,ent_surfacewordv_feature= \
+                                                getLinkingFeature(args,train_ent_mention_index,train_ent_mention_tag,
                                                 train_ent_relcoherent,train_ent_mention_link_feature,train_ent_linking_type,
-                                                train_ent_linking_candprob,train_ent_surfacewordv_feature,ptr,flag='trainmsnbc')
-        if len(ent_mention_lstm_feature)==0:
+                                                train_ent_linking_candprob,train_ent_surfacewordv_feature,batch_size,ptr,flag='trainmsnbc')
+        if len(ent_mention_linking_tag_list)==0:
           continue
+        train_entMentIndex,train_entMent_length = genEntMentMask(args,np.shape(train_input[ptr:min(np.shape(train_input)[0],ptr+args.batch_size)])[0],train_ent_mention_index[ptr:min(np.shape(train_input)[0],ptr+args.batch_size)]) 
+        
         _,loss2,accuracy,pred = sess.run([train_op_linking,loss_linking,modelNEL.accuracy,modelNEL.prediction],
                                {modelNEL.ent_mention_linking_tag:ent_mention_linking_tag_list,
                                  modelNEL.candidate_ent_coherent_feature_ngd:candidate_ent_relcoherent_feature_ngd,
@@ -200,200 +237,13 @@ def main(_):
                                 modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
                                 modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
                                 modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                                modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature, 
+                                modelNEL.input_data:train_input[ptr:min(np.shape(train_input)[0],ptr+args.batch_size)],
+                                modelNEL.entMentIndex:train_entMentIndex,
+                                #modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature, 
                                 modelNEL.ent_surfacewordv_feature:ent_surfacewordv_feature,
                                 modelNEL.keep_prob:0.5
                                })
         f1_micro,f1_macro=f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='micro'),f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='macro')
         #print 'train loss:',loss2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro
-
-
-'''
-def main(_):
-  pp.pprint(flags.FLAGS.__flags)
-
-  print 'start to load data...'
-  start_time = time.time()
-  
-  testa_input, testa_out, testa_ent_mention_index, testa_ent_mention_link_feature, \
-  testa_ent_mention_tag, testa_ent_relcoherent,testa_ent_linking_type,\
-  testa_ent_linking_candprob =  getData("testa") 
-  
-  trainList,aceTestList,msnbcTestList  = getDataSets()
-  
-  train_input, train_out, train_ent_mention_index, train_ent_mention_link_feature, \
-  train_ent_mention_tag, train_ent_relcoherent,train_ent_linking_type,\
-  train_ent_linking_candprob = trainList
-  
-  ace_input, ace_out, ace_ent_mention_index, ace_ent_mention_link_feature, \
-  ace_ent_mention_tag, ace_ent_relcoherent,ace_ent_linking_type,\
-  ace_ent_linking_candprob =  aceTestList
-  
-  msnbc_input, msnbc_out, msnbc_ent_mention_index, msnbc_ent_mention_link_feature, \
-  msnbc_ent_mention_tag, msnbc_ent_relcoherent,msnbc_ent_linking_type,\
-  msnbc_ent_linking_candprob =  msnbcTestList
-  
-
-  
-  
-  testb_input, testb_out, testb_ent_mention_index, testb_ent_mention_link_feature, \
-  testb_ent_mention_tag, testb_ent_relcoherent,testb_ent_linking_type,\
-  testb_ent_linking_candprob =  getData("testb")
-  print 'cost:', time.time()-start_time,' to load data'
-  
-  #function: lstm_output from seqLSTM
-  config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
-  config.gpu_options.allow_growth=True
-  sess_ner = tf.InteractiveSession(config=config)
-  
-  nerInstance = nameEntityRecognition(sess_ner,'data/aida/','aida')
-  
-  lstm_output_ace = nerInstance.getEntityRecognition(ace_input,ace_out)
-  lstm_output_msnbc = nerInstance.getEntityRecognition(msnbc_input,msnbc_out)
-  lstm_output_testa = nerInstance.getEntityRecognition(testa_input,testa_out)
-  lstm_output_testb = nerInstance.getEntityRecognition(testb_input,testb_out)
-  lstm_output_train = nerInstance.getEntityRecognition(train_input,train_out)
-  sess_ner.close()
-  
-  
-  
-  print 'start to initialize parameters'
-  start_time = time.time()
-  config = tf.ConfigProto(allow_soft_placement=True,intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)
-  config.gpu_options.allow_growth=True
-  with tf.Session(config=config) as sess:
-    modelNEL = ctxSum(args)  #build named entity linking models
-    optimizer = tf.train.AdamOptimizer(0.005)
-    tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,scope='ctxSum')
-    print 'tvars_linking:',tvars
-    #
-    #@l2 loss may help to train the model to avoid overfitting
-    #
-    lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tvars if 'bias' not in v.name]) * 0.01
-    loss_linking = modelNEL.linking_loss  + lossL2
-    grads,_ = tf.clip_by_global_norm(tf.gradients(loss_linking,tvars),10)
-    train_op_linking = optimizer.apply_gradients(zip(grads,tvars))
-    sess.run(tf.global_variables_initializer())
-    
-    if modelNEL.load(sess,args.restore,"aida"):
-      print "[*] ctxSum is loaded..."
-    else:
-      print "[*] There is no checkpoint for aida"
-
-    #@train named entity linking models
-    #avoid overfitting
-    maximum_linking=0
-    id_epoch=0
-    for e in range(100):
-      for ptr in xrange(0,len(train_input),args.batch_size):
-        ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-        ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
-           getLinkingFeature(args,lstm_output_testa,testa_ent_mention_index,testa_ent_mention_tag,
-                             testa_ent_relcoherent,testa_ent_mention_link_feature,testa_ent_linking_type,
-                             testa_ent_linking_candprob,0,flag='testa')
-        loss2,accuracy,pred = sess.run([loss_linking,modelNEL.accuracy,modelNEL.prediction],
-                                 {modelNEL.ent_mention_linking_tag:ent_mention_linking_tag_list,
-                                  modelNEL.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
-                                  modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
-                                  modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
-                                  modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                                  modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature,
-                                  #modelNEL.ent_surfacewordv_feature:ent_surfacewordv_feature,
-                                  modelNEL.keep_prob:1
-                                 })
-        if accuracy > maximum_linking:
-          maximum_linking = accuracy
-          f1_micro,f1_macro = f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='micro'),\
-                                        f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='macro')
-          print '-------------------------------'
-          print 'Epoch: %d------------' %(e)
-          print 'testa loss:',loss2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro
-          cPickle.dump(pred,open('data/aida/testa_entityLinkingResult.p','wb'))
-          #modelNEL.save(sess,args.restore,"aida")
-          
-          ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-        ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
-          getLinkingFeature(args,lstm_output_testb,testb_ent_mention_index,testb_ent_mention_tag,
-                             testb_ent_relcoherent,testb_ent_mention_link_feature,testb_ent_linking_type,
-                             testb_ent_linking_candprob,0,flag='testb')
-          loss2,accuracy,pred = sess.run([loss_linking,modelNEL.accuracy,modelNEL.prediction],
-                               {modelNEL.ent_mention_linking_tag:ent_mention_linking_tag_list,
-                                modelNEL.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
-                                modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
-                                modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
-                                modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                                modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature,
-                                #modelNEL.ent_surfacewordv_feature:ent_surfacewordv_feature,
-                                modelNEL.keep_prob:1
-                               })
-        
-          f1_micro,f1_macro=f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='micro'),f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='macro')
-          print 'testb loss:',loss2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro
-          cPickle.dump(pred,open('data/aida/testb_entityLinkingResult.p','wb'))
-          
-          ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-        ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
-           getLinkingFeature(args,lstm_output_ace,ace_ent_mention_index,ace_ent_mention_tag,
-                             ace_ent_relcoherent,ace_ent_mention_link_feature,ace_ent_linking_type,
-                             ace_ent_linking_candprob,0,flag='ace')
-          loss2,accuracy,pred = sess.run([loss_linking,modelNEL.accuracy,modelNEL.prediction],
-                               {modelNEL.ent_mention_linking_tag:ent_mention_linking_tag_list,
-                                modelNEL.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
-                                modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
-                                modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
-                                modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                                modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature,
-                                #modelNEL.ent_surfacewordv_feature:ent_surfacewordv_feature,
-                                modelNEL.keep_prob:1
-                               })
-        
-          f1_micro,f1_macro=f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='micro'),f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='macro')
-          print 'ace loss:',loss2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro
-          cPickle.dump(pred,open('data/ace/ace_entityLinkingResult.p','wb'))
-          ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-        ent_mention_lstm_feature,candidate_ent_relcoherent_feature = \
-          getLinkingFeature(args,lstm_output_msnbc,msnbc_ent_mention_index,msnbc_ent_mention_tag,
-                             msnbc_ent_relcoherent,msnbc_ent_mention_link_feature,msnbc_ent_linking_type,
-                             msnbc_ent_linking_candprob,0,flag='msnbc')
-          loss2,accuracy,pred = sess.run([loss_linking,modelNEL.accuracy,modelNEL.prediction],
-                               {modelNEL.ent_mention_linking_tag:ent_mention_linking_tag_list,
-                                modelNEL.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
-                                modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
-                                modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
-                                modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                                modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature,
-                                #modelNEL.ent_surfacewordv_feature:ent_surfacewordv_feature,
-                                modelNEL.keep_prob:1
-                               })
-        
-          f1_micro,f1_macro=f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='micro'),f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='macro')
-          print 'msnbc loss:',loss2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro
-          print "-----------------"
-          cPickle.dump(pred,open('data/msnbc/msnbc_entityLinkingResult.p','wb'))
-        lstm_output = lstm_output_train[ptr:min(ptr+args.batch_size,len(train_input))];
-
-        ent_mention_linking_tag_list,candidate_ent_linking_feature,candidate_ent_type_feature,candidate_ent_prob_feature,\
-         ent_mention_lstm_feature,candidate_ent_relcoherent_feature= \
-                                                getLinkingFeature(args,lstm_output,train_ent_mention_index,train_ent_mention_tag,
-                                                train_ent_relcoherent,train_ent_mention_link_feature,train_ent_linking_type,
-                                                train_ent_linking_candprob,ptr,flag='train')
-        if len(ent_mention_lstm_feature)==0:
-          continue
-        _,loss2,accuracy,pred = sess.run([train_op_linking,loss_linking,modelNEL.accuracy,modelNEL.prediction],
-                               {modelNEL.ent_mention_linking_tag:ent_mention_linking_tag_list,
-                                modelNEL.candidate_ent_coherent_feature:candidate_ent_relcoherent_feature,
-                                modelNEL.candidate_ent_linking_feature:candidate_ent_linking_feature,
-                                modelNEL.candidate_ent_type_feature:candidate_ent_type_feature,
-                                modelNEL.candidate_ent_prob_feature:candidate_ent_prob_feature,
-                                modelNEL.ent_mention_lstm_feature:ent_mention_lstm_feature, 
-                                #modelNEL.ent_surfacewordv_feature:ent_surfacewordv_feature,
-                                modelNEL.keep_prob:1
-                               })
-        f1_micro,f1_macro=f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='micro'),f1_score(np.argmax(ent_mention_linking_tag_list,1),np.argmax(pred,1),average='macro')
-        id_epoch += 1
-        
-        if id_epoch %100==0:
-          print 'train loss:',loss2,' accuracy:',accuracy,' f1_micro:',f1_micro,' f1_macro:',f1_macro       
-'''
 if __name__=="__main__":
   tf.app.run()

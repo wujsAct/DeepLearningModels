@@ -1,4 +1,4 @@
- #@time: 2017/1/3
+#@time: 2017/1/3
 #function: process ace dataset
 #attention: we utilize AIDA training set to train the entity mention recognition model
 #step1. we uitlize this model to extract mention in ace, we evaluate the accuracy; we assume the same entity mentions in one doc refer to the same entity in KG.
@@ -6,7 +6,7 @@
 #step3. an entity mentions linking is right, when and only when entity mention recognition is right and linked entity is right!
 data_tag="ace"
 dir_path="data/ace/"
-dims="300"
+dims=300
 
 
 if [ ! -d "data/ace/features" ]; then
@@ -38,12 +38,12 @@ only has the 98 percent correctness
 Extract entity mention from NER results;
 generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]]
 !
-#python getNERentMentions.py --dir_path ${dir_path} --data_tag ${data_tag}
+#python steps/getNERentMentions.py --dir_path ${dir_path} --data_tag ${data_tag}
 
 :<<!
 generate candidate entities for entity mentions
 !
-#python getACECandiates.py --dir_path ${dir_path} --data_tag ${data_tag}
+#python steps/getACECandiates.py --dir_path ${dir_path} --data_tag ${data_tag}
 ##python transfer.py data/ace/ eng.ace ace.p #abandon
 ##python utils/getLinkingTag.py --dir_path ${dir_path} --data_tag ${data_tag} #abandon
 :<<!
@@ -51,10 +51,8 @@ generate entity linking features
 !
 #we also need to delete the non entity mention sentences!
 #python embeddings/generate_ace_entmention_linking_features.py --dir_path ${dir_path} --data_tag ${data_tag}
+#python embeddings/generate_ace_entmention_linking_features_doc.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag}  --candidateEntNum 90
 #python trainAidaNEL1.py
 
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
-python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag} --features 3
-
-
-
+python steps/getNEL.py --dir_path ${dir_path} --data_tag ${data_tag} --features 4 --candidateEntNum 90 --ngdType max

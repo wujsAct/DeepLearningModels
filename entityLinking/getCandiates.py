@@ -15,44 +15,44 @@ from urllibUtils import urllibUtils
 def getCandEntsByWiki(searchent):
   urllibutil = urllibUtils()
   candidate_ent = []
-  candentSet1=[];candentSet2=[]
+ # candentSet1=[];candentSet2=[]
+#  '''
+#  @top 1
+#  '''
+#  try:
+#    candidate_ent = urllibutil.get_candidateWID_entities(searchent,num='1')
+#  except urllib2.URLError,e:
+#    pass
+#  
+#  '''
+#  @top 3
+#  '''
+#  try:
+#    candentSet1 = urllibutil.getDirectFromWikiPage(searchent)
+#  except:
+#    pass
+#    
   '''
-  @top 1
+  @we need to add all the disambiugation pages(50)
   '''
   try:
-    candidate_ent = urllibutil.get_candidateWID_entities(searchent,num='1')
-  except urllib2.URLError,e:
-    pass
-  
-  '''
-  @top 3
-  '''
-  try:
-    candentSet1 = urllibutil.getDirectFromWikiPage(searchent)
+    candidate_ent += urllibutil.opensearchApi(searchent)
   except:
     pass
-    
-  '''
-  @we need to add all the disambiugation pages(10)
-  '''
-  try:
-    candentSet1 += urllibutil.opensearchApi(searchent)
-  except:
-    pass
-  '''
-  @top 10 
-  '''
-  try:
-    candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
-  except:
-    pass
-  for ent in candentSet1:
-    if ent not in candidate_ent:
-      candidate_ent.append(ent)
-  
-  for ent in candentSet2:
-    if ent not in candidate_ent:
-      candidate_ent.append(ent)
+#  '''
+#  @top 10 
+#  '''
+#  try:
+#    candentSet2 = urllibutil.parseEntCandFromWikiSearch(searchent)  #words matching!
+#  except:
+#    pass
+#  for ent in candentSet1:
+#    if ent not in candidate_ent:
+#      candidate_ent.append(ent)
+#  
+#  for ent in candentSet2:
+#    if ent not in candidate_ent:
+#      candidate_ent.append(ent)
   return candidate_ent
 
 def funcs(ids,id2entstr,lent):
@@ -74,8 +74,10 @@ def funcs(ids,id2entstr,lent):
   return [ids,candidate_ent]
 
 #print candidate_ent
-candidate_ent = getCandEntsByWiki("London")
-print candidate_ent
+candidate_ent = getCandEntsByWiki("New York")
+print len(candidate_ent)
+for key in candidate_ent:
+  print key
 #candidate_ent = getCandEntsByWiki("Schindler 'S List")
 #print 'candidate_ent:',candidate_ent
 '''

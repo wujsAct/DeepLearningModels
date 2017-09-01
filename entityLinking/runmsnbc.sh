@@ -6,7 +6,7 @@
 #step3. an entity mentions linking is right, when and only when entity mention recognition is right and linked entity is right!
 data_tag="msnbc"
 dir_path="data/msnbc/"
-dims="300"
+dims=300
 
 :<<!
 generate named entity recognition datasets.
@@ -19,25 +19,25 @@ if [ ! -d "data/msnbc/features/90" ]; then
  mkdir "data/msnbc/features/90"
 fi
 #python utils/getCoref.py --dir_path ${dir_path} --data_tag ${data_tag} --dataset  ""
-
 #python embeddings/get_ace_embeddings.py --dir_path ${dir_path} --data_tag ${data_tag} --train ${dir_path}/msnbcData.txt --sentence_length 124 --use_model data/GoogleNews-vectors-negative300.bin --model_dim ${dims};
 
 :<<!
 Named entity recognition using pre-trained NER model on CONLL datasets, very import module of our system
 only has the 98 percent correctness
 !
-#python entityRecog.py --dir_path ${dir_path} --data_tag ${data_tag}
+##python entityRecog.py --dir_path ${dir_path} --data_tag ${data_tag}
 
 :<<!
 Extract entity mention from NER results;
-generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]], we just delete coref entities in this part, we dont not delte nil
+generate data/ace/features/ent_mention_index.p  [line,[[start,end,words],...]]
+we ignore coref entities in this part; we add the coref entity during evaluation.
 !
-#python getNERentMentions.py --dir_path ${dir_path} --data_tag ${data_tag}
+#python steps/getNERentMentions.py --dir_path ${dir_path} --data_tag ${data_tag}
 
 :<<!
 generate candidate entities for entity mentions
 !
-#python getACECandiates.py --dir_path ${dir_path} --data_tag ${data_tag}
+#python steps/getACECandiates.py --dir_path ${dir_path} --data_tag ${data_tag}
 #python transfer.py data/ace/ eng.ace ace.p
 #python utils/getLinkingTag.py --dir_path ${dir_path} --data_tag ${data_tag}
 :<<!
@@ -45,7 +45,8 @@ generate entity linking features
 !
 #we also need to delete the non entity mention sentences!
 #python embeddings/generate_ace_entmention_linking_features.py --dir_path ${dir_path} --data_tag ${data_tag}
+python embeddings/generate_ace_entmention_linking_features_doc.py --dir_path ${dir_path}/${dataset}/ --data_tag ${data_tag} --candidateEntNum 90
 #python trainAidaNEL.py
 
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_tag}
-python getNEL.py --dir_path ${dir_path} --data_tag ${data_tag} --features 3
+#python steps/getNEL.py --dir_path ${dir_path} --data_tag ${data_tag} --features 4  --candidateEntNum 90 --ngdType average

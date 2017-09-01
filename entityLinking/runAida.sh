@@ -19,7 +19,7 @@ Step2: get data embddings for bi-LSTM layers
 #rm -rf ${dir_path}/features;
 #mkdir ${dir_path}/features;
 #time:2017/7/9: generate entity mention gold annotation:(train_entms.p : param_dict={'ent_Mentions':ent_Mentions,'aNo_has_ents':aNo_has_ents})
-python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --data_train ${dir_path}/process/train.p --data_testa ${dir_path}/process/testa.p --data_testb ${dir_path}/process/testb.p --train ${dir_path}/features/train.out --test_a ${dir_path}/features/testa.out --test_b ${dir_path}/features/testb.out --use_model data/GoogleNews-vectors-negative300.bin --model_dim ${dims}  --sentence_length 124
+#python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --data_train ${dir_path}/process/train.p --data_testa ${dir_path}/process/testa.p --data_testb ${dir_path}/process/testb.p --train ${dir_path}/features/train.out --test_a ${dir_path}/features/testa.out --test_b ${dir_path}/features/testb.out --use_model data/GoogleNews-vectors-negative300.bin --model_dim ${dims}  --sentence_length 124
 
 
 #python trainAidaNER.py
@@ -29,9 +29,9 @@ python embeddings/get_conll_embeddings.py --dir_path ${dir_path} --data_train ${
 :<<!
 generate entity mention candidates and related entities
 !
-#python getCandiates.py data/aida/process/ testb.p testb_candEnts.p
-#python getCandiates.py data/aida/process/ train.p train_candEnts.p
-#python getCandiates.py data/aida/process/ testa.p testa_candEnts.p
+#python steps/getCandiates.py data/aida/process/ testb.p testb_candEnts.p
+#python steps/getCandiates.py data/aida/process/ train.p train_candEnts.p
+#python steps/getCandiates.py data/aida/process/ testa.p testa_candEnts.p
 
 :<<!
 step3: generate entity linking tag data/aida/aida-annotation.p, and reivse train.p, train_entms.p100 to train.p_new, train_entms.p100_new
@@ -70,19 +70,19 @@ step4: co-reference resolution ,generate process/testa_entMent2repMent.p {aNosNo
 #python utils/getAidaCoref.py --dir_path ${dir_path} --data_tag train
 
 
-:<<!
+<<!
 generate all candiate entities to entity mentions. flag testa: annotation train = 0, ent_id = 23396, testb = 29313 
 !
+python steps/getAllCands.py ${dir_path} testb_candEnts.p testb_entms.p100 testb_ent_cand_mid.p testb
 #python getctxCnnData.py ${dir_path} testa_candEnts.p testa_entms.p100 testa_ent_cand_mid.p testa
-#python getctxCnnData.py ${dir_path} testb_candEnts.p testb_entms.p100 testb_ent_cand_mid.p testb
 #python getctxCnnData.py ${dir_path} train_candEnts.p train_entms.p100_new train_ent_cand_mid.p train
 
 :<<!
 generate testa_ent_cand_mid_new.p: run getNELAida function: printfeatues
 !
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testa} --features 3
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb} --features 3
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_train} --features 3
+#python steps/getNELAida.py --dir_path ${dir_path} --data_tag ${data_testa} --features 3
+#python steps/getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb} --features 3
+#python steps/getNELAida.py --dir_path ${dir_path} --data_tag ${data_train} --features 3
 
 :<<!
 generate entity linking features cPickle
@@ -91,22 +91,27 @@ generate entity linking features cPickle
 #python embeddings/generate_entmention_linking_features.py ${dir_path} testb_entms.p100 test_b_embed.p100 testb_ent_cand_mid_new.p testb_ent_linking.p testb_ent_linking_type.p testb_ent_linking_candprob.p testb_ent_relcoherent.p testb_ent_mentwordv.p testb
 #python embeddings/generate_entmention_linking_features.py ${dir_path} train_entms.p100_new train_embed.p100 train_ent_cand_mid_new.p train_ent_linking.p train_ent_linking_type.p train_ent_linking_candprob.p train_ent_relcoherent.p train_ent_mentwordv.p train
 
+
+#python embeddings/generate_entmention_linking_features_doc.py ${dir_path} ${data_testa} 90
+#python embeddings/generate_entmention_linking_features_doc.py ${dir_path} ${data_testb} 90
+#python embeddings/generate_entmention_linking_features_doc.py ${dir_path} ${data_train} 90
+
 :<<!
 #time:2017/1/10 revise entity linking train data into TFRecord! train.tfrecord
 !
 #python generateNELfeature.py 
 
 #python trainAidaNEL1.py
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testa}
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb} --features 3
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_train}
+#python steps/getNELAida.py --dir_path ${dir_path} --data_tag ${data_testa} --features 3
+#python steps/getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb} --features 4
+#python steps/getNELAida.py --dir_path ${dir_path} --data_tag ${data_train} --features 3
 
 :<<!
 generate similar entity mention!
 !
 #python entityLinking.py --dir_path ${dir_path} --data_tag ${data_testa} #get testa entity mention encoder!
 #python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testa}  #run function:
-#python getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb} --features 3
+#python steps/getNELAida.py --dir_path ${dir_path} --data_tag ${data_testb} --features 3
 
 #python trainAidaNEL2.py --features 0
 #python trainAidaNEL2.py --features 1_1

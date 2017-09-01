@@ -3,11 +3,14 @@
 @author wujs
 time: 2017/1/23
 """
+import sys
+sys.path.append('/home/wjs/demo/entityType/informationExtract')
+sys.path.append('/home/wjs/demo/entityType/informationExtract/utils')
+
 import codecs
 import collections
 from tqdm import tqdm
 import cPickle
-from utils import nelInputUtils as inputUtils
 from entityRecog import nameEntityRecognition,pp,flags,args
 import numpy as np
 from sklearn.metrics.pairwise  import cosine_similarity
@@ -19,10 +22,9 @@ print candidateEntNum
 
 def printfeatuesThreshold(ent_id):
   all_candidate_mids = []
-  allEnts=0
-  passEnts=0
+  allEnts=0.0; all_linkable_ents = 0.0
+  passEnts=0; passEnts_right = 0.0
   rightEnts=0
-  wrongEnts=0
   allRightEnts= 0
   noDefineRightEnts=0
   
@@ -44,20 +46,24 @@ def printfeatuesThreshold(ent_id):
       entids +=1
       allEnts += 1
       startI = ents[j].startIndex; endI = ents[j].endIndex
-      #key = aNosNo+'\t'+str(startI)+'\t'+str(endI)
+      key = aNosNo+'\t'+str(startI)+'\t'+str(endI)
       
+      k+=1
+      candMids = NERentCands[k].keys()
       
       linkTag = entMentsTags[ent_id][1]   #get entity mention linking mid!
-      #print linkTag
-      enti_name = ents[j].content.lower()
+#      #print linkTag
+#      enti_name = ents[j].content.lower()
       
       if linkTag=='NIL':
         passEnts+=1
-        ent_id +=1
-        continue
+        if len(candMids)==0:
+          passEnts_right += 1
+        #ent_id +=1
+        #continue
+      else:
+        all_linkable_ents +=1
       
-      k+=1
-      #print 'k:',k
       ent_id += 1
     
       tagid +=1
@@ -65,7 +71,7 @@ def printfeatuesThreshold(ent_id):
       relentid += 1
       rel_cand_mid_dict={}
       oreder_cand_mid_dict={}
-      candMids = NERentCands[k].keys()
+      
       wikicands = wiki_candidate_mids[k]
       FBcands = freebase_candidate_mids[k]
       if linkTag in candMids:
@@ -80,7 +86,7 @@ def printfeatuesThreshold(ent_id):
       '''
       deleteCands = {}
       for key in NERentCands[k]:
-        if NERentCands[k][key][2]==0 and NERentCands[k][key][1]==0 and key not in wikicands:
+        if NERentCands[k][key][1]==0 and key not in wikicands:
           candMids.remove(key)
           deleteCands[key]=NERentCands[k][key]  
 #          print 'candMids:',len(candMids)
@@ -95,11 +101,8 @@ def printfeatuesThreshold(ent_id):
         else:
           oreder_cand_mid_dict[key] = NERentCands[k][key]
       
+      sorted_cand_mid_dict= sorted(oreder_cand_mid_dict.items(), key=lambda oreder_cand_mid_dict:oreder_cand_mid_dict[1])[0:max(0,candidateEntNum-len(rel_cand_mid_dict))]
       
-      sorted_cand_mid_dict= sorted(oreder_cand_mid_dict.items(), key=lambda oreder_cand_mid_dict:oreder_cand_mid_dict[1][2])[0:max(0,candidateEntNum-len(rel_cand_mid_dict))]
-      
-      sorted_cand_mid_dict= sorted(oreder_cand_mid_dict.items(), key=lambda oreder_cand_mid_dict:oreder_cand_mid_dict[1][2])[0:max(0,candidateEntNum-len(rel_cand_mid_dict))]
-            
       sorted_cand_mid_dict = dict(sorted_cand_mid_dict)
       
       dictMerged2=dict(rel_cand_mid_dict, **sorted_cand_mid_dict)
@@ -117,29 +120,23 @@ def printfeatuesThreshold(ent_id):
 #          rightWord2vec += 1
         if NERentCands[k][linkTag][1] !=0:
           rightWord2vec += 1
-      else:
-        wrongEnts += 1
   
   cPickle.dump(all_candidate_mids,open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_ent_cand_mid_new.p'+str(candidateEntNum),'wb'))
   #print len(set(candMids))
- 
-  print '---------------------------'
+
   print 'data tags:',data_tag
   print 'disambiguation:',len(disambiguation)
   print 'all_candidate_mids:',len(all_candidate_mids)
   print 'datatag',data_tag
   print 'allRightEnts:',allRightEnts
   print 'right:',rightEnts
-  print 'wrong:',wrongEnts
-  print 'pass:',passEnts
+  print 'pass:',passEnts, ' passEnts_right:',passEnts_right
   print 'all ents:',allEnts
-  print 'rightWiki:',rightWiki, rightWiki*1.0/(rightEnts+wrongEnts)
-  print 'rightFB:',rightFb, rightFb*1.0/(rightEnts+wrongEnts)
-  print 'rightWord2vec:',rightWord2vec, rightWord2vec*1.0/(rightEnts+wrongEnts)
-  print rightEnts*1.0/(rightEnts+wrongEnts)
-  print allRightEnts *1.0/(rightEnts+wrongEnts)
-  print 'noDefine:',noDefineRightEnts*1.0/(rightEnts+wrongEnts)
-  
+  print '---------------------------'
+  print 'linkable recall:',noDefineRightEnts/all_linkable_ents
+  print 'refine linkable recall:', allRightEnts/all_linkable_ents
+  print 'fixed c linkable recall:',rightEnts*1.0/all_linkable_ents
+  print '---------------------------------------'
   print 'average disambiguation:',np.average(disambiguation)
   print 'withou thread disamguation:',np.average(disambiguation_withoutThread)
   print 'withoud define:',np.average(disambiguation_withoutDefine)
@@ -177,8 +174,9 @@ def printfeatues(ent_id):
       
       if linkTag=='NIL':
         passEnts+=1
-        ent_id +=1
-        continue      
+
+        #ent_id +=1
+        #continue      
       k+=1
       print 'k:',k
       ent_id += 1
@@ -244,10 +242,14 @@ def getAccuracy(ent_id):
   wrongEnts =0
   entids = -1
   
+  TN=0.0;FP=0.0
+  FN=0.0;TP=0.0
+  
+  right = 0.0; total=0.0
   print 'NERentCands:',len(NERentCands)
   print 'NERets shape:',np.shape(NERrets)
-  ent_mention_index_right ={}
-  NILEntKeys = {}
+  ent_mention_index={};ent_mention_index_right ={};ent_mention_index_wrong_nil={};ent_mention_index_wrong_oent={}
+  NILEntKeys={};NILEnt_right_Keys = {};NILEnt_wrong_Keys={}
   relentid = -1
   passEnts = 0
   wrongEnts = 0
@@ -268,53 +270,71 @@ def getAccuracy(ent_id):
       
       
       linkTag = entMentsTags[ent_id][1]   #get entity mention linking mid!
+      ent_id +=1
       #print linkTag
       enti_name = ents[j].content.lower()
-      
-      if linkTag=='NIL':
-        passEnts+=1
-        ent_id +=1
-        NILEntKeys[key] =1
-        continue
-      k+=1
-      ent_id += 1
-    
-      tagid +=1
-     
-      relentid += 1
-      
+      k+= 1
       candMids = NERentCands[k].keys()
-      
+      if linkTag=='NIL':
+        #print 'NIL entity:',enti_name,candMids
+        passEnts+=1
         
-      ret = NERrets[relentid]
-      if len(candMids) !=0:  
-        ret = ret[0:len(candMids)]
-      right_id = np.argmax(ret,0)
-      
-      if right_id < len(candMids):
-        predMid = candMids[right_id]
-      
-      #if 'surrey' in enti_name:
-#      if 'oval' in enti_name:
-#        print enti_name
-#        print predMid,right_id,candMids[right_id],NERentCands[k][candMids[right_id]]
-#        print linkTag,NERentCands[k][linkTag]
-#        print candMids
-#        print np.concatenate((np.asarray(np.reshape(linkcandsProb[i][tagid],(len(candMids),3)),dtype=np.float32),np.zeros((max(0,50-len(candMids)),3),dtype=np.float32)))
-#        
-#        print '------------------'
+        NILEntKeys[key]='NIL'
+        candMids = NERentCands[entids].keys()
+        ret = NERrets[relentid]
         
-      if predMid in linkTag: #or entMentsTags[key]=='NIL':
-        rightPred += 1
-        ent_mention_index_right[key] = 1  
-      else:
+        right_id = np.argmax(ret,0)
+        
+        if len(candMids) ==0:
+          predMid = 'NIL'
+          TN += 1
+          NILEnt_right_Keys[key]='NIL'
+        else:
+          if right_id >= len(candMids):
+            TN += 1
+            NILEnt_right_Keys[key]='NIL'
+          else:
+            FP+= 1
+            NILEnt_wrong_Keys[key] = candMids[right_id]
+            
+        
+        continue
+      relentid += 1
+      total+= 1
+      tagid +=1
+      ent_mention_index[key]= linkTag
+      
+      if len(candMids) ==0:
+        FN += 1
+        ent_mention_index_wrong_nil[key]=linkTag
         wrongEnts += 1
-  #      print predMid,right_id
-  #      print linkTag
-  #      print candMids
-  #      print '--------------------'
+      else:
+        ret = NERrets[relentid]
+        #if len(candMids) !=0:  
+        ret = ret[0:len(candMids)]
+        
+        right_id = np.argmax(ret,0)
+        
+        if right_id < len(candMids):
+          predMid = candMids[right_id]
         
       
+        if predMid in linkTag: 
+          TP += 1
+          rightPred += 1
+          right += 1
+          ent_mention_index_right[key] = linkTag
+        else:
+          wrongEnts += 1
+          ent_mention_index_wrong_oent[key] = linkTag
+          FP += 1  
+  recall = TP/(TP+FN)
+  precision = TP/(TP+FP)
+  print 'linkable accuracy:',right, total,right/total
+  print 'recall:',TP/(TP+FN)
+  print 'precision:',TP/(TP+FP)
+  print 'F1 score:', 2 * precision*recall/(precision + recall)
+  print 'accuracy:',(TP+TN)/(TP+TN+FP+FN)
   print 'rightPred:',rightPred
   print 'pass ents:',passEnts
   print 'wrong ents:',wrongEnts
@@ -323,25 +343,49 @@ def getAccuracy(ent_id):
   print 'Nil ents:',len(NILEntKeys)
   print 'all ents:',allEnts
   print 'not recall:', notrecall
-  print 'rel ent id:',relentid
+  print 'rel ent id:',k
   
   #cPickle.dump(ent_mention_index_right,open(dir_path+'rightPred.p','wb'))
   
   total = wrongEnts+rightPred
   
+  
+  
   print 'len corefEnts:',len(corefEnts)
   for key in corefEnts:
-    if key not in NILEntKeys and key not in ent_mention_index_right:
-      val = corefEnts[key]
-      items = val.split('\t')
-      key_coref = '\t'.join(items[0:3])
-      
-      if key_coref in ent_mention_index_right:
-        rightPred += 1
-        wrongEnts-=1
+    items = key.split('\t')
+    new_key =  '\t'.join(items[0:3])
+    ent_name = items[3]
+    
+    #if key not in NILEntKeys and key not in ent_mention_index_right:
+    val = corefEnts[key]
+    coref_items = val.split('\t')
+    coref_key = '\t'.join(coref_items[0:3])
+    coref_name = coref_items[3]
+    #we need to consider the coref
+    if ent_name != coref_name:
+      if new_key in ent_mention_index_wrong_nil or new_key in ent_mention_index_wrong_oent:
+        if coref_key in ent_mention_index:
+          if ent_mention_index[new_key] == ent_mention_index[coref_key]:
+            print 'wrong 2 right:',ent_mention_index[new_key], ent_mention_index[coref_key]
+            right += 1
       else:
-        pass
-        #print key,val
+        if new_key in ent_mention_index_right:
+          
+          if coref_key in ent_mention_index:
+            if ent_mention_index[new_key] != ent_mention_index[coref_key]:
+              print 'right 2 wrong:',ent_mention_index[new_key], ent_mention_index[coref_key]
+              right -=1
+            if coref_key in NILEntKeys:
+              print 'right 2 wrong:',ent_mention_index[new_key], ent_mention_index[coref_key]
+              right -= 1
+  recall = TP/(TP+FN)
+  precision = TP/(TP+FP)
+  print 'linkable accuracy:',right, total,right/total
+  print 'recall:',TP/(TP+FN)
+  print 'precision:',TP/(TP+FP)
+  print 'F1 score:', 2 * precision*recall/(precision + recall)
+  print 'accuracy:',(TP+TN)/(TP+TN+FP+FN)
   print 'right:',rightPred
   print 'wrong ents:',wrongEnts
   print 'total:',total
@@ -382,7 +426,7 @@ def getSimilarEnts(ent_id):
         if i == 9:
           went_ids.append(rel_entids)
           went_name.append(ents[j].content)
-        rel_entids += 1
+      rel_entids += 1
   
   EntMentVector = np.asarray(EntMentVector)
   
@@ -415,7 +459,8 @@ features = data_args.features
 
 corefEnts = cPickle.load(open(dir_path+'process/'+data_tag+'_entMent2repMent.p'))
 print data_tag,' coref numbers:',len(corefEnts),features
-#exit(0)
+
+
 
 entMentsTags = cPickle.load(open('/home/wjs/demo/entityType/informationExtract/data/aida/aida-annotation.p_new','rb'))
 ent_id=0
@@ -448,32 +493,33 @@ generate average ambigugation!
 generate real candidates
 '''
 #data_param={'all_candidate_mids':all_candidate_mids,'wiki_candidate_mids':wiki_candidate_mids,'freebase_candidate_mids':freebase_candidate_mids}
-#data_param = cPickle.load(open(dir_path+'features/'+data_tag+'_ent_cand_mid.p'))  #[300,candsNums]
-#NERentCands = data_param['all_candidate_mids']
-#print 'NERentCands:',len(NERentCands)
-#wiki_candidate_mids = data_param['wiki_candidate_mids']
-#freebase_candidate_mids = data_param['freebase_candidate_mids']
-#printfeatuesThreshold(ent_id)
+data_param = cPickle.load(open(dir_path+'features/'+data_tag+'_ent_cand_mid.p'))  #[300,candsNums]
+NERentCands = data_param['all_candidate_mids']
+print 'NERentCands:',len(NERentCands)
+wiki_candidate_mids = data_param['wiki_candidate_mids']
+freebase_candidate_mids = data_param['freebase_candidate_mids']
+printfeatuesThreshold(ent_id)
+
 
 '''
 @evaluation
 '''
-stime = time.time()
-linkcandsProb = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_ent_linking_candprob.p'+str(candidateEntNum),'rb'))
-ent_linking  = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_ent_linking.p'+str(candidateEntNum),'rb'))
-print 'load dataset cost time:',time.time()-stime
-print 'ent_linking:',len(ent_linking['ent_mention_tag'])
-
-NERrets = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_entityLinkingResult.p'+features))
-
-#NERrets = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+features+'_'+data_tag+'_entityLinkingResult.p'+str(candidateEntNum)))
-#print dir_path+data_tag+'_entityLinkingResult.p'
-print np.shape(NERrets)
-if candidateEntNum==50:
-  NERentCands = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'++data_tag+'_ent_cand_mid_new.p'))
-else:
-  NERentCands = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_ent_cand_mid_new.p'+str(candidateEntNum)))
-getAccuracy(ent_id)
+#stime = time.time()
+#linkcandsProb = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_ent_linking_candprob.p'+str(candidateEntNum),'rb'))
+#ent_linking  = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_ent_linking.p'+str(candidateEntNum),'rb'))
+#print 'load dataset cost time:',time.time()-stime
+#print 'ent_linking:',len(ent_linking['ent_mention_tag'])
+#
+#NERrets = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_entityLinkingResult.p'+features))
+#
+##NERrets = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+features+'_'+data_tag+'_entityLinkingResult.p'+str(candidateEntNum)))
+##print dir_path+data_tag+'_entityLinkingResult.p'
+#print np.shape(NERrets)
+#if candidateEntNum==50:
+#  NERentCands = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'++data_tag+'_ent_cand_mid_new.p'))
+#else:
+#  NERentCands = cPickle.load(open(dir_path+'features/'+str(candidateEntNum)+'/'+data_tag+'_ent_cand_mid_new.p'+str(candidateEntNum)))
+#getAccuracy(ent_id)
 
 
 '''

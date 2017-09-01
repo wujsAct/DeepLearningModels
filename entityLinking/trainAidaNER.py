@@ -24,13 +24,14 @@ flags = tf.app.flags
 flags.DEFINE_integer("epoch",100,"Epoch to train[25]")
 flags.DEFINE_integer("batch_size",256,"batch size of training")
 flags.DEFINE_string("datasets","aida","dataset name")
-flags.DEFINE_integer("sentence_length",250,"max sentence length")
+flags.DEFINE_integer("sentence_length",124,"max sentence length")
 flags.DEFINE_integer("class_size",5,"number of classes")
 flags.DEFINE_integer("rnn_size",128,"hidden dimension of rnn")
-flags.DEFINE_integer("word_dim",110,"hidden dimension of rnn")
-flags.DEFINE_integer("candidate_ent_num",30,"hidden dimension of rnn")
+flags.DEFINE_integer("word_dim",310,"hidden dimension of rnn")
+flags.DEFINE_integer("candidate_ent_num",90,"hidden dimension of rnn")
 flags.DEFINE_integer("figer_type_num",113,"figer type total numbers")
 flags.DEFINE_string("rawword_dim","100","hidden dimension of rnn")
+flags.DEFINE_integer("ner_word_dim",300,"hidden dimension of rnn")
 flags.DEFINE_integer("num_layers",2,"number of layers in rnn")
 flags.DEFINE_string("restore","checkpoint","path of saved model")
 flags.DEFINE_boolean("dropout",True,"apply dropout during training")
@@ -86,8 +87,6 @@ def getCRFRet(tf_unary_scores,tf_transition_params,y,sequence_lengths):
   
   return np.array(predict),accuracy
 
-
-
 def main(_):
   pp.pprint(flags.FLAGS.__flags)
 
@@ -98,22 +97,19 @@ def main(_):
   model = seqLSTM(args)
   print 'start to load data!'
   start_time = time.time()
-#  trainUtils = inputUtils(args.rawword_dim,"train")
-#  train_TFfileName = trainUtils.TFfileName; train_nerShapeFile = trainUtils.nerShapeFile;
-#  train_batch_size = args.batch_size;
   
+  print 'ner word dims:',args.ner_word_dim
   datautils = inputUtils()
-  trainUtils = datautils(args.rawword_dim,"train")
-  train_input = trainUtils.emb;train_out = np.argmax(trainUtils.tag,2)
   
-  testaUtils = datautils(args.rawword_dim,"testa")
-  testa_input = testaUtils.emb;testa_out =  np.argmax(testaUtils.tag,2)
+  train_input,tag = datautils(args.ner_word_dim,"train")
+  train_out = np.argmax(tag,2)
+  
+  testa_input,tag = datautils(args.ner_word_dim,"testa")
+  testa_out =  np.argmax(tag,2)
   testa_num_example = np.shape(testa_input)[0]
   
- 
-  
-  testbUtils = datautils(args.rawword_dim,"testb")
-  testb_input = testbUtils.emb;testb_out =  np.argmax(testbUtils.tag,2)
+  testb_input,tag = datautils(args.ner_word_dim,"testb")
+  testb_out =  np.argmax(tag,2)
   testb_num_example = np.shape(testb_input)[0]
   print 'load data cost time:',time.time()-start_time
   
@@ -146,7 +142,6 @@ def main(_):
   '''
   maximum=0
   k = 0
-  
 #  for train_input,train_out in ner_read_TFRecord(sess,train_TFfileName,
 #                                                 train_nerShapeFile,train_batch_size,args.epoch):
   for e in range(args.epoch):
@@ -187,8 +182,7 @@ def main(_):
                          model.output_data:train_out[ptr:min(ptr+args.batch_size,len(train_input))],
                          model.num_examples: num_example,
                          model.keep_prob:0.5})
-  
-      
+                         
       loss1,length,lstm_output,tf_unary_scores,tf_transition_params = sess.run([model.loss,model.length,model.output,model.unary_scores,model.transition_params],
                               {model.input_data:train_input[ptr:min(ptr+args.batch_size,len(train_input))],
                                model.output_data:train_out[ptr:min(ptr+args.batch_size,len(train_input))],
