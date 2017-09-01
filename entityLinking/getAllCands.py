@@ -19,6 +19,7 @@ from PhraseRecord import EntRecord
 from tqdm import tqdm
 import collections
 from NGDUtils import NGDUtils
+import numpy as np
 
 def getmid2Name():
   mid2name = collections.defaultdict(list) 
@@ -68,9 +69,65 @@ def getMidAllLinks(ngd,mid2name,fmid):
       wmid_set = wmid_set | set(pageContain.keys())
       wmid_set = wmid_set | set(pageInclude.keys())
   return wmid_set 
-  
 
-def get_freebase_ent_cands(mid2incomingLinks,ngd,mid2name,candent_mid2,enti,entstr2id,wikititle2fb,wikititle_reverse_index,freebaseNum):
+
+def refine_cands(final_mid):
+  retMids={}
+  if len(final_mid)!=0:
+    score_matrix = []
+    key_list=[]
+    for key in final_mid:
+      val = final_mid[key]
+      
+      key_list.append(key)
+      score_matrix.append(val) 
+    
+    score_matrix = np.asarray(score_matrix) 
+    
+    normalize_scores = score_matrix/(np.sum(score_matrix,0) + 1e-9)
+    
+    #print np.shape(score_matrix),np.shape(normalize_scores) 
+    
+    new_scores = (normalize_scores[:,0] + normalize_scores[:,2])/2 + normalize_scores[:,1]
+    top_cands_arg = (-1*new_scores).argsort()[0:min(30,len(final_mid))]
+    
+    for argi in top_cands_arg:
+      retMids[key_list[argi]] = new_scores[argi]
+      
+  return retMids
+
+def get_crosswiki_ent_cands(enti_name,candent_mid2,crosswiki_nums):
+  crosswiki_cands={}
+  
+  enti_name = enti_name.lower()
+  #we add the crosswiki alias
+  if enti_name in p_e_m:
+    
+    '''
+    @we need to sort!
+    '''
+    for key in p_e_m[enti_name]:
+      crosswiki_cands[key]=1
+      prior = []
+      
+      if key in candent_mid2:
+        prior = list(candent_mid2[key])
+        prior[2]=p_e_m[enti_name][key]
+        candent_mid2[key] = list(prior)
+      else:
+        prior = [0,0,0]
+        if key in mid2incomingLinks:
+          tempScore = len(mid2incomingLinks[key])
+        else:
+          wmid_set = getMidIncomingLinks(ngd,mid2name,key)
+          mid2incomingLinks[key] = wmid_set
+          tempScore = len(wmid_set)
+        prior[0] = tempScore
+        prior[2]= p_e_m[enti_name][key]
+        candent_mid2[key] = list(prior)
+  return candent_mid2,crosswiki_cands
+
+def get_freebase_ent_cands(mid2incomingLinks,ngd,mid2name,candent_mid1,enti,entstr2id,wikititle2fb,wikititle_reverse_index):
   enti_title = enti.lower()
   totaldict=dict()
   '''
@@ -96,7 +153,7 @@ def get_freebase_ent_cands(mid2incomingLinks,ngd,mid2name,candent_mid2,enti,ents
                         
           ids_key += 1
     
-          if wmid not in candent_mid2:
+          if wmid not in candent_mid1:
             tempScore = 0
             if wmid in mid2name:
               if wmid in mid2incomingLinks:
@@ -105,17 +162,18 @@ def get_freebase_ent_cands(mid2incomingLinks,ngd,mid2name,candent_mid2,enti,ents
                 wmid_set = getMidIncomingLinks(ngd,mid2name,wmid)
                 mid2incomingLinks[wmid] = wmid_set
                 tempScore = len(wmid_set)
-            candent_mid2[wmid] = list([tempScore,0,addScore])  #not appear in the crosswiki
+            candent_mid1[wmid] = list([tempScore,addScore,0])  #not appear in the crosswiki
           else:
-            prior = list(candent_mid2[wmid])
-            prior[2]= addScore
-            candent_mid2[wmid]= prior                     
-  return candent_mid2,freebase_cants
+            prior = list(candent_mid1[wmid])
+            prior[1]= addScore
+            candent_mid1[wmid]= prior                     
+  return candent_mid1,freebase_cants
 
 '''
 @we should score as the number of inconming links!!! ==>reasonable
 '''
-def get_candent_mid(candent_mid1,mid2incomingLinks,ngd,listentcs,w2fb,wikititle2fb,mid2name):
+def get_candent_mid(mid2incomingLinks,ngd,listentcs,w2fb,wikititle2fb,mid2name):
+  candent_mid = {}
   wiki_cands={}
   mid_index = 0.0
   for cent in listentcs:
@@ -138,13 +196,13 @@ def get_candent_mid(candent_mid1,mid2incomingLinks,ngd,listentcs,w2fb,wikititle2
             mid2incomingLinks[wmid] = wmid_set
           tempScore = len(wmid_set)
         wiki_cands[wmid]=1
-        if wmid in candent_mid1:
-          prior = candent_mid1[wmid]
+        if wmid in candent_mid:
+          prior = candent_mid[wmid]
         else:
           prior = [0,0,0]
-        prior[1] = tempScore
-        candent_mid1[wmid] = list(prior)
-  return candent_mid1,wiki_cands
+        prior[0] = tempScore
+        candent_mid[wmid] = list(prior)
+  return candent_mid,wiki_cands
 
    
 '''
@@ -185,11 +243,7 @@ def get_final_ent_cands():
       
       enti = ents[j]
       enti_name = enti.content.lower()
-      candent_mid1 = {}
-      #we add the crosswiki alias
-      if enti_name in p_e_m:
-        for key in p_e_m[enti_name]:
-          candent_mid1[key] = [p_e_m[enti_name][key],0,0]
+      
     
       startI = enti.startIndex; endI = enti.endIndex
       ment_key = aNosNo+'\t'+str(startI)+'\t'+str(endI)
@@ -218,10 +272,16 @@ def get_final_ent_cands():
           if entid_mid not in listentcs:
             listentcs.append(entid_mid)
             
-      candent_mid2,wiki_cands = get_candent_mid(candent_mid1,mid2incomingLinks,ngd,listentcs,w2fb,wikititle2fb,mid2name)
+      candent_mid1,wiki_cands = get_candent_mid(mid2incomingLinks,ngd,listentcs,w2fb,wikititle2fb,mid2name)
       
-      freebaseNum = max(0,90 - len(candent_mid1))
-      final_mid,freebase_cands = get_freebase_ent_cands(mid2incomingLinks,ngd,mid2name,dict(candent_mid2),enti.content,context_ents,wikititle2fb,wikititle_reverse_index,freebaseNum)
+      candent_mid2,freebase_cands = get_freebase_ent_cands(mid2incomingLinks,ngd,mid2name,dict(candent_mid1),enti.content,context_ents,wikititle2fb,wikititle_reverse_index)
+      crosswiki_nums= max(0,90-len(candent_mid2))
+      candent_mid3,crosswiki_cands = get_crosswiki_ent_cands(enti.content,candent_mid2,crosswiki_nums)
+      
+      final_mid = refine_cands(candent_mid3)
+      '''
+      @we need to refine the candidates
+      '''
       
       if tag in final_mid:
         if isRepflag:
@@ -230,7 +290,7 @@ def get_final_ent_cands():
       else:
         if tag != 'NIL':
           wrong_nums = wrong_nums + 1
-        #print 'wrong:',tag,enti.content,totalCand#,final_mid
+          print 'wrong:',wrong_nums,tag,enti.content,len(final_mid)
         #print candent_mid1,candent_mid2,candent_mid3
         #exit()
         
